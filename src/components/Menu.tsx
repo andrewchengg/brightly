@@ -39,6 +39,12 @@ const studentMenuItems = [
         href: "/student/results",
         visible: ["student"],
       },
+      {
+        icon: "/gift.png",
+        label: "Rewards",
+        href: "/student/rewards",
+        visible: ["student"],
+      },
     ],
   },
   {

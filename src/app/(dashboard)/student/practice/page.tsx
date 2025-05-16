@@ -89,18 +89,37 @@ interface TopicCardProps {
 }
 
 function TopicCard({ topic, onClick }: TopicCardProps) {
+  // Generate a gradient background based on topic id for variety
+  const gradientColors = [
+    "from-blue-100 to-indigo-200",
+    "from-purple-100 to-pink-200",
+    "from-green-100 to-emerald-200",
+    "from-amber-100 to-orange-200",
+    "from-rose-100 to-red-200",
+    "from-sky-100 to-cyan-200",
+    "from-yellow-100 to-amber-200",
+    "from-teal-100 to-green-200"
+  ];
+  
+  // Use the last character of the id to select a color (or a random one if no id)
+  const colorIndex = topic.id ? 
+    parseInt(topic.id.toString().slice(-1), 16) % gradientColors.length : 
+    Math.floor(Math.random() * gradientColors.length);
+    
+  const gradient = gradientColors[colorIndex];
+
   return (
     <Card 
-      className="p-6 cursor-pointer hover:shadow-md transition-shadow duration-300 border border-gray-200"
+      className={"p-6 cursor-pointer hover:shadow-md transition-all duration-300 border border-gray-200 hover:scale-105 bg-gradient-to-br " + gradient}
       onClick={onClick}
     >
       <div className="mb-1 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-800">{topic.name}</h2>
-        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-100 text-indigo-800">
+        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white text-indigo-800 shadow-sm">
           {topic.masteryPercentage}%
         </div>
       </div>
-      <p className="text-gray-600 mb-4 h-12 overflow-hidden">
+      <p className="text-gray-700 mb-4 h-12 overflow-hidden">
         {topic.description || "Practice this topic to improve your skills."}
       </p>
       
@@ -110,7 +129,7 @@ function TopicCard({ topic, onClick }: TopicCardProps) {
         </div>
         <ProgressBar 
           value={topic.masteryPercentage} 
-          className="h-2" 
+          className="h-2 bg-white/60" 
           progressClassName="bg-indigo-600" 
         />
       </div>

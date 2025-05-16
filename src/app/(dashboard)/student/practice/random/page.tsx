@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import APIKeyInput from "@/components/APIKeyInput";
 
 interface Question {
   id: string;
@@ -36,8 +37,12 @@ export default function RandomPractice() {
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [splitPosition, setSplitPosition] = useState(65); // Default split: 65% question, 35% AI
   const [answeredQuestions, setAnsweredQuestions] = useState<Record<string, string>>({});
+  const [userMessage, setUserMessage] = useState('');
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [chatHistory, setChatHistory] = useState<{role: string, content: string}[]>([]);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const aiContentRef = useRef<HTMLDivElement>(null);
 
   // Load saved progress on initial render
   useEffect(() => {
@@ -93,6 +98,9 @@ export default function RandomPractice() {
         setIsAnswerCorrect(null);
         setAiMessage(null);
       }
+      
+      // Reset chat history for new question
+      setChatHistory([]);
     }
   }, [currentQuestionIndex, questions, answeredQuestions]);
 
@@ -150,11 +158,20 @@ export default function RandomPractice() {
       [questions[currentQuestionIndex].id]: answer
     }));
     
+    const feedbackMessage = isCorrect 
+      ? "Great job! That's correct. Ready for the next question?" 
+      : `Not quite right. The correct answer is "${questions[currentQuestionIndex].correctAnswer}". Don't worry, learning is a process!`;
+    
+    setAiMessage(feedbackMessage);
+    
+    // Update chat history with the system's feedback
+    setChatHistory(prev => [
+      ...prev,
+      { role: "assistant", content: feedbackMessage }
+    ]);
+    
     if (isCorrect) {
       setScore(score + 1);
-      setAiMessage("Great job! That's correct. Ready for the next question?");
-    } else {
-      setAiMessage(`Not quite right. The correct answer is "${questions[currentQuestionIndex].correctAnswer}". Don't worry, learning is a process!`);
     }
   };
 
@@ -171,10 +188,35 @@ export default function RandomPractice() {
     }
   };
 
-  const completeSession = () => {
-    alert(`Practice complete! Your score: ${score}/${questions.length}`);
+  const completeSession = async () => {
     // Clear saved progress when session is completed
     localStorage.removeItem('randomPracticeProgress');
+    
+    // Award XP to the user
+    try {
+      const response = await fetch('/api/user/award-xp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          xpAmount: 100,
+          activityType: 'practice_completed'
+        }),
+      });
+      
+      if (response.ok) {
+        alert(`Congratulations! Practice complete! Your score: ${score}/${questions.length}. You earned 100 XP!`);
+      } else {
+        // Still show completion message even if XP award failed
+        alert(`Practice complete! Your score: ${score}/${questions.length}`);
+        console.error('Failed to award XP');
+      }
+    } catch (error) {
+      console.error('Error awarding XP:', error);
+      alert(`Practice complete! Your score: ${score}/${questions.length}`);
+    }
+    
     router.push("/student/practice");
   };
 
@@ -187,6 +229,89 @@ export default function RandomPractice() {
       // Clear progress if user doesn't want to save
       localStorage.removeItem('randomPracticeProgress');
       router.push("/student/practice");
+    }
+  };
+  
+  // Handle AI tutor chat functionality
+  const handleSendMessage = async () => {
+    if (!userMessage.trim()) return;
+    
+    const currentUserMessage = userMessage.trim();
+    setUserMessage('');
+    setIsLoadingAI(true);
+    
+    // Add user message to chat history
+    setChatHistory(prev => [...prev, { role: "user", content: currentUserMessage }]);
+    
+    // Scroll to bottom of chat
+    if (aiContentRef.current) {
+      setTimeout(() => {
+        if (aiContentRef.current) {
+          aiContentRef.current.scrollTop = aiContentRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+    
+    try {
+      // Create context from the current question
+      const context = `
+        Question: ${questions[currentQuestionIndex].question}
+        Options: ${questions[currentQuestionIndex].options.join(', ')}
+        Correct Answer: ${questions[currentQuestionIndex].correctAnswer}
+        ${questions[currentQuestionIndex].hint ? `Hint: ${questions[currentQuestionIndex].hint}` : ''}
+      `;
+      
+      // Build conversation history for the API
+      const messages = [
+        { role: "system", content: `You are a helpful AI tutor assisting a student with practice questions. Here's the current question: ${context}. Provide helpful explanations but don't immediately reveal the answer unless the student has already answered or is really struggling.` },
+        ...chatHistory,
+        { role: "user", content: currentUserMessage }
+      ];
+      
+      // Call the AI tutor API
+      const response = await fetch('/api/ai-tutor', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messages }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('AI tutor request failed');
+      }
+      
+      const data = await response.json();
+      const aiResponse = data.message;
+      
+      // Add AI response to chat history
+      setChatHistory(prev => [...prev, { role: "assistant", content: aiResponse }]);
+      
+      // Scroll to bottom again after response
+      if (aiContentRef.current) {
+        setTimeout(() => {
+          if (aiContentRef.current) {
+            aiContentRef.current.scrollTop = aiContentRef.current.scrollHeight;
+          }
+        }, 100);
+      }
+      
+    } catch (error) {
+      console.error('Error getting AI tutor response:', error);
+      setChatHistory(prev => [...prev, { 
+        role: "assistant", 
+        content: "Sorry, I'm having trouble connecting right now. Please try again in a moment." 
+      }]);
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
+
+  // Handle user pressing Enter in the input field
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
@@ -304,10 +429,33 @@ export default function RandomPractice() {
                 <p>{currentQuestion.hint}</p>
               </div>
             )}
+            
+            {/* Bottom controls - moved inside the question panel */}
+            <div className="mt-8 border-t pt-6 flex justify-between">
+              <Button
+                onClick={() => setShowHint(true)}
+                disabled={selectedAnswer !== null || showHint || !currentQuestion.hint}
+                className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Get Hint
+              </Button>
+              
+              <Button
+                onClick={handleNextQuestion}
+                disabled={selectedAnswer === null}
+                className={`px-8 py-2 ${
+                  selectedAnswer !== null 
+                    ? "bg-blue-500 hover:bg-blue-600 text-white" 
+                    : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                }`}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Resize Handle */}
+        {/* Resize Handle - moved inside the flex container */}
         <div 
           className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize flex flex-col items-center justify-center"
           onMouseDown={handleMouseDown}
@@ -318,7 +466,7 @@ export default function RandomPractice() {
         {/* AI Tutor Panel */}
         <div 
           className="bg-green-50 flex flex-col"
-          style={{ width: `${100 - splitPosition}%` }}
+          style={{ width: `${100 - splitPosition - 0.25}%` }}
         >
           {/* AI tutor header */}
           <div className="p-4 border-b bg-white flex items-center">
@@ -336,8 +484,32 @@ export default function RandomPractice() {
           </div>
 
           {/* AI tutor content area */}
-          <div className="flex-1 overflow-auto p-6">
-            {aiMessage ? (
+          <div ref={aiContentRef} className="flex-1 overflow-auto p-4">
+            {chatHistory.length > 0 ? (
+              <div className="space-y-4">
+                {chatHistory.map((message, index) => (
+                  <div 
+                    key={index} 
+                    className={`${
+                      message.role === 'user' 
+                        ? 'ml-auto bg-blue-500 text-white' 
+                        : 'mr-auto bg-white text-gray-800'
+                    } max-w-[80%] rounded-lg p-3 shadow-sm`}
+                  >
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                ))}
+                {isLoadingAI && (
+                  <div className="mr-auto bg-white text-gray-800 max-w-[80%] rounded-lg p-3 shadow-sm">
+                    <div className="flex space-x-2">
+                      <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : aiMessage ? (
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <p>{aiMessage}</p>
               </div>
@@ -346,7 +518,7 @@ export default function RandomPractice() {
                 <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-4 text-4xl">
                   🤔
                 </div>
-                <p>I'm here to help! I'll give you feedback after you answer the question.</p>
+                <p>I'm here to help! Ask me anything about this question or I'll give you feedback after you answer.</p>
               </div>
             )}
           </div>
@@ -356,10 +528,22 @@ export default function RandomPractice() {
             <div className="flex items-center rounded-full border border-gray-300 pr-2 overflow-hidden">
               <input
                 type="text"
+                value={userMessage}
+                onChange={(e) => setUserMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="Ask about this question..."
                 className="flex-1 py-2 px-4 text-sm border-none outline-none"
+                disabled={isLoadingAI}
               />
-              <button className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center">
+              <button 
+                onClick={handleSendMessage}
+                disabled={isLoadingAI || !userMessage.trim()}
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  userMessage.trim() && !isLoadingAI
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-300 text-gray-500'
+                }`}
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
@@ -368,29 +552,9 @@ export default function RandomPractice() {
           </div>
         </div>
       </div>
-
-      {/* Bottom controls - now fixed at the bottom of the screen */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 border-t bg-white flex justify-between z-10">
-        <Button
-          onClick={() => setShowHint(true)}
-          disabled={selectedAnswer !== null || showHint || !currentQuestion.hint}
-          className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-        >
-          Get Hint
-        </Button>
-        
-        <Button
-          onClick={handleNextQuestion}
-          disabled={selectedAnswer === null}
-          className={`px-8 py-2 ${
-            selectedAnswer !== null 
-              ? "bg-blue-500 hover:bg-blue-600 text-white" 
-              : "bg-gray-200 text-gray-500 cursor-not-allowed"
-          }`}
-        >
-          Next
-        </Button>
-      </div>
+      
+      {/* API Key Input Component for development */}
+      <APIKeyInput />
     </div>
   );
 } 
