@@ -20,25 +20,42 @@ export default function DevDebugPanel() {
     setError(null);
 
     try {
-      // First get current session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setError('No active session');
+      // Check if session exists first
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        throw new Error(`Session error: ${sessionError.message}`);
+      }
+      
+      if (!sessionData.session) {
+        setError('No active session found');
+        setProfileData(null);
         setLoading(false);
         return;
       }
 
       // Fetch profile from debug API
-      const response = await fetch('/api/debug/profile');
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API error (${response.status}): ${errorText}`);
-      }
+      try {
+        const response = await fetch('/api/debug/profile');
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`API error (${response.status}): ${errorText}`);
+        }
 
-      const data = await response.json();
-      setProfileData(data);
+        const data = await response.json();
+        setProfileData(data);
+      } catch (apiError: any) {
+        console.error('Error fetching debug profile:', apiError);
+        setError(`API error: ${apiError.message}`);
+        // Still show session data even if profile fetch fails
+        setProfileData({ 
+          user: sessionData.session.user,
+          profile: null,
+          error: apiError.message
+        });
+      }
     } catch (err: any) {
-      console.error('Error fetching debug profile:', err);
+      console.error('Error in auth flow:', err);
       setError(err.message || 'Failed to load debug data');
     } finally {
       setLoading(false);
@@ -78,10 +95,14 @@ export default function DevDebugPanel() {
                 {JSON.stringify(profileData.user, null, 2)}
               </pre>
               
-              <h4 className="font-medium mb-1">Profile Data:</h4>
-              <pre className="bg-gray-100 p-2 overflow-auto">
-                {JSON.stringify(profileData.profile, null, 2)}
-              </pre>
+              {profileData.profile && (
+                <>
+                  <h4 className="font-medium mb-1">Profile Data:</h4>
+                  <pre className="bg-gray-100 p-2 overflow-auto">
+                    {JSON.stringify(profileData.profile, null, 2)}
+                  </pre>
+                </>
+              )}
 
               {profileData.error && (
                 <>

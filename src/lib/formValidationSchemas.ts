@@ -29,8 +29,7 @@ export const teacherSchema = z.object({
     .min(8, { message: "Password must be at least 8 characters long!" })
     .optional()
     .or(z.literal("")),
-  name: z.string().min(1, { message: "First name is required!" }),
-  surname: z.string().min(1, { message: "Last name is required!" }),
+  name: z.string().min(1, { message: "Name is required!" }),
   email: z
     .string()
     .email({ message: "Invalid email address!" })
@@ -57,8 +56,7 @@ export const studentSchema = z.object({
     .min(8, { message: "Password must be at least 8 characters long!" })
     .optional()
     .or(z.literal("")),
-  name: z.string().min(1, { message: "First name is required!" }),
-  surname: z.string().min(1, { message: "Last name is required!" }),
+  name: z.string().min(1, { message: "Name is required!" }),
   email: z
     .string()
     .email({ message: "Invalid email address!" })
@@ -114,7 +112,7 @@ export type StudentCompleteSetupData = z.infer<typeof studentCompleteSetupSchema
 
 // Schema for the initial login step on the student complete setup page
 export const studentInitialLoginSchema = z.object({
-  placeholderEmail: z.string().email("Invalid placeholder email format."),
+  username: z.string().min(3, "Invalid username format."),
   pin: z.string().length(6, "PIN must be 6 digits.").regex(/^\d{6}$/, "PIN must be numeric.")
 });
 

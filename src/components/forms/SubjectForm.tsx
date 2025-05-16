@@ -91,9 +91,9 @@ const SubjectForm = ({
             defaultValue={data?.teachers}
           >
             {teachers.map(
-              (teacher: { id: string; name: string; surname: string }) => (
+              (teacher: { id: string; name: string }) => (
                 <option value={teacher.id} key={teacher.id}>
-                  {teacher.name + " " + teacher.surname}
+                  {teacher.name}
                 </option>
               )
             )}

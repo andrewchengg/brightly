@@ -62,7 +62,7 @@ const ExamListPage = async ({
       <td className="hidden md:table-cell">{item.lesson.name}</td>
       <td className="hidden md:table-cell">{item.lesson.class.name}</td>
       <td className="hidden md:table-cell">
-        {item.lesson.teacher.name + " " + item.lesson.teacher.surname}
+        {item.lesson.teacher.name}
       </td>
       <td className="hidden md:table-cell">
         {new Intl.DateTimeFormat("en-US").format(item.startTime)}

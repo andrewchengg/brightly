@@ -1,11 +1,13 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -14,172 +16,361 @@ generator prisma_seed {
   seed     = "node prisma/seed.js"
 }
 
+// --- Core User & Admin Models ---
 model Admin {
-  id String @id 
+  id       String @id
   username String @unique
 }
+
 model Student {
-  id String @id
-  username String @unique
-  name String
-  email String? @unique
-  phone String? @unique
-  img String?
-  schoolName String?
-  schoolLevel Int
-  createdAt DateTime @default(now())
-  parentId String?
-  parent Parent? @relation(fields: [parentId], references: [id])
-  classId Int?
-  class Class? @relation(fields: [classId], references: [id])
-  gradeId Int?
-  grade Grade? @relation(fields: [gradeId], references: [id])
-  initialSetupComplete Boolean @default(false)
-  attendance Attendance[]
-  results Result[]
+  id                   String    @id
+  username             String    @unique
+  name                 String
+  email                String?   @unique
+  phone                String?   @unique
+  img                  String?
+  schoolName           String?
+  schoolLevel          Int
+  createdAt            DateTime  @default(now())
+  initialSetupComplete Boolean   @default(false)
+
+  xpPoints             Int       @default(0) @map("xp_points")
+  currentStreak        Int       @default(0) @map("current_streak")
+  longestStreak        Int       @default(0) @map("longest_streak")
+  lastActivityDate     DateTime? @map("last_activity_date")
+  level                Int       @default(1)
+
+  parentId             String?
+  parent               Parent?   @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  classId              Int?      // Kept as optional
+  class                Class?    @relation(fields: [classId], references: [id], onDelete: SetNull) // Kept as optional
+  gradeId              Int?
+  grade                Grade?    @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  
+  attendance           Attendance[]
+  results              Result[]
+  practiceSessions     PracticeSession[]
+  badges               Badge[]    @relation("StudentBadges")
 }
 
 model Teacher {
-  id String @id
-  username String @unique
-  name String
-  surname String
-  email String? @unique
-  phone String? @unique
-  address String
-  img String
-  bloodType String
-  sex UserSex 
-  createdAt DateTime @default(now())
-  subjects Subject[]
-  lessons Lesson[]
-  classes Class[]
-}
+  id        String    @id
+  username  String    @unique
+  name      String
+  email     String?   @unique
+  phone     String?   @unique
+  address   String
+  img       String?
+  bloodType String?
+  sex       UserSex?
+  createdAt DateTime  @default(now())
 
-model Grade {
-  id Int @id @default(autoincrement())
-  level Int @unique
-  students Student[]
-  classes Class[]
+  subjects                 Subject[]
+  lessons                  Lesson[] // Kept
+  classesSupervised        Class[]  @relation("ClassSupervisor") // Kept
+  assignedPracticeSessions PracticeSession[] @relation("AssignedSessionsByTeacher")
 }
 
 model Parent {
-  id String @id
-  username String @unique
-  name String
-  phone String? @unique
-  email String? @unique
-  address String?
-  createdAt DateTime @default(now())
+  id        String    @id
+  username  String    @unique
+  name      String
+  phone     String?   @unique
+  email     String?   @unique
+  address   String?
+  createdAt DateTime  @default(now())
+
+  students                 Student[]
+  assignedPracticeSessions PracticeSession[] @relation("AssignedSessionsByParent")
+}
+
+// --- Academic Structure Models ---
+model Grade {
+  id       Int       @id @default(autoincrement())
+  level    Int       @unique
   students Student[]
+  classes  Class[]   // Kept
+}
+
+// Kept for now, assuming it might be used for loose grouping or future features
+model Class {
+  id         Int    @id @default(autoincrement())
+  name       String @unique
+  capacity   Int
+  gradeId    Int
+  grade      Grade  @relation(fields: [gradeId], references: [id])
+  supervisorId String
+  supervisor Teacher @relation("ClassSupervisor", fields: [supervisorId], references: [id])
+
+  lessons       Lesson[]
+  students      Student[]
+  announcements Announcement[]
+  events        Event[]
 }
 
 model Subject {
-  id Int @id @default(autoincrement())
-  name String
-  teachers Teacher[]
-  lessons Lesson[]
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  
+  // Relations
+  teachers          Teacher[]
+  topics            Topic[]
+  questions         Question[]        @relation("SubjectQuestions")
+  lessons           Lesson[]
+  practiceSessions  PracticeSession[] @relation("SubjectPracticeSessions")
+  exams             Exam[]            @relation("SubjectExams") 
+  assignments       Assignment[]      @relation("SubjectAssignments")
 }
 
-model Class {
-  id Int @id @default(autoincrement())
-  name String @unique
-  capacity Int
-  gradeId Int
-  grade Grade @relation(fields: [gradeId], references: [id])
+model Topic {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  subjectId   Int
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  
+  questions         Question[]
+  practiceSessions  PracticeSession[] 
 
-  supervisorId String
-  supervisor Teacher @relation(fields: [supervisorId], references: [id])
-  lessons Lesson[]
-  students Student[]
-  announcements Announcement[]
-  events Event[]
+  // Exams and Assignments can be linked to a Topic
+  exams             Exam[]            @relation("TopicExams")
+  assignments       Assignment[]      @relation("TopicAssignments")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([name, subjectId])
 }
-
+// Kept for now, can be used for teacher-defined "course structures" or parent reference
 model Lesson {
-  id Int @id @default(autoincrement())
-  name String
-  day Day
-  startTime DateTime
-  endTime DateTime
-  subjectId Int
-  subject Subject @relation(fields: [subjectId], references: [id])
-  classId Int
-  class Class @relation(fields: [classId], references: [id])
-  teacherId String
-  teacher Teacher @relation(fields: [teacherId], references: [id])
-  exams Exam[]
+  id          Int      @id @default(autoincrement())
+  name        String
+  day         Day?     // Made Day optional as it might not always apply
+  startTime   DateTime // Could be a generic "created/published" date if not a scheduled lesson
+  endTime     DateTime // Could be an "available until" date
+  subjectId   Int
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  classId     Int?     // Made optional
+  class       Class?   @relation(fields: [classId], references: [id]) // Made optional
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id])
+
+  exams       Exam[]
   assignments Assignment[]
-  attendance Attendance[]
+  attendance  Attendance[]
+}
+
+// --- Assessment & Performance Models ---
+
+model Question {
+  id             Int      @id @default(autoincrement())
+  text           String   
+  questionType   QuestionType @default(MULTIPLE_CHOICE)
+  options        Json?    
+  correctAnswer  Json?    
+  explanation    String?  
+  difficulty     DifficultyLevel @default(MEDIUM)
+  pointsAwarded  Int      @default(10) 
+  
+  subjectId      Int
+  subject        Subject  @relation("SubjectQuestions", fields: [subjectId], references: [id])
+  topicId        Int
+  topic          Topic    @relation(fields: [topicId], references: [id])
+  
+  imageUrl       String?
+  audioUrl       String?
+  tags           String[] 
+  
+  studentAnswers StudentAnswer[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model PracticeSession {
+  id                  String    @id @default(uuid())
+  studentId           String
+  student             Student   @relation(fields: [studentId], references: [id])
+  
+  title               String?   
+  status              PracticeSessionStatus @default(NOT_STARTED)
+  
+  subjectId           Int?      
+  subject             Subject?  @relation("SubjectPracticeSessions", fields: [subjectId], references: [id])
+  topicId             Int?      
+  topic               Topic?    @relation(fields: [topicId], references: [id])
+  
+  // Link to a predefined Exam or Assignment template if this session is an attempt of one
+  basedOnExamId       Int?
+  basedOnExam         Exam?     @relation("PracticeSessionsForExam", fields: [basedOnExamId], references: [id])
+  basedOnAssignmentId Int?
+  basedOnAssignment   Assignment? @relation("PracticeSessionsForAssignment", fields: [basedOnAssignmentId], references: [id])
+
+  assignedByParentId  String?   
+  assignedByParent    Parent?   @relation("AssignedSessionsByParent", fields: [assignedByParentId], references: [id])
+  assignedByTeacherId String?   
+  assignedByTeacher   Teacher?  @relation("AssignedSessionsByTeacher", fields: [assignedByTeacherId], references: [id])
+
+  startTime           DateTime  @default(now())
+  endTime             DateTime? 
+  durationSeconds     Int?      
+  
+  score               Int?      
+  totalQuestions      Int?      
+  correctAnswers      Int?      
+  xpEarned            Int       @default(0)
+
+  studentAnswers      StudentAnswer[]
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model StudentAnswer {
+  id                String    @id @default(uuid())
+  practiceSessionId String
+  practiceSession   PracticeSession @relation(fields: [practiceSessionId], references: [id], onDelete: Cascade)
+  questionId        Int
+  question          Question  @relation(fields: [questionId], references: [id])
+  
+  submittedAnswer   Json?     
+  isCorrect         Boolean?  
+  pointsEarned      Int       @default(0)
+  attemptedAt       DateTime  @default(now())
+  feedback          String?   
+
+  @@unique([practiceSessionId, questionId])
 }
 
 model Exam {
-  id Int @id @default(autoincrement())
-  title String
-  startTime DateTime
-  endTime DateTime
-  lessonId Int
-  lesson Lesson @relation(fields: [lessonId], references: [id])
-  results Result[]
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  startTime   DateTime? // Optional: For scheduled exams
+  endTime     DateTime? // Optional: For scheduled exams
+  
+  subjectId   Int?     // <<<< MADE OPTIONAL FOR MIGRATION
+  subject     Subject? @relation("SubjectExams", fields: [subjectId], references: [id])
+  topicId     Int?     
+  topic       Topic?   @relation("TopicExams", fields: [topicId], references: [id])
+  
+  lessonId    Int?     
+  lesson      Lesson?  @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  results             Result[]
+  practiceSessions    PracticeSession[] @relation("PracticeSessionsForExam")
 }
 
 model Assignment {
-  id Int @id @default(autoincrement())
-  title String
-  startTime DateTime
-  endTime DateTime
-  lessonId Int
-  lesson Lesson @relation(fields: [lessonId], references: [id])
-  results Result[]
-}
-
-model Result {
-  id Int @id @default(autoincrement())
-  score Int
-  examId Int?
-  exam Exam? @relation(fields: [examId], references: [id])
-  assignmentId Int?
-  assignment Assignment? @relation(fields: [assignmentId], references: [id])
-  studentId String
-  student Student @relation(fields: [studentId], references: [id])
-}
-
-model Attendance {
-  id Int @id @default(autoincrement())
-  date DateTime
-  present Boolean
-  lessonId Int
-  lesson Lesson @relation(fields: [lessonId], references: [id])
-  studentId String
-  student Student @relation(fields: [studentId], references: [id])
-}
-
-model Event {
-  id Int @id @default(autoincrement())
-  title String
-  startTime DateTime
-  endTime DateTime
-  description String
-  classId Int?
-  class Class? @relation(fields: [classId], references: [id])
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  dueDate     DateTime? // <<<< MADE OPTIONAL FOR MIGRATION
   
+  subjectId   Int?     // <<<< MADE OPTIONAL FOR MIGRATION
+  subject     Subject? @relation("SubjectAssignments", fields: [subjectId], references: [id])
+  topicId     Int?     
+  topic       Topic?   @relation("TopicAssignments", fields: [topicId], references: [id])
+  
+  lessonId    Int?     
+  lesson      Lesson?  @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  results             Result[]
+  practiceSessions    PracticeSession[] @relation("PracticeSessionsForAssignment")
+}
+model Result {
+  id           Int         @id @default(autoincrement())
+  score        Int
+  examId       Int?        
+  exam         Exam?       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  assignmentId Int?        
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+// If `Lesson` is removed, this model needs to be rethought or removed.
+// For now, keeping it and making its `lessonId` tie to an optional Lesson.
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  present   Boolean
+  lessonId  Int      // If lesson is removed, this needs a different context or removal
+  lesson    Lesson   @relation(fields: [lessonId], references: [id])
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+
+  @@unique([lessonId, studentId, date])
+}
+
+// --- Communication & Gamification Models ---
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  startTime   DateTime
+  endTime     DateTime
+  description String
+  classId     Int?     
+  class       Class?   @relation(fields: [classId], references: [id])
 }
 
 model Announcement {
-  id Int @id @default(autoincrement())
-  title String
-  date DateTime 
+  id          Int      @id @default(autoincrement())
+  title       String
+  date        DateTime @default(now())
   description String
-  classId Int?
-  class Class? @relation(fields: [classId], references: [id])
-  
+  classId     Int?     
+  class       Class?   @relation(fields: [classId], references: [id])
 }
 
+model Badge {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String
+  icon        String?  
+  criteria    String   
+  xpBonus     Int      @default(0)
+  
+  students    Student[] @relation("StudentBadges")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// --- Enums ---
 enum UserSex {
   MALE
   FEMALE
 }
 
-enum Day {
+// Day enum might become less relevant if Lesson is purely informational or removed
+enum Day { 
   MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  OPEN_ENDED
+  FILL_IN_THE_BLANK
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+  CHALLENGING
+}
+
+enum PracticeSessionStatus {
+  NOT_STARTED
+  STARTED
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
 }

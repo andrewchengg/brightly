@@ -27,7 +27,7 @@ export default function StudentCompleteSetupPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploading, error: uploadError, uploadImage } = useCloudinaryUpload();
 
-  // Form for initial login (placeholder email + PIN)
+  // Form for initial login (username + PIN)
   const {
     control: initialLoginControl,
     handleSubmit: handleInitialLoginSubmit,
@@ -35,7 +35,7 @@ export default function StudentCompleteSetupPage() {
     reset: resetInitialLoginForm,
   } = useForm<StudentInitialLoginData>({
     resolver: zodResolver(studentInitialLoginSchema),
-    defaultValues: { placeholderEmail: "", pin: "" },
+    defaultValues: { username: "", pin: "" },
   })
 
   // Form for completing profile (new username, email, password)
@@ -101,13 +101,27 @@ export default function StudentCompleteSetupPage() {
     setIsSubmitting(true);
     setPageError(null);
     try {
+      // First we need to find the user's email using their username
+      const { data: studentData, error: findStudentError } = await supabase
+        .from('Student')
+        .select('email')
+        .eq('username', data.username)
+        .single();
+
+      if (findStudentError || !studentData) {
+        setPageError("Username not found. Please check the credentials provided by your parent.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Now sign in with the email and PIN
       const { data: sessionData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.placeholderEmail,
+        email: studentData.email,
         password: data.pin,
       });
 
       if (signInError) {
-        setPageError(signInError.message || "Invalid login credentials. Please check the email and PIN.");
+        setPageError(signInError.message || "Invalid login credentials. Please check the username and PIN.");
         setIsSubmitting(false);
         return;
       }
@@ -336,25 +350,25 @@ export default function StudentCompleteSetupPage() {
           <>
             <h1 className="text-2xl font-bold mb-2 text-center">Student Login</h1>
             <p className="text-gray-600 mb-6 text-center text-sm">
-              Use the placeholder email and PIN provided by your parent.
+              Use the username and PIN provided by your parent.
             </p>
             <form onSubmit={handleInitialLoginSubmit(onInitialLogin)} className="space-y-4">
               <div>
-                <label htmlFor="placeholderEmail" className="block text-sm font-medium text-gray-700">Placeholder Email</label>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700">Username</label>
                 <Controller
-                  name="placeholderEmail"
+                  name="username"
                   control={initialLoginControl}
                   render={({ field }) => (
                     <input
                       {...field}
-                      type="email"
-                      id="placeholderEmail"
-                      placeholder="child.placeholder...@edcel.app"
-                      className={`mt-1 block w-full px-3 py-2 border ${initialLoginErrors.placeholderEmail ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                      type="text"
+                      id="username"
+                      placeholder="your_username1"
+                      className={`mt-1 block w-full px-3 py-2 border ${initialLoginErrors.username ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
                     />
                   )}
                 />
-                {initialLoginErrors.placeholderEmail && <p className="text-red-500 text-xs mt-1">{initialLoginErrors.placeholderEmail.message}</p>}
+                {initialLoginErrors.username && <p className="text-red-500 text-xs mt-1">{initialLoginErrors.username.message}</p>}
               </div>
               <div>
                 <label htmlFor="pin" className="block text-sm font-medium text-gray-700">6-Digit PIN</label>
@@ -449,7 +463,7 @@ export default function StudentCompleteSetupPage() {
                 {completeProfileErrors.username && <p className="text-red-500 text-xs mt-1">{completeProfileErrors.username.message}</p>}
               </div>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Your Email (Optional - leave blank to keep placeholder)</label>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Your Email (Optional)</label>
                 <Controller
                   name="email"
                   control={completeProfileControl}
@@ -458,12 +472,13 @@ export default function StudentCompleteSetupPage() {
                       {...field}
                       type="email"
                       id="email"
-                      placeholder={initialEmailFromAuth || "your.email@example.com"}                      
+                      placeholder="your.email@example.com"
                       className={`mt-1 block w-full px-3 py-2 border ${completeProfileErrors.email ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
                     />
                   )}
                 />
                 {completeProfileErrors.email && <p className="text-red-500 text-xs mt-1">{completeProfileErrors.email.message}</p>}
+                <p className="text-xs text-gray-500 mt-1">You can add an email address later if you prefer not to now.</p>
               </div>
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">Choose Password</label>

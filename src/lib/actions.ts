@@ -164,7 +164,6 @@ export const createTeacher = async (
           role: "teacher",
           username: data.username,
           name: data.name,
-          surname: data.surname,
         },
         email_confirm: true, // Auto-confirm email for simplicity
       });
@@ -184,7 +183,6 @@ export const createTeacher = async (
         id: userId,
         username: data.username,
         name: data.name,
-        surname: data.surname,
         email: data.email || null,
         phone: data.phone || null,
         address: data.address,
@@ -222,7 +220,6 @@ export const updateTeacher = async (
           role: "teacher",
           username: data.username,
           name: data.name,
-          surname: data.surname,
         }
       };
 
@@ -255,7 +252,6 @@ export const updateTeacher = async (
       data: {
         username: data.username,
         name: data.name,
-        surname: data.surname,
         email: data.email || null,
         phone: data.phone || null,
         address: data.address,
@@ -325,7 +321,6 @@ export const createStudent = async (
 
     let userId = `temp-student-${Date.now()}`;
 
-    // Try to create user in Clerk if available
     try {
       if (supabaseClient && supabaseClient.auth) {
         const user = await supabaseClient.auth.admin.createUser({
@@ -335,7 +330,6 @@ export const createStudent = async (
             role: "student",
             username: data.username,
             name: data.name,
-            surname: data.surname,
           },
           email_confirm: true,
         });
@@ -354,7 +348,6 @@ export const createStudent = async (
         id: userId,
         username: data.username,
         name: data.name,
-        surname: data.surname,
         email: data.email || null,
         phone: data.phone || null,
         address: data.address,
@@ -369,7 +362,7 @@ export const createStudent = async (
 
     // revalidatePath("/list/students");
     return { success: true, error: false };
-  } catch (err) {
+  } catch (err) { 
     console.log(err);
     return { success: false, error: true };
   }
@@ -383,7 +376,6 @@ export const updateStudent = async (
     return { success: false, error: true };
   }
   try {
-    // Try to update user in Clerk if available
     try {
       if (supabaseClient && supabaseClient.auth) {
         await supabaseClient.auth.admin.updateUserById(data.id, {
@@ -391,7 +383,6 @@ export const updateStudent = async (
             ...(data.password !== "" && { password: data.password }),
             username: data.username,
             name: data.name,
-            surname: data.surname,
           },
         });
       } else {
@@ -409,7 +400,6 @@ export const updateStudent = async (
         ...(data.password !== "" && { password: data.password }),
         username: data.username,
         name: data.name,
-        surname: data.surname,
         email: data.email || null,
         phone: data.phone || null,
         address: data.address,
@@ -435,7 +425,6 @@ export const deleteStudent = async (
 ) => {
   const id = data.get("id") as string;
   try {
-    // Try to delete user in Clerk if available
     try {
       if (supabaseClient && supabaseClient.auth) {
         await supabaseClient.auth.admin.deleteUserById(id);

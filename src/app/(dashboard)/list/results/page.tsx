@@ -12,9 +12,7 @@ type ResultList = {
   id: number;
   title: string;
   studentName: string;
-  studentSurname: string;
   teacherName: string;
-  teacherSurname: string;
   score: number;
   className: string;
   startTime: Date;
@@ -75,10 +73,10 @@ const ResultListPage = async ({
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
     >
       <td className="flex items-center gap-4 p-4">{item.title}</td>
-      <td>{item.studentName + " " + item.studentName}</td>
+      <td>{item.studentName}</td>
       <td className="hidden md:table-cell">{item.score}</td>
       <td className="hidden md:table-cell">
-        {item.teacherName + " " + item.teacherSurname}
+        {item.teacherName}
       </td>
       <td className="hidden md:table-cell">{item.className}</td>
       <td className="hidden md:table-cell">
@@ -154,13 +152,13 @@ const ResultListPage = async ({
     prisma.result.findMany({
       where: query,
       include: {
-        student: { select: { name: true, surname: true } },
+        student: { select: { name: true } },
         exam: {
           include: {
             lesson: {
               select: {
                 class: { select: { name: true } },
-                teacher: { select: { name: true, surname: true } },
+                teacher: { select: { name: true } },
               },
             },
           },
@@ -170,7 +168,7 @@ const ResultListPage = async ({
             lesson: {
               select: {
                 class: { select: { name: true } },
-                teacher: { select: { name: true, surname: true } },
+                teacher: { select: { name: true } },
               },
             },
           },
@@ -193,9 +191,7 @@ const ResultListPage = async ({
       id: item.id,
       title: assessment.title,
       studentName: item.student.name,
-      studentSurname: item.student.surname,
       teacherName: assessment.lesson.teacher.name,
-      teacherSurname: assessment.lesson.teacher.surname,
       score: item.score,
       className: assessment.lesson.class.name,
       startTime: isExam ? assessment.startTime : assessment.endTime,

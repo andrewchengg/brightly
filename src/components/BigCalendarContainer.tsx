@@ -39,7 +39,7 @@ const BigCalendarContainer = async ({
   // Generate dates for each day of the current week
   const generateWeekDates = (
     lessons: (Lesson & {
-      teacher: { name: string; surname: string };
+      teacher: { name: string };
       subject: { name: string };
       class: { name: string };
     })[]
@@ -74,7 +74,7 @@ const BigCalendarContainer = async ({
         endDate.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
 
         events.push({
-          title: `${lesson.name} - ${lesson.subject.name} - ${lesson.teacher.name} ${lesson.teacher.surname}`,
+          title: `${lesson.name} - ${lesson.subject.name} - ${lesson.teacher.name}`,
           start: startDate,
           end: endDate,
         });

@@ -12,6 +12,18 @@ const generatePin = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+// Function to generate a username from a child's name
+const generateUsername = (name: string): string => {
+  // Remove special characters, replace spaces with underscore, and convert to lowercase
+  const safeName = name.replace(/[^\w\s]/gi, '')
+                       .replace(/\s+/g, '_')
+                       .toLowerCase();
+  
+  // Add a random digit at the end (1-9)
+  const randomDigit = Math.floor(1 + Math.random() * 9);
+  return `${safeName}${randomDigit}`;
+};
+
 export default function ParentChildSetupPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -27,7 +39,7 @@ export default function ParentChildSetupPage() {
   const parentName = searchParams.get("name")
 
   // State for generated child credentials
-  const [generatedChildPlaceholderEmail, setGeneratedChildPlaceholderEmail] = useState<string | null>(null);
+  const [generatedChildUsername, setGeneratedChildUsername] = useState<string | null>(null);
   const [generatedChildPin, setGeneratedChildPin] = useState<string | null>(null);
   const [showPin, setShowPin] = useState(false);
   const [credentialsCopied, setCredentialsCopied] = useState(false);
@@ -86,7 +98,7 @@ export default function ParentChildSetupPage() {
     setIsLoading(true)
     setFormError(null)
     setSuccessMessage(null)
-    setGeneratedChildPlaceholderEmail(null);
+    setGeneratedChildUsername(null);
     setGeneratedChildPin(null);
     setChildSetupComplete(false);
 
@@ -113,8 +125,8 @@ export default function ParentChildSetupPage() {
       }
       console.log("Parent details saved/updated for ID:", parentId)
 
-      // 2. Generate child's placeholder email and PIN
-      const childPlaceholderEmail = `studentemail.${uuidv4().substring(0,8)}@edcel.app`;
+      // 2. Generate child's username and PIN
+      const childUsername = generateUsername(data.childFullName);
       const childPin = generatePin();
       
       // 3. Call API to create child Supabase Auth user
@@ -122,7 +134,7 @@ export default function ParentChildSetupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: childPlaceholderEmail,
+          username: childUsername, // Use username instead of email
           password: childPin, // Use the generated PIN
           metadata: {
             role: "student",
@@ -170,13 +182,12 @@ export default function ParentChildSetupPage() {
       console.log("Child Auth user created successfully:", childAuthUser.id)
 
       // 4. Create Student record in Prisma DB
-      const tempChildUsername = `temp_child_${childAuthUser.id.substring(0, 6)}`;
       const { error: studentError } = await supabase.from("Student").insert({
         id: childAuthUser.id, // Supabase Auth ID of the student
         parentId: parentId,
         name: data.childFullName,
-        email: childPlaceholderEmail, // Placeholder email
-        username: tempChildUsername, // Temporary username
+        email: null, // No email initially
+        username: childUsername, // Use the generated username
         schoolLevel: data.childSchoolLevel,
         schoolName: data.childSchoolName || null,
         initialSetupComplete: false, // Child needs to complete setup
@@ -192,10 +203,10 @@ export default function ParentChildSetupPage() {
       console.log("Student record created for child ID:", childAuthUser.id)
 
       // 5. Display credentials to parent
-      setGeneratedChildPlaceholderEmail(childPlaceholderEmail);
+      setGeneratedChildUsername(childUsername);
       setGeneratedChildPin(childPin);
       setChildSetupComplete(true); // To show credentials and dashboard button
-      setSuccessMessage("Child account placeholder created successfully! Please share the credentials below with your child.");
+      setSuccessMessage("Child account created successfully! Please share the credentials below with your child.");
       reset({ // Clear child fields, keep parent fields for potential next child? Or clear all.
         parentFullName: data.parentFullName,
         parentEmail: data.parentEmail,
@@ -214,9 +225,9 @@ export default function ParentChildSetupPage() {
   }
 
   const handleCopyToClipboard = () => {
-    if (generatedChildPlaceholderEmail && generatedChildPin) {
+    if (generatedChildUsername && generatedChildPin) {
       navigator.clipboard.writeText(
-        `Child Login Details:\nEmail: ${generatedChildPlaceholderEmail}\nPIN: ${generatedChildPin}`
+        `Child Login Details:\nUsername: ${generatedChildUsername}\nPIN: ${generatedChildPin}`
       ).then(() => {
         setCredentialsCopied(true);
         setTimeout(() => setCredentialsCopied(false), 2000); // Hide message after 2s
@@ -430,7 +441,7 @@ export default function ParentChildSetupPage() {
                 <p className="mb-4 text-sm text-green-600">{successMessage}</p>
             )}
             <p className="mb-4 text-gray-700">
-              Please share the following temporary login details with your child. They will use these to log in for the first time and set up their own password.
+              Please share the following temporary login details with your child. They will use these to log in for the first time and set up their own password and can customize their username during setup.
             </p>
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
               <div className="flex">
@@ -448,7 +459,10 @@ export default function ParentChildSetupPage() {
             </div>
             <div className="space-y-3 text-gray-700">
               <div>
-                <strong>Placeholder Email:</strong> {generatedChildPlaceholderEmail}
+                <strong>Username:</strong> {generatedChildUsername}
+                <p className="text-xs text-gray-500 mt-1">
+                  Your child can customize this username during first login.
+                </p>
               </div>
               <div className="flex items-center">
                 <strong>PIN:</strong>

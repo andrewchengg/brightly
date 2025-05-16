@@ -73,7 +73,7 @@ const LessonListPage = async ({
       <td className="hidden md:table-cell">{item.subject.name}</td>
       <td className="hidden md:table-cell">{item.class.name}</td>
       <td className="hidden md:table-cell">
-        {item.teacher.name + " " + item.teacher.surname}
+        {item.teacher.name}
       </td>
       <td>
         <div className="flex items-center gap-2">
@@ -150,7 +150,7 @@ const LessonListPage = async ({
   type LessonWithDetails = Lesson & {
     subject: { name: string };
     class: Class & { name: string };
-    teacher: { name: string; surname: string };
+    teacher: { name: string };
   };
 
   const [data, count] = await prisma.$transaction([
@@ -159,7 +159,7 @@ const LessonListPage = async ({
       include: {
         subject: { select: { name: true } },
         class: { select: { name: true } },
-        teacher: { select: { name: true, surname: true } },
+        teacher: { select: { name: true } },
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),

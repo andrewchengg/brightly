@@ -175,7 +175,6 @@ export default function ParentProfilePage() {
   
   const copyCredentials = (child: ChildInfo) => {
     const text = `Login Details:
-Email: ${child.email}
 Username: ${child.username}`;
 
     navigator.clipboard.writeText(text).then(() => {
@@ -727,7 +726,7 @@ Username: ${child.username}`;
                     </p>
                     <div className="space-y-2 text-sm">
                       <div>
-                        <span className="font-medium">Email:</span> {child.email}
+                        <span className="font-medium">Username:</span> {child.username}
                       </div>
                       <div className="flex items-center">
                         <span className="font-medium mr-1">Login Credentials:</span>
@@ -752,10 +751,9 @@ Username: ${child.username}`;
                       
                       {showCredentials[child.id] && (
                         <div className="pl-3 text-gray-700">
-                          <p><span className="font-medium">Email:</span> {child.email}</p>
                           <p><span className="font-medium">Username:</span> {child.username}</p>
                           <p className="text-xs text-gray-500 mt-1">
-                            * Child will set their own password during first login
+                            * Child will set their own password during first login and can customize their username
                           </p>
                         </div>
                       )}

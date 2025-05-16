@@ -5,6 +5,68 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+const studentMenuItems = [
+  {
+    title: "MENU",
+    items: [
+      {
+        icon: "/home.png",
+        label: "Home",
+        href: "/student",
+        visible: ["student"],
+      },
+      {
+        icon: "/assignment.png",
+        label: "Practice",
+        href: "/student/practice",
+        visible: ["student"],
+      },
+      {
+        icon: "/calendar.png",
+        label: "Weekly Challenge",
+        href: "/student/weekly-challenge",
+        visible: ["student"],
+      },
+      {
+        icon: "/exam.png",
+        label: "Mock Exam",
+        href: "/student/mock-exam",
+        visible: ["student"],
+      },
+      {
+        icon: "/result.png",
+        label: "Results",
+        href: "/student/results",
+        visible: ["student"],
+      },
+    ],
+  },
+  {
+    title: "OTHER",
+    items: [
+      {
+        icon: "/profile.png",
+        label: "Profile",
+        href: "/profile/student",
+        visible: ["student"],
+      },
+      {
+        icon: "/setting.png",
+        label: "Settings",
+        href: "/settings",
+        visible: ["student"],
+      },
+      {
+        icon: "/logout.png",
+        label: "Logout",
+        href: "#",
+        visible: ["student"],
+        isLogout: true,
+      },
+    ],
+  },
+];
+
 const menuItems = [
   {
     title: "MENU",
@@ -13,7 +75,7 @@ const menuItems = [
         icon: "/home.png",
         label: "Home",
         href: "/",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
       {
         icon: "/teacher.png",
@@ -55,43 +117,43 @@ const menuItems = [
         icon: "/exam.png",
         label: "Exams",
         href: "/list/exams",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
       {
         icon: "/assignment.png",
         label: "Assignments",
         href: "/list/assignments",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
       {
         icon: "/result.png",
         label: "Results",
         href: "/list/results",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
       {
         icon: "/attendance.png",
         label: "Attendance",
         href: "/list/attendance",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
       {
         icon: "/calendar.png",
         label: "Events",
         href: "/list/events",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
       {
         icon: "/message.png",
         label: "Messages",
         href: "/list/messages",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
       {
         icon: "/announcement.png",
         label: "Announcements",
         href: "/list/announcements",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
     ],
   },
@@ -102,19 +164,19 @@ const menuItems = [
         icon: "/profile.png",
         label: "Profile",
         href: "/profile",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
       {
         icon: "/setting.png",
         label: "Settings",
         href: "/settings",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
       },
       {
         icon: "/logout.png",
         label: "Logout",
         href: "#",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "teacher", "parent"],
         isLogout: true,
       },
     ],
@@ -151,9 +213,12 @@ const Menu = () => {
     );
   }
 
+  // Use student-specific menu if the user is a student
+  const displayMenuItems = userRole === "student" ? studentMenuItems : menuItems;
+
   return (
     <div className="mt-4 text-sm">
-      {menuItems.map((i) => (
+      {displayMenuItems.map((i) => (
         <div className="flex flex-col gap-2" key={i.title}>
           <span className="hidden lg:block text-gray-400 font-light my-4">
             {i.title}
@@ -176,8 +241,7 @@ const Menu = () => {
 
               return (
                 <Link
-                  href={item.label === "Profile" && userRole === "parent" ? "/parent/profile" : 
-                       (item.label === "Profile" && userRole === "student" ? "/profile/student" : item.href)}
+                  href={item.href}
                   key={item.label}
                   className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md hover:bg-lamaSkyLight"
                 >

@@ -4,25 +4,30 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function POST(request: Request) {
   try {
     const supabaseAdmin = createAdminClient();
-    const { email, password, metadata } = await request.json()
+    const { username, password, metadata } = await request.json()
     
     // Validate request
-    if (!email || !password) {
+    if (!username || !password) {
       return NextResponse.json(
-        { error: { message: "Email and password are required" } },
+        { error: { message: "Username and password are required" } },
         { status: 400 }
       )
     }
     
-    console.log(`Creating child user with email: ${email}`);
+    console.log(`Creating child user with username: ${username}`);
     
-    // Create the user with admin privileges 
+    // Create the user with admin privileges
+    // For child users, we'll create a temporary email but will 
+    // allow them to update it during setup if they wish
+    const tempEmail = `${username}_${Date.now()}@noreply.edcel.app`;
+    
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: tempEmail,
       password,
-      email_confirm: true, // Auto-confirm the email since it's a placeholder
+      email_confirm: true, // Auto-confirm the email since it's temporary
       user_metadata: {
         role: 'student',
+        username: username, // Store username in metadata
         ...(metadata || {}) // Include any additional metadata
       }
     })

@@ -27,36 +27,41 @@ export async function GET(req: Request) {
     let profileData = null;
     let profileError = null;
     
-    if (role === 'student') {
-      const { data, error } = await supabase
-        .from('Student')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      profileData = data;
-      profileError = error;
-    } else if (role === 'parent') {
-      const { data, error } = await supabase
-        .from('Parent')
-        .select('*, students:Student(*)')
-        .eq('id', user.id)
-        .single();
-      
-      profileData = data;
-      profileError = error;
-    } else if (role === 'teacher') {
-      const { data, error } = await supabase
-        .from('Teacher')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      profileData = data;
-      profileError = error;
-    } else {
-      // Admin or other role
-      profileData = { id: user.id, role: role || 'unknown' };
+    try {
+      if (role === 'student') {
+        const { data, error } = await supabase
+          .from('Student')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        profileData = data;
+        profileError = error;
+      } else if (role === 'parent') {
+        const { data, error } = await supabase
+          .from('Parent')
+          .select('*, students:Student(*)')
+          .eq('id', user.id)
+          .single();
+        
+        profileData = data;
+        profileError = error;
+      } else if (role === 'teacher') {
+        const { data, error } = await supabase
+          .from('Teacher')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        profileData = data;
+        profileError = error;
+      } else {
+        // Admin or other role
+        profileData = { id: user.id, role: role || 'unknown' };
+      }
+    } catch (fetchError: any) {
+      console.error('Profile fetch error:', fetchError);
+      profileError = { message: fetchError.message || 'Error fetching profile' };
     }
     
     return NextResponse.json({
