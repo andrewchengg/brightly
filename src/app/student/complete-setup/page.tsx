@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -11,8 +11,7 @@ import {
 } from "@/lib/formValidationSchemas"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { CldUploadWidget } from "next-cloudinary"
-import { debug, traceApi } from "@/lib/debug"
+import { useCloudinaryUpload } from "@/lib/hooks/useCloudinaryUpload"
 
 export default function StudentCompleteSetupPage() {
   const router = useRouter()
@@ -25,6 +24,8 @@ export default function StudentCompleteSetupPage() {
   const [initialEmailFromAuth, setInitialEmailFromAuth] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isCloudinaryConfigured, setIsCloudinaryConfigured] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploading, error: uploadError, uploadImage } = useCloudinaryUpload();
 
   // Form for initial login (placeholder email + PIN)
   const {
@@ -56,14 +57,12 @@ export default function StudentCompleteSetupPage() {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError) {
-        console.error("Error fetching session:", sessionError);
         setPageError("Error checking your session. Please refresh.");
         setStep('error');
         return;
       }
 
       if (session?.user) {
-        console.log("Session found, user:", session.user.id);
         setCurrentUser(session.user);
         setInitialEmailFromAuth(session.user.email || "");
 
@@ -74,7 +73,6 @@ export default function StudentCompleteSetupPage() {
           .single();
 
         if (studentError && studentError.code !== 'PGRST116') { // PGRST116: row not found
-          console.error("Error fetching student record:", studentError);
           setPageError("Failed to retrieve your student profile.");
           setStep('error');
           return;
@@ -82,29 +80,21 @@ export default function StudentCompleteSetupPage() {
 
         if (student) {
           if (student.initialSetupComplete) {
-            console.log("Student setup already complete, redirecting.");
             router.push('/student');
           } else {
-            console.log("Student needs to complete profile.");
             setCompleteProfileValue("email", student.email || session.user.email || "");
             setStep('completeProfile');
           }
         } else {
-          // This case should ideally not happen if a user has a session from PIN login
-          // unless student record creation failed. Or if user signed up but didn't complete parent-child flow.
-          console.warn("User session exists, but no student record found for ID:", session.user.id);
           setPageError("Your student profile is not fully set up. Please contact your parent or support.");
           setStep('initialLogin'); // Allow to try login again, or show error
         }
       } else {
-        console.log("No active session, showing initial login form.");
         setStep('initialLogin');
       }
     };
 
     checkSessionAndSetupStatus();
-
-    // No onAuthStateChange needed for this simpler flow, direct session check is enough.
   }, [router, supabase, setCompleteProfileValue]);
 
   const onInitialLogin = async (data: StudentInitialLoginData) => {
@@ -117,14 +107,12 @@ export default function StudentCompleteSetupPage() {
       });
 
       if (signInError) {
-        console.error("Sign-in error:", signInError);
         setPageError(signInError.message || "Invalid login credentials. Please check the email and PIN.");
         setIsSubmitting(false);
         return;
       }
 
       if (sessionData.user) {
-        console.log("Successfully signed in with PIN for user:", sessionData.user.id);
         setCurrentUser(sessionData.user);
         setInitialEmailFromAuth(sessionData.user.email || "");
 
@@ -142,7 +130,6 @@ export default function StudentCompleteSetupPage() {
         }
 
         if (student && student.initialSetupComplete) {
-            console.log("Student setup already complete, redirecting to dashboard");
             router.push('/student');
         } else {
             setCompleteProfileValue("email", student?.email || sessionData.user.email || "");
@@ -153,7 +140,6 @@ export default function StudentCompleteSetupPage() {
         setPageError("Login did not return user data. Please try again.");
       }
     } catch (err: any) {
-      console.error("Unexpected error during initial login:", err);
       setPageError(err.message || "An unexpected error occurred.");
     } finally {
       setIsSubmitting(false);
@@ -172,19 +158,7 @@ export default function StudentCompleteSetupPage() {
     }
 
     try {
-      debug.log(`Starting profile update for student ID: ${currentUser.id}`);
-      debug.log(`Form data submitted:`, data);
-      debug.log(`Current placeholder email: ${initialEmailFromAuth}`);
-      debug.log(`Avatar URL to save: ${avatarUrl || 'None'}`);
-
-      // 1. Update Auth user (email and password)
-      const updateUserData: { password?: string; email?: string } = {};
-      if (data.password) {
-        updateUserData.password = data.password;
-        debug.log(`Password update requested`);
-      }
-      
-      // 2. Update Student record in database first
+      // 1. Update Student record in database first
       const studentUpdateData: { 
         username: string; 
         email?: string; 
@@ -203,79 +177,94 @@ export default function StudentCompleteSetupPage() {
       // Save the avatar URL if one was uploaded
       if (avatarUrl) {
         studentUpdateData.img = avatarUrl;
-        debug.log(`Including avatar URL in update: ${avatarUrl}`);
       }
-
-      debug.log(`Updating Student record with:`, studentUpdateData);
       
-      // Use traceApi to log the full request and response
-      const studentUpdateResult = await traceApi(
-        'db.updateStudent',
-        async () => {
-          const result = await supabase
-            .from('Student')
-            .update(studentUpdateData)
-            .eq('id', currentUser.id)
-            .select();
-          return result;
-        }
-      );
-      
-      const { data: updatedStudent, error: studentUpdateError } = studentUpdateResult;
+      // Update the Student record
+      const { data: updatedStudent, error: studentUpdateError } = await supabase
+        .from('Student')
+        .update(studentUpdateData)
+        .eq('id', currentUser.id)
+        .select();
       
       if (studentUpdateError) {
-        debug.error(`Error updating Student record:`, studentUpdateError);
         setPageError(`Failed to update student profile: ${studentUpdateError.message}`);
         setIsSubmitting(false);
         return;
       }
       
-      debug.log(`Student record updated successfully:`, updatedStudent);
-      
-      // Now try to update auth user email if needed (non-blocking)
-      if (data.email && Object.keys(updateUserData).length > 0) {
-        try {
-          debug.log(`Updating Supabase auth user with:`, updateUserData);
-          const authUpdateResult = await traceApi(
-            'auth.updateUser', 
-            async () => await supabase.auth.updateUser(updateUserData)
-          );
-          const { data: updatedAuthUser, error: userUpdateError } = authUpdateResult;
-          
-          if (userUpdateError) {
-            debug.warn(`Warning: Auth user update failed, but database was updated:`, userUpdateError);
-            // Don't block completion - database update succeeded
-          } else {
-            debug.log(`Auth user updated successfully:`, updatedAuthUser);
-          }
-        } catch (authErr) {
-          debug.warn(`Auth update error (non-blocking):`, authErr);
-          // Continue with the flow even if auth update fails
+      // 2. Now update auth user with API route
+      try {
+        // Call our admin API to update the user in Supabase Auth
+        const authUpdateData: {
+          userId: string;
+          username: string;
+          role: string;
+          email?: string;
+          password?: string;
+        } = {
+          userId: currentUser.id,
+          username: data.username,
+          role: 'student',
+        };
+        
+        // Add email if provided
+        if (data.email) {
+          authUpdateData.email = data.email;
         }
+        
+        // Add password if provided
+        if (data.password) {
+          authUpdateData.password = data.password;
+        }
+        
+        await fetch('/api/auth/update-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(authUpdateData),
+        });
+        
+        // Update the session with the new credentials to ensure proper login
+        if (data.email || data.password) {
+          // If email or password was changed, perform a new sign-in to refresh the session
+          if (data.password) {
+            await supabase.auth.signInWithPassword({
+              email: data.email || initialEmailFromAuth,
+              password: data.password
+            });
+          } else {
+            // Just update the session since only metadata or other fields changed
+            await supabase.auth.refreshSession();
+          }
+        }
+      } catch (authErr) {
+        // Continue with the flow even if auth update fails
       }
       
       // Setup is successful, redirect to student dashboard
-      debug.log(`Student profile completed and updated. Redirecting...`);
       router.push('/student');
       router.refresh(); // Ensure layout revalidates auth state
 
     } catch (err: any) {
-      debug.error(`Unexpected error during profile completion:`, err);
       setPageError(err.message || "An unexpected error occurred.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleUploadSuccess = (result: any) => {
-    console.log('Cloudinary upload success:', result);
-    if (result?.info?.secure_url) {
-      setAvatarUrl(result.info.secure_url);
-      console.log("Avatar URL set to:", result.info.secure_url);
-      setPageError(null);
-    } else {
-      console.error("Upload result missing secure_url:", result);
-      setPageError("Image upload successful but URL is missing. Please try again.");
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const secureUrl = await uploadImage(file);
+      if (secureUrl) {
+        setAvatarUrl(secureUrl);
+        setPageError(null);
+      }
+    } catch (err: any) {
+      setPageError(err.message || "Failed to upload image");
     }
   };
 
@@ -283,10 +272,8 @@ export default function StudentCompleteSetupPage() {
     const checkCloudinaryConfiguration = async () => {
       // Check if Cloudinary is configured via env variables
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      console.log("Cloudinary cloud name from env:", cloudName);
       
       if (cloudName) {
-        console.log("Using Cloudinary configuration from environment variables");
         setIsCloudinaryConfigured(true);
         return;
       }
@@ -296,21 +283,17 @@ export default function StudentCompleteSetupPage() {
         const { data: config, error } = await supabase.from('Configuration').select('value').eq('key', 'CLOUDINARY_URL');
         
         if (error) {
-          console.error('Error fetching Cloudinary configuration:', error);
           setIsCloudinaryConfigured(false);
           return;
         }
         
         if (config && config.length > 0) {
-          console.log('Cloudinary configuration found in database');
           setIsCloudinaryConfigured(true);
         } else {
-          console.warn('No Cloudinary configuration found in database');
           // Fallback to enable anyway for testing
           setIsCloudinaryConfigured(true);
         }
       } catch (err) {
-        console.error('Error checking Cloudinary configuration:', err);
         // Fallback to enable anyway for testing
         setIsCloudinaryConfigured(true);
       }
@@ -427,38 +410,25 @@ export default function StudentCompleteSetupPage() {
                   )}
                 </div>
                 
-                {isCloudinaryConfigured ? (
-                  <CldUploadWidget
-                    uploadPreset="edcel_profile"
-                    options={{
-                      maxFiles: 1,
-                      resourceType: "image",
-                      sources: ["local", "camera"],
-                      clientAllowedFormats: ["png", "jpeg", "jpg"],
-                      maxImageFileSize: 2000000, // 2MB
-                      multiple: false,
-                      showUploadMoreButton: false,
-                      showAdvancedOptions: false,
-                      tags: ["student", "avatar"]
-                    }}
-                    onSuccess={handleUploadSuccess}
-                    onError={(error) => {
-                      console.error("Cloudinary upload error:", error);
-                      setPageError(`Upload failed: ${error ? error.toString() : 'Unknown error'}`);
-                    }}
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 disabled:opacity-50"
                   >
-                    {({ open }) => (
-                      <button
-                        type="button"
-                        onClick={() => open()}
-                        className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200"
-                      >
-                        {avatarUrl ? "Change Profile Picture" : "Upload Profile Picture"}
-                      </button>
-                    )}
-                  </CldUploadWidget>
-                ) : (
-                  <p className="text-xs text-gray-500">Profile picture upload not available</p>
+                    {uploading ? "Uploading..." : avatarUrl ? "Change Profile Picture" : "Upload Profile Picture"}
+                  </button>
+                </div>
+                {uploadError && (
+                  <p className="text-xs text-red-500 mt-1">{uploadError}</p>
                 )}
               </div>
               
@@ -496,7 +466,7 @@ export default function StudentCompleteSetupPage() {
                 {completeProfileErrors.email && <p className="text-red-500 text-xs mt-1">{completeProfileErrors.email.message}</p>}
               </div>
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">New Password</label>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Choose Password</label>
                 <Controller
                   name="password"
                   control={completeProfileControl}
@@ -512,7 +482,7 @@ export default function StudentCompleteSetupPage() {
                 {completeProfileErrors.password && <p className="text-red-500 text-xs mt-1">{completeProfileErrors.password.message}</p>}
               </div>
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm Password</label>
                 <Controller
                   name="confirmPassword"
                   control={completeProfileControl}
@@ -533,7 +503,7 @@ export default function StudentCompleteSetupPage() {
                 disabled={isSubmitting}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
               >
-                {isSubmitting ? "Saving Profile..." : "Complete Setup & Save Profile"}
+                {isSubmitting ? "Setting Up..." : "Complete Setup"}
               </button>
             </form>
           </>
@@ -541,4 +511,4 @@ export default function StudentCompleteSetupPage() {
       </div>
     </div>
   );
-} 
+}

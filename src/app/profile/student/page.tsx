@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CldUploadWidget } from "next-cloudinary";
+import { useCloudinaryUpload } from "@/lib/hooks/useCloudinaryUpload";
 
 // Form schema for profile edit
 const profileSchema = z.object({
@@ -40,6 +41,8 @@ export default function StudentProfilePage() {
   const [submitting, setSubmitting] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isCloudinaryConfigured, setIsCloudinaryConfigured] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploading, error: uploadError, uploadImage } = useCloudinaryUpload();
 
   // Profile form
   const { 
@@ -126,9 +129,23 @@ export default function StudentProfilePage() {
   }, [resetProfileForm, router, supabase]);
   
   const handleUploadSuccess = (result: any) => {
-    console.log('Cloudinary upload success:', result);
     if (result.info && result.info.secure_url) {
       setAvatarUrl(result.info.secure_url);
+    }
+  };
+  
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const secureUrl = await uploadImage(file);
+      if (secureUrl) {
+        setAvatarUrl(secureUrl);
+        setError(null);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to upload image");
     }
   };
   
@@ -138,6 +155,13 @@ export default function StudentProfilePage() {
     setError(null);
     
     try {
+      // First get current user to preserve existing metadata
+      const { data: { user: currentAuthUser }, error: getUserError } = await supabase.auth.getUser();
+      
+      if (getUserError) {
+        // Continue with profile update even if we can't get current user
+      }
+      
       // Update student record
       const updateData: any = {
         username: data.username,
@@ -158,21 +182,42 @@ export default function StudentProfilePage() {
         throw profileUpdateError;
       }
       
-      // Update auth user email if changed (non-blocking)
-      if (data.email !== student.email) {
-        try {
-          const { error: authUpdateError } = await supabase.auth.updateUser({
-            email: data.email,
-          });
-          
-          if (authUpdateError) {
-            console.warn("Auth email update failed, but database was updated:", authUpdateError.message);
-            // Don't throw error here, we'll at least update the profile in the database
-          }
-        } catch (authErr) {
-          console.warn("Auth update error:", authErr);
-          // Continue with the flow even if auth update fails
+      // Update auth user with all relevant fields
+      try {
+        if (!currentAuthUser?.id) {
+          throw new Error("User ID not found");
         }
+        
+        // Call our admin API to update the user in Supabase Auth
+        const response = await fetch('/api/auth/update-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: currentAuthUser.id,
+            email: data.email,
+            username: data.username,
+            name: student.name, // Include existing name if available
+            role: 'student'
+          }),
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          // Fall back to regular updateUser if the admin API fails
+          const { error: regularUpdateError } = await supabase.auth.updateUser({
+            email: data.email,
+            data: {
+              username: data.username,
+              name: student.name,
+              role: 'student',
+            }
+          });
+        }
+      } catch (authErr) {
+        // Continue with the flow even if auth update fails
       }
       
       // Update student state
@@ -184,7 +229,6 @@ export default function StudentProfilePage() {
       setSuccessMessage("Profile updated successfully");
       setIsEditing(false);
     } catch (err: any) {
-      console.error("Error updating profile:", err);
       setError(err.message || "Failed to update profile");
     } finally {
       setSubmitting(false);
@@ -347,28 +391,27 @@ export default function StudentProfilePage() {
                   )}
                 </div>
                 
-                {isCloudinaryConfigured && (
-                  <CldUploadWidget
-                    uploadPreset="edcel_profile"
-                    onSuccess={handleUploadSuccess}
-                    options={{
-                      maxFiles: 1,
-                      resourceType: "image",
-                      cloudName: "d1aoqjbds"
-                    }}
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="px-3 py-1.5 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-md hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                   >
-                    {({ open }) => (
-                      <button
-                        type="button"
-                        onClick={() => open()}
-                        className="px-3 py-1.5 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-md hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        Change Photo
-                      </button>
-                    )}
-                  </CldUploadWidget>
-                )}
+                    {uploading ? "Uploading..." : "Change Photo"}
+                  </button>
+                </div>
               </div>
+              {uploadError && (
+                <p className="mt-1 text-xs text-red-500">{uploadError}</p>
+              )}
             </div>
             
             <div>

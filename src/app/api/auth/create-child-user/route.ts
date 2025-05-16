@@ -21,7 +21,10 @@ export async function POST(request: Request) {
       email,
       password,
       email_confirm: true, // Auto-confirm the email since it's a placeholder
-      user_metadata: metadata || {}
+      user_metadata: {
+        role: 'student',
+        ...(metadata || {}) // Include any additional metadata
+      }
     })
     
     if (error) {

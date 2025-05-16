@@ -4,19 +4,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import InputField from "../InputField";
 import Image from "next/image";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState, useRef } from "react";
 import { studentSchema, StudentSchema } from "@/lib/formValidationSchemas";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { CldUploadWidget } from "next-cloudinary";
 import { createStudent, updateStudent } from "@/lib/actions";
+import { useCloudinaryUpload } from "@/lib/hooks/useCloudinaryUpload";
 
 // Check if Cloudinary is configured
 const isCloudinaryConfigured =
   typeof process !== "undefined" &&
-  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME &&
-  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME.length > 0;
+  process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_CLOUD_NAME.length > 0;
 
 const StudentForm = ({
   type,
@@ -38,6 +39,8 @@ const StudentForm = ({
   });
 
   const [img, setImg] = useState<any>();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploading, error: uploadError, uploadImage } = useCloudinaryUpload();
 
   const [state, formAction] = useFormState(
     type === "create" ? createStudent : updateStudent,
@@ -69,6 +72,20 @@ const StudentForm = ({
   }, [state, router, type, setOpen]);
 
   const { grades = [], classes = [] } = relatedData || {};
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const result = await uploadImage(file);
+      if (result) {
+        setImg({ secure_url: result });
+      }
+    } catch (err) {
+      console.error("Image upload failed:", err);
+    }
+  };
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
@@ -106,25 +123,23 @@ const StudentForm = ({
         Personal Information
       </span>
       {isCloudinaryConfigured && (
-        <CldUploadWidget
-          uploadPreset="school"
-          onSuccess={(result, { widget }) => {
-            setImg(result.info);
-            widget.close();
-          }}
-        >
-          {({ open }) => {
-            return (
-              <div
-                className="text-xs text-gray-500 flex items-center gap-2 cursor-pointer"
-                onClick={() => open()}
-              >
-                <Image src="/upload.png" alt="" width={28} height={28} />
-                <span>Upload a photo</span>
-              </div>
-            );
-          }}
-        </CldUploadWidget>
+        <div className="text-xs text-gray-500 flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <div
+            className="flex items-center gap-2 cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Image src="/upload.png" alt="" width={28} height={28} />
+            <span>{uploading ? "Uploading..." : "Upload a photo"}</span>
+          </div>
+          {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+        </div>
       )}
       <div className="flex justify-between flex-wrap gap-4">
         <InputField
