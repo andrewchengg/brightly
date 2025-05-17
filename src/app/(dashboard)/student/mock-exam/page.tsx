@@ -1,10 +1,18 @@
-import React from 'react';
+import { redirect } from "next/navigation";
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
+import MockExamLanding from "@/components/MockExam/MockExamLanding";
 
-export default function MockExam() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Mock Exam</h1>
-      <p>Practice with full-length mock exams to prepare for your assessments.</p>
-    </div>
-  );
-} 
+export default async function MockExamPage() {
+  const supabase = createServerComponentClient({ cookies });
+  
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session || !session.user?.id) {
+    redirect("/sign-in");
+  }
+
+  return <MockExamLanding userId={session.user.id} />;
+}

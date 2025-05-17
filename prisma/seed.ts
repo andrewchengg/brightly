@@ -420,6 +420,116 @@ async function main() {
     });
   }
 
+  // Create a subject
+  const englishSubject = await prisma.subject.create({
+    data: {
+      name: 'English',
+    },
+  });
+
+  // Create some topics
+  const topics = await Promise.all([
+    prisma.topic.create({
+      data: {
+        name: 'Grammar',
+        description: 'English grammar rules and usage',
+        subjectId: englishSubject.id,
+      },
+    }),
+    prisma.topic.create({
+      data: {
+        name: 'Vocabulary',
+        description: 'English vocabulary and word usage',
+        subjectId: englishSubject.id,
+      },
+    }),
+    prisma.topic.create({
+      data: {
+        name: 'Reading Comprehension',
+        description: 'Understanding and analyzing written text',
+        subjectId: englishSubject.id,
+      },
+    }),
+  ]);
+
+  // Create sample questions
+  const questions = await Promise.all([
+    // Grammar questions
+    prisma.question.create({
+      data: {
+        text: 'Which sentence is grammatically correct?',
+        questionType: QuestionType.MULTIPLE_CHOICE,
+        options: ['She dont like ice cream', 'She doesnt likes ice cream', 'She doesn\'t like ice cream', 'She not like ice cream'],
+        correctAnswer: 'She doesn\'t like ice cream',
+        explanation: 'The correct form of the negative present simple with "she" uses "doesn\'t"',
+        difficulty: DifficultyLevel.MEDIUM,
+        subjectId: englishSubject.id,
+        topicId: topics[0].id,
+        pointsAwarded: 1,
+      },
+    }),
+    prisma.question.create({
+      data: {
+        text: 'Choose the correct past tense form:',
+        questionType: QuestionType.MULTIPLE_CHOICE,
+        options: ['I goed to school', 'I gone to school', 'I went to school', 'I going to school'],
+        correctAnswer: 'I went to school',
+        explanation: '"Went" is the correct past tense form of "go"',
+        difficulty: DifficultyLevel.EASY,
+        subjectId: englishSubject.id,
+        topicId: topics[0].id,
+        pointsAwarded: 1,
+      },
+    }),
+    // Vocabulary questions
+    prisma.question.create({
+      data: {
+        text: 'What is the opposite of "happy"?',
+        questionType: QuestionType.MULTIPLE_CHOICE,
+        options: ['Sad', 'Angry', 'Tired', 'Excited'],
+        correctAnswer: 'Sad',
+        explanation: 'The antonym (opposite) of happy is sad',
+        difficulty: DifficultyLevel.EASY,
+        subjectId: englishSubject.id,
+        topicId: topics[1].id,
+        pointsAwarded: 1,
+      },
+    }),
+    prisma.question.create({
+      data: {
+        text: 'Which word means "to move quickly"?',
+        questionType: QuestionType.MULTIPLE_CHOICE,
+        options: ['Crawl', 'Rush', 'Walk', 'Stand'],
+        correctAnswer: 'Rush',
+        explanation: '"Rush" means to move or do something quickly',
+        difficulty: DifficultyLevel.MEDIUM,
+        subjectId: englishSubject.id,
+        topicId: topics[1].id,
+        pointsAwarded: 1,
+      },
+    }),
+    // Reading Comprehension questions
+    prisma.question.create({
+      data: {
+        text: 'What is the main purpose of a topic sentence?',
+        questionType: QuestionType.MULTIPLE_CHOICE,
+        options: [
+          'To end a paragraph',
+          'To provide supporting details',
+          'To introduce the main idea of a paragraph',
+          'To connect to the next paragraph'
+        ],
+        correctAnswer: 'To introduce the main idea of a paragraph',
+        explanation: 'A topic sentence states the main idea of a paragraph',
+        difficulty: DifficultyLevel.MEDIUM,
+        subjectId: englishSubject.id,
+        topicId: topics[2].id,
+        pointsAwarded: 1,
+      },
+    }),
+  ]);
+
+  console.log('Seed data created successfully');
 
   console.log("Seeding completed successfully.");
 }

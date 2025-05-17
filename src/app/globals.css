@@ -142,3 +142,16 @@
   color: gray !important;
   margin-bottom: 5px;
 }
+
+@keyframes spin-counterclockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.animate-spin-counterclockwise {
+  animation: spin-counterclockwise 2s linear infinite;
+}
