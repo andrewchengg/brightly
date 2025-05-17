@@ -1,46 +1,66 @@
 "use client";
 
 import { useUserRole, useSignOut } from "@/app/sign-in/page";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+// Import React Icons
+import { 
+  FaHome, 
+  FaBook, 
+  FaCalendarAlt, 
+  FaFileAlt, 
+  FaChartBar, 
+  FaGift, 
+  FaUserAlt, 
+  FaCog, 
+  FaSignOutAlt,
+  FaChalkboardTeacher,
+  FaUserGraduate,
+  FaUsers,
+  FaBookOpen,
+  FaGraduationCap,
+  FaClipboardList,
+  FaCheckSquare,
+  FaEnvelope,
+  FaBullhorn
+} from "react-icons/fa";
 
 const studentMenuItems = [
   {
     title: "MENU",
     items: [
       {
-        icon: "/home.png",
+        icon: FaHome,
         label: "Home",
         href: "/student",
         visible: ["student"],
       },
       {
-        icon: "/assignment.png",
+        icon: FaBook,
         label: "Practice",
         href: "/student/practice",
         visible: ["student"],
       },
       {
-        icon: "/calendar.png",
+        icon: FaCalendarAlt,
         label: "Weekly Challenge",
         href: "/student/weekly-challenge",
         visible: ["student"],
       },
       {
-        icon: "/exam.png",
+        icon: FaFileAlt,
         label: "Mock Exam",
         href: "/student/mock-exam",
         visible: ["student"],
       },
       {
-        icon: "/result.png",
+        icon: FaChartBar,
         label: "Results",
         href: "/student/results",
         visible: ["student"],
       },
       {
-        icon: "/gift.png",
+        icon: FaGift,
         label: "Rewards",
         href: "/student/rewards",
         visible: ["student"],
@@ -51,19 +71,19 @@ const studentMenuItems = [
     title: "OTHER",
     items: [
       {
-        icon: "/profile.png",
+        icon: FaUserAlt,
         label: "Profile",
         href: "/profile/student",
         visible: ["student"],
       },
       {
-        icon: "/setting.png",
+        icon: FaCog,
         label: "Settings",
         href: "/settings",
         visible: ["student"],
       },
       {
-        icon: "/logout.png",
+        icon: FaSignOutAlt,
         label: "Logout",
         href: "#",
         visible: ["student"],
@@ -78,85 +98,85 @@ const menuItems = [
     title: "MENU",
     items: [
       {
-        icon: "/home.png",
+        icon: FaHome,
         label: "Home",
         href: "/",
         visible: ["admin", "teacher", "parent"],
       },
       {
-        icon: "/teacher.png",
+        icon: FaChalkboardTeacher,
         label: "Teachers",
         href: "/list/teachers",
         visible: ["admin", "teacher"],
       },
       {
-        icon: "/student.png",
+        icon: FaUserGraduate,
         label: "Students",
         href: "/list/students",
         visible: ["admin", "teacher"],
       },
       {
-        icon: "/parent.png",
+        icon: FaUsers,
         label: "Parents",
         href: "/list/parents",
         visible: ["admin", "teacher"],
       },
       {
-        icon: "/subject.png",
+        icon: FaBookOpen,
         label: "Subjects",
         href: "/list/subjects",
         visible: ["admin"],
       },
       {
-        icon: "/class.png",
+        icon: FaGraduationCap,
         label: "Classes",
         href: "/list/classes",
         visible: ["admin", "teacher"],
       },
       {
-        icon: "/lesson.png",
+        icon: FaBook,
         label: "Lessons",
         href: "/list/lessons",
         visible: ["admin", "teacher"],
       },
       {
-        icon: "/exam.png",
+        icon: FaFileAlt,
         label: "Exams",
         href: "/list/exams",
         visible: ["admin", "teacher", "parent"],
       },
       {
-        icon: "/assignment.png",
+        icon: FaClipboardList,
         label: "Assignments",
         href: "/list/assignments",
         visible: ["admin", "teacher", "parent"],
       },
       {
-        icon: "/result.png",
+        icon: FaChartBar,
         label: "Results",
         href: "/list/results",
         visible: ["admin", "teacher", "parent"],
       },
       {
-        icon: "/attendance.png",
+        icon: FaCheckSquare,
         label: "Attendance",
         href: "/list/attendance",
         visible: ["admin", "teacher", "parent"],
       },
       {
-        icon: "/calendar.png",
+        icon: FaCalendarAlt,
         label: "Events",
         href: "/list/events",
         visible: ["admin", "teacher", "parent"],
       },
       {
-        icon: "/message.png",
+        icon: FaEnvelope,
         label: "Messages",
         href: "/list/messages",
         visible: ["admin", "teacher", "parent"],
       },
       {
-        icon: "/announcement.png",
+        icon: FaBullhorn,
         label: "Announcements",
         href: "/list/announcements",
         visible: ["admin", "teacher", "parent"],
@@ -167,19 +187,19 @@ const menuItems = [
     title: "OTHER",
     items: [
       {
-        icon: "/profile.png",
+        icon: FaUserAlt,
         label: "Profile",
-        href: "/profile",
+        href: "/parent/profile",
         visible: ["admin", "teacher", "parent"],
       },
       {
-        icon: "/setting.png",
+        icon: FaCog,
         label: "Settings",
         href: "/settings",
         visible: ["admin", "teacher", "parent"],
       },
       {
-        icon: "/logout.png",
+        icon: FaSignOutAlt,
         label: "Logout",
         href: "#",
         visible: ["admin", "teacher", "parent"],
@@ -239,7 +259,7 @@ const Menu = () => {
                     disabled={isSigningOut}
                     className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md hover:bg-lamaSkyLight w-full"
                   >
-                    <Image src={item.icon} alt="" width={20} height={20} />
+                    <item.icon size={20} />
                     <span className="hidden lg:block">{item.label}</span>
                   </button>
                 );
@@ -251,7 +271,7 @@ const Menu = () => {
                   key={item.label}
                   className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md hover:bg-lamaSkyLight"
                 >
-                  <Image src={item.icon} alt="" width={20} height={20} />
+                  <item.icon size={20} />
                   <span className="hidden lg:block">{item.label}</span>
                 </Link>
               );

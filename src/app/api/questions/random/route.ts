@@ -1,135 +1,129 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { PrismaClient } from '@/generated/prisma';
 
-// Define sample questions (for development only)
-// In production, these should come from your database
-const sampleQuestions = [
-  {
-    id: "1",
-    question: "What is 2 + 2?",
-    options: ["3", "4", "5", "6"],
-    correctAnswer: "4",
-    hint: "It's an even number.",
-    topic: {
-      id: "1",
-      name: "Addition"
+const prisma = new PrismaClient();
+
+// Helper function to ensure options are in the correct format
+function formatOptions(options: any): any {
+  if (!options) return [];
+
+  try {
+    // If options is already parsed (object or array)
+    if (typeof options !== 'string') {
+      // If it's an array, format each option if needed
+      if (Array.isArray(options)) {
+        // Check if options are objects with id and text
+        if (options.length > 0 && typeof options[0] === 'object' && options[0].id) {
+          return options; // Already in correct format
+        }
+        
+        // Convert simple array ["option1", "option2"] to [{id: "a", text: "option1"}, {id: "b", text: "option2"}]
+        return options.map((opt, index) => ({
+          id: String.fromCharCode(97 + index), // a, b, c, d
+          text: typeof opt === 'object' ? JSON.stringify(opt) : String(opt)
+        }));
+      }
+      
+      // If it's an object like {a: "option1", b: "option2"}, convert to array of objects
+      if (typeof options === 'object') {
+        return Object.entries(options).map(([key, value]) => ({
+          id: key,
+          text: typeof value === 'object' ? JSON.stringify(value) : String(value)
+        }));
+      }
+      
+      console.warn("Unknown options format:", options);
+      return [];
     }
-  },
-  {
-    id: "2",
-    question: "What is the capital of France?",
-    options: ["London", "Berlin", "Paris", "Madrid"],
-    correctAnswer: "Paris",
-    hint: "Think of the Eiffel Tower.",
-    topic: {
-      id: "2",
-      name: "Geography"
-    }
-  },
-  {
-    id: "3",
-    question: "What is 5 × 7?",
-    options: ["30", "35", "40", "45"],
-    correctAnswer: "35",
-    hint: "5 × 7 = 5 + 5 + 5 + 5 + 5 + 5 + 5",
-    topic: {
-      id: "1",
-      name: "Multiplication"
-    }
-  },
-  {
-    id: "4",
-    question: "Which planet is known as the Red Planet?",
-    options: ["Earth", "Mars", "Jupiter", "Venus"],
-    correctAnswer: "Mars",
-    hint: "It's named after the Roman god of war.",
-    topic: {
-      id: "2",
-      name: "Science"
-    }
-  },
-  {
-    id: "5",
-    question: "What is 10 ÷ 2?",
-    options: ["4", "5", "6", "7"],
-    correctAnswer: "5",
-    hint: "Think about how many groups of 2 make 10.",
-    topic: {
-      id: "1",
-      name: "Division"
-    }
-  },
-  {
-    id: "6",
-    question: "What is the largest ocean on Earth?",
-    options: ["Atlantic Ocean", "Indian Ocean", "Pacific Ocean", "Arctic Ocean"],
-    correctAnswer: "Pacific Ocean",
-    hint: "It covers more than 30% of Earth's surface.",
-    topic: {
-      id: "2", 
-      name: "Geography"
-    }
-  },
-  {
-    id: "7",
-    question: "What is 3² (3 squared)?",
-    options: ["6", "9", "12", "15"],
-    correctAnswer: "9",
-    hint: "3² means 3 × 3.",
-    topic: {
-      id: "1",
-      name: "Exponents"
-    }
-  },
-  {
-    id: "8",
-    question: "What is the chemical symbol for gold?",
-    options: ["Go", "Gl", "Au", "Ag"],
-    correctAnswer: "Au",
-    hint: "It comes from the Latin word 'aurum'.",
-    topic: {
-      id: "2",
-      name: "Science"
-    }
-  },
-  {
-    id: "9",
-    question: "What is 15 - 7?",
-    options: ["5", "6", "7", "8"],
-    correctAnswer: "8",
-    hint: "Try counting down from 15: 14, 13, ...",
-    topic: {
-      id: "1",
-      name: "Subtraction"
-    }
-  },
-  {
-    id: "10",
-    question: "How many sides does a pentagon have?",
-    options: ["4", "5", "6", "7"],
-    correctAnswer: "5",
-    hint: "'Penta' is a prefix meaning five.",
-    topic: {
-      id: "1",
-      name: "Geometry"
-    }
+    
+    // If options is a string, try to parse it
+    const parsed = JSON.parse(options);
+    return formatOptions(parsed); // Recursively format the parsed result
+  } catch (error) {
+    console.error("Error formatting options:", error);
+    return [];
   }
-];
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const limitParam = searchParams.get('limit');
     const limit = limitParam ? parseInt(limitParam, 10) : 10;
+    const topicId = searchParams.get('topicId');
+    const subjectId = searchParams.get('subjectId');
     
-    // Eventually, this should fetch from your database
-    // For now, using sample data and shuffling it
+    // Build the query with any filters provided
+    const whereClause: any = {};
     
-    // Shuffle the questions array
-    const shuffled = [...sampleQuestions].sort(() => 0.5 - Math.random());
+    if (topicId) {
+      whereClause.topicId = parseInt(topicId, 10);
+    }
     
-    // Get the first 'limit' questions or all if there are fewer
-    const randomQuestions = shuffled.slice(0, Math.min(limit, shuffled.length));
+    if (subjectId) {
+      whereClause.subjectId = parseInt(subjectId, 10);
+    }
+    
+    // Fetch questions from the database
+    const questions = await prisma.question.findMany({
+      where: whereClause,
+      include: {
+        topic: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      take: limit,
+      orderBy: {
+        // Use a random ordering approach
+        id: 'asc' // We'll randomize the results after fetching
+      }
+    });
+    
+    // Shuffle the questions array for randomization
+    const randomQuestions = [...questions]
+      .sort(() => 0.5 - Math.random())
+      .map(q => {
+        // Format options properly based on question's questionType
+        const formattedOptions = formatOptions(q.options);
+        
+        // Format correctAnswer based on options
+        let correctAnswer = q.correctAnswer;
+        
+        // If correctAnswer is a JSON string, parse it
+        if (typeof correctAnswer === 'string' && (
+            correctAnswer.startsWith('{') || 
+            correctAnswer.startsWith('[') ||
+            correctAnswer.startsWith('"')
+          )) {
+          try {
+            correctAnswer = JSON.parse(correctAnswer);
+          } catch (e) {
+            console.warn("Could not parse correctAnswer:", correctAnswer);
+          }
+        }
+
+        // Log for debugging
+        console.log(`Question ${q.id}: options=${JSON.stringify(formattedOptions)}, correctAnswer=${JSON.stringify(correctAnswer)}`);
+        
+        return {
+          id: q.id.toString(),
+          question: q.text,
+          options: formattedOptions,
+          correctAnswer: correctAnswer,
+          hint: q.explanation,
+          difficulty: q.difficulty,
+          topic: {
+            id: q.topic.id.toString(),
+            name: q.topic.name
+          },
+          pointsAwarded: q.pointsAwarded,
+          questionType: q.questionType,
+          imageUrl: q.imageUrl
+        };
+      });
     
     return NextResponse.json(randomQuestions);
   } catch (error: any) {
@@ -138,5 +132,7 @@ export async function GET(request: Request) {
       { error: { message: "Failed to fetch random questions" } },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 } 

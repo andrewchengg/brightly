@@ -83,7 +83,7 @@ export const useSignOut = () => {
 export default function SignInPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -94,10 +94,69 @@ export default function SignInPage() {
     setError(null)
     
     try {
-      const { error: signInError, data } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      // Determine if the identifier is an email or username
+      const isEmail = identifier.includes('@')
+      
+      let signInResponse
+      
+      if (isEmail) {
+        // Sign in using email
+        signInResponse = await supabase.auth.signInWithPassword({
+          email: identifier,
+          password,
+        })
+      } else {
+        // First we need to find the user's email using their username
+        const { data: userData, error: findUserError } = await supabase
+          .from('Student')
+          .select('email')
+          .eq('username', identifier)
+          .single();
+
+        if (findUserError || !userData?.email) {
+          // If not found in Student table, try Parent table
+          const { data: parentData, error: findParentError } = await supabase
+            .from('Parent')
+            .select('email')
+            .eq('username', identifier)
+            .single();
+            
+          if (findParentError || !parentData?.email) {
+            // Try Teacher table as a last resort
+            const { data: teacherData, error: findTeacherError } = await supabase
+              .from('Teacher')
+              .select('email')
+              .eq('username', identifier)
+              .single();
+              
+            if (findTeacherError || !teacherData?.email) {
+              setError("Username not found. Please check your credentials.");
+              setIsLoading(false);
+              return;
+            }
+            
+            // Sign in using teacher email
+            signInResponse = await supabase.auth.signInWithPassword({
+              email: teacherData.email,
+              password,
+            })
+          } else {
+            // Sign in using parent email
+            signInResponse = await supabase.auth.signInWithPassword({
+              email: parentData.email,
+              password,
+            })
+          }
+        } else {
+          // Sign in using student email
+          signInResponse = await supabase.auth.signInWithPassword({
+            email: userData.email,
+            password,
+          })
+        }
+      }
+
+      const { error: signInError, data } = signInResponse
 
       if (signInError) {
         setError(signInError.message)
@@ -150,20 +209,21 @@ export default function SignInPage() {
         <form onSubmit={handleSignIn} className="space-y-6">
           <div>
             <label
-              htmlFor="email"
+              htmlFor="identifier"
               className="block text-sm font-medium text-gray-700"
             >
-              Email address
+              Email or Username
             </label>
             <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
+              id="identifier"
+              name="identifier"
+              type="text"
+              autoComplete="email username"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="Enter your email or username"
             />
           </div>
           <div>

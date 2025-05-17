@@ -58,6 +58,8 @@ export default function ParentChildSetupPage() {
       parentEmail: parentEmail || "",
       parentUsername: "",
       childFullName: "",
+      childUsername: "",
+      childEmail: "",
       childSchoolLevel: undefined, // Or a default like 1
       childSchoolName: "",
     },
@@ -70,6 +72,8 @@ export default function ParentChildSetupPage() {
       parentEmail: parentEmail || "",
       parentUsername: "",
       childFullName: "",
+      childUsername: "",
+      childEmail: "",
       childSchoolLevel: undefined,
       childSchoolName: "",
     })
@@ -126,7 +130,7 @@ export default function ParentChildSetupPage() {
       console.log("Parent details saved/updated for ID:", parentId)
 
       // 2. Generate child's username and PIN
-      const childUsername = generateUsername(data.childFullName);
+      const childUsername = data.childUsername ? data.childUsername : generateUsername(data.childFullName);
       const childPin = generatePin();
       
       // 3. Call API to create child Supabase Auth user
@@ -136,6 +140,7 @@ export default function ParentChildSetupPage() {
         body: JSON.stringify({
           username: childUsername, // Use username instead of email
           password: childPin, // Use the generated PIN
+          email: data.childEmail || data.parentEmail, // Use child's email if provided, otherwise use parent's email
           metadata: {
             role: "student",
             name: data.childFullName,
@@ -186,8 +191,8 @@ export default function ParentChildSetupPage() {
         id: childAuthUser.id, // Supabase Auth ID of the student
         parentId: parentId,
         name: data.childFullName,
-        email: null, // No email initially
-        username: childUsername, // Use the generated username
+        email: data.childEmail || data.parentEmail, // Use child's email if provided, otherwise use parent's
+        username: childUsername, // Use custom or generated username
         schoolLevel: data.childSchoolLevel,
         schoolName: data.childSchoolName || null,
         initialSetupComplete: false, // Child needs to complete setup
@@ -207,11 +212,13 @@ export default function ParentChildSetupPage() {
       setGeneratedChildPin(childPin);
       setChildSetupComplete(true); // To show credentials and dashboard button
       setSuccessMessage("Child account created successfully! Please share the credentials below with your child.");
-      reset({ // Clear child fields, keep parent fields for potential next child? Or clear all.
+      reset({ // Clear child fields, keep parent fields for potential next child
         parentFullName: data.parentFullName,
         parentEmail: data.parentEmail,
         parentUsername: data.parentUsername,
         childFullName: "",
+        childUsername: "",
+        childEmail: "",
         childSchoolLevel: undefined,
         childSchoolName: "",
       });
@@ -359,6 +366,38 @@ export default function ParentChildSetupPage() {
 
               <div className="mt-4">
                 <label
+                  htmlFor="childEmail"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Child&apos;s Email (Optional)
+                </label>
+                <Controller
+                  name="childEmail"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type="email"
+                      id="childEmail"
+                      placeholder="e.g., child@example.com"
+                      className={`mt-1 block w-full px-3 py-2 border ${
+                        errors.childEmail ? "border-red-500" : "border-gray-300"
+                      } rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                    />
+                  )}
+                />
+                {errors.childEmail && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.childEmail.message}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter your child&apos;s email address or leave blank to use your email address as an alternative contact.
+                </p>
+              </div>
+
+              <div className="mt-4">
+                <label
                   htmlFor="childSchoolLevel"
                   className="block text-sm font-medium text-gray-700"
                 >
@@ -414,6 +453,38 @@ export default function ParentChildSetupPage() {
                     />
                   )}
                 />
+              </div>
+
+              <div className="mt-4">
+                <label
+                  htmlFor="childUsername"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Child&apos;s Username (Optional)
+                </label>
+                <Controller
+                  name="childUsername"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type="text"
+                      id="childUsername"
+                      placeholder="Enter custom username or leave blank to generate one"
+                      className={`mt-1 block w-full px-3 py-2 border ${
+                        errors.childUsername ? "border-red-500" : "border-gray-300"
+                      } rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                    />
+                  )}
+                />
+                {errors.childUsername && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.childUsername.message}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Leave blank to automatically generate a username based on child&apos;s name.
+                </p>
               </div>
             </div>
 

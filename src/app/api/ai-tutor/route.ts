@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { getTemporaryApiKey } from './set-key/route';
-import { cookies } from 'next/headers';
 
-// Initialize OpenAI client with API key from environment variable or temp key
+// Initialize OpenAI client with API key from environment variable
 const getOpenAIClient = () => {
-  // Try to get API key from different sources
-  const envApiKey = process.env.OPENAI_API_KEY;
-  const tempApiKey = getTemporaryApiKey();
-  const cookieApiKey = cookies().get('temp_openai_key')?.value;
-  
-  const apiKey = envApiKey || tempApiKey || cookieApiKey;
+  const apiKey = process.env.OPENAI_API_KEY;
   
   if (!apiKey) {
-    throw new Error('OpenAI API key is not set');
+    throw new Error('OpenAI API key is not set in environment variables');
   }
   
   return new OpenAI({
@@ -39,7 +32,7 @@ export async function POST(req: NextRequest) {
       openai = getOpenAIClient();
     } catch (error) {
       return NextResponse.json(
-        { error: 'OpenAI API key not configured. Please set your API key.' },
+        { error: 'OpenAI API key not configured. Please contact administrator.' },
         { status: 500 }
       );
     }
