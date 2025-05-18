@@ -96,234 +96,229 @@ async function main() {
 
   // --- Seed Mathematics Topics ---
   console.log("Seeding Mathematics Topics...");
-  const topicsData = [
-    // Numbers
-    { name: "Whole Numbers", description: "Operations, place value, estimation." },
-    { name: "Fractions", description: "Concepts, equivalent fractions, operations with fractions." },
-    { name: "Decimals", description: "Place value, conversion, operations with decimals." },
-    // Measurements
-    { name: "Mass", description: "Units of mass (kg, g), conversion, problem sums." },
-    { name: "Length", description: "Units of length (km, m, cm), conversion, problem sums." },
-    { name: "Time", description: "Units of time, duration, 24-hour clock, problem sums." },
-    { name: "Money", description: "Counting money, calculations involving money." },
-    { name: "Area & Perimeter", description: "Squares, rectangles, composite figures." },
-    { name: "Volume", description: "Cubes, cuboids, capacity." },
-    // Statistics
-    { name: "Graphs", description: "Bar graphs, line graphs, pictograms." },
-    { name: "Pie Charts", description: "Interpreting pie charts." },
-    { name: "Average", description: "Calculating and interpreting average." },
-    // Geometry
-    { name: "Angles", description: "Types of angles, measuring angles, angles on a straight line, angles at a point." },
-    { name: "Triangles", description: "Types of triangles, properties, sum of angles." },
-    { name: "4-sided Figures", description: "Properties of squares, rectangles, parallelograms, rhombuses, trapeziums." },
-    // { name: "Construction", description: "Constructing geometric figures." }, // Construction might be hard to represent in MCQ/TF
-    { name: "Symmetry", description: "Line symmetry, rotational symmetry." },
-    // Ratio & Percentage
-    { name: "Ratio", description: "Concept of ratio, equivalent ratios, problem sums." },
-    { name: "Proportion", description: "Direct and inverse proportion." }, // Usually under Ratio or as a separate advanced topic
-    { name: "Percentage", description: "Converting between fractions, decimals, and percentages; percentage of a quantity; percentage increase/decrease." },
-    // Rate & Speed
-    { name: "Rate & Speed", description: "Distance, time, speed calculations." }, // Combined for simplicity
-    // Algebra
-    { name: "Algebraic Expressions", description: "Forming and simplifying algebraic expressions." },
-  ];
-
-  const createdTopics = {};
-  for (const topic of topicsData) {
-    const newTopic = await prisma.topic.create({
+  const topics = await Promise.all([
+    prisma.topic.create({
       data: {
-        name: topic.name,
-        description: topic.description,
+        name: 'Numbers and Operations',
+        description: 'Whole numbers, fractions, decimals, and basic operations',
         subjectId: mathSubject.id,
       },
-    });
-    createdTopics[topic.name] = newTopic.id;
-  }
+    }),
+    prisma.topic.create({
+      data: {
+        name: 'Geometry',
+        description: 'Angles, shapes, area, and perimeter',
+        subjectId: mathSubject.id,
+      },
+    }),
+    prisma.topic.create({
+      data: {
+        name: 'Measurement',
+        description: 'Length, mass, volume, and time',
+        subjectId: mathSubject.id,
+      },
+    }),
+    prisma.topic.create({
+      data: {
+        name: 'Statistics',
+        description: 'Data handling and analysis',
+        subjectId: mathSubject.id,
+      },
+    }),
+    prisma.topic.create({
+      data: {
+        name: 'Algebra',
+        description: 'Basic algebraic expressions and solving equations',
+        subjectId: mathSubject.id,
+      },
+    }),
+    prisma.topic.create({
+      data: {
+        name: 'Ratio and Proportion',
+        description: 'Direct and inverse proportion, ratios',
+        subjectId: mathSubject.id,
+      },
+    }),
+  ]);
   console.log("Mathematics Topics seeded.");
 
   // --- Seed Sample Mathematics Questions ---
   console.log("Seeding Sample Mathematics Questions...");
 
-  // Category: Numbers - Whole Numbers
-  await prisma.question.create({
-    data: {
-      text: "What is the value of the digit 7 in the number 57,321?",
+  // Sample questions for each topic
+  const questions = [
+    // Numbers and Operations
+    {
+      text: 'What is the value of 3/4 + 2/5 expressed as a decimal?',
       questionType: QuestionType.MULTIPLE_CHOICE,
       options: [
-        { id: "a", text: "70" },
-        { id: "b", text: "700" },
-        { id: "c", text: "7000" },
-        { id: "d", text: "70000" },
+        { id: 'a', text: '0.95' },
+        { id: 'b', text: '1.15' },
+        { id: 'c', text: '0.85' },
+        { id: 'd', text: '1.05' },
       ],
-      correctAnswer: ["c"],
-      explanation: "The digit 7 is in the thousands place, so its value is 7000.",
-      difficulty: DifficultyLevel.EASY,
-      pointsAwarded: 5,
-      subjectId: mathSubject.id,
-      topicId: createdTopics["Whole Numbers"],
-      tags: ["Place Value"],
-    },
-  });
-
-  await prisma.question.create({
-    data: {
-      text: "Round off 48,567 to the nearest hundred.",
-      questionType: QuestionType.MULTIPLE_CHOICE,
-      options: [
-        { id: "a", text: "48,500" },
-        { id: "b", text: "48,600" },
-        { id: "c", text: "49,000" },
-        { id: "d", text: "48,570" },
-      ],
-      correctAnswer: ["b"],
-      explanation: "The digit in the tens place is 6, which is 5 or greater, so we round up the hundreds digit. 48,567 rounded to the nearest hundred is 48,600.",
-      difficulty: DifficultyLevel.EASY,
-      pointsAwarded: 5,
-      subjectId: mathSubject.id,
-      topicId: createdTopics["Whole Numbers"],
-      tags: ["Rounding"],
-    },
-  });
-
-  // Category: Numbers - Fractions
-  await prisma.question.create({
-    data: {
-      text: "What is 2/5 + 1/3?",
-      questionType: QuestionType.MULTIPLE_CHOICE,
-      options: [
-        { id: "a", text: "3/8" },
-        { id: "b", text: "11/15" },
-        { id: "c", text: "3/15" },
-        { id: "d", text: "2/15" },
-      ],
-      correctAnswer: ["b"],
-      explanation: "To add fractions, find a common denominator. The common denominator for 5 and 3 is 15. (2/5) * (3/3) = 6/15. (1/3) * (5/5) = 5/15. 6/15 + 5/15 = 11/15.",
+      correctAnswer: 'b',
+      explanation: 'Convert 3/4 = 0.75 and 2/5 = 0.4, then add: 0.75 + 0.4 = 1.15',
       difficulty: DifficultyLevel.MEDIUM,
-      pointsAwarded: 10,
+      topicId: topics[0].id,
       subjectId: mathSubject.id,
-      topicId: createdTopics["Fractions"],
-      tags: ["Addition", "Unlike Denominators"],
+      pointsAwarded: 2,
     },
-  });
-  
-  await prisma.question.create({
-    data: {
-      text: "Mary had 20 sweets. She gave 1/4 of them to her brother. How many sweets did her brother receive?",
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: "5", // Can also be an array of acceptable string variations
-      explanation: "1/4 of 20 is (1/4) * 20 = 20/4 = 5 sweets.",
-      difficulty: DifficultyLevel.EASY,
-      pointsAwarded: 10,
-      subjectId: mathSubject.id,
-      topicId: createdTopics["Fractions"],
-      tags: ["Fraction of a Quantity"],
-    },
-  });
-
-  // Category: Measurements - Area & Perimeter
-  await prisma.question.create({
-    data: {
-      text: "A rectangle has a length of 8 cm and a width of 5 cm. What is its perimeter?",
+    {
+      text: 'If 5x + 3 = 28, what is the value of x?',
       questionType: QuestionType.MULTIPLE_CHOICE,
       options: [
-        { id: "a", text: "13 cm" },
-        { id: "b", text: "26 cm" },
-        { id: "c", text: "40 cm" },
-        { id: "d", text: "30 cm" },
+        { id: 'a', text: '5' },
+        { id: 'b', text: '6' },
+        { id: 'c', text: '7' },
+        { id: 'd', text: '8' },
       ],
-      correctAnswer: ["b"],
-      explanation: "Perimeter of a rectangle = 2 * (length + width) = 2 * (8 + 5) = 2 * 13 = 26 cm.",
-      difficulty: DifficultyLevel.EASY,
-      pointsAwarded: 10,
-      subjectId: mathSubject.id,
-      topicId: createdTopics["Area & Perimeter"],
-      tags: ["Perimeter", "Rectangle"],
-    },
-  });
-
-  // Category: Statistics - Average
-   await prisma.question.create({
-    data: {
-      text: "The average mass of 3 boys is 45 kg. A fourth boy with a mass of 53 kg joins the group. What is the new average mass of the 4 boys?",
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: "47", // or "47 kg"
-      explanation: "Total mass of 3 boys = 3 * 45 = 135 kg. Total mass of 4 boys = 135 + 53 = 188 kg. New average mass = 188 / 4 = 47 kg.",
+      correctAnswer: 'a',
+      explanation: 'Subtract 3 from both sides: 5x = 25, then divide by 5: x = 5',
       difficulty: DifficultyLevel.MEDIUM,
-      pointsAwarded: 15,
+      topicId: topics[4].id,
       subjectId: mathSubject.id,
-      topicId: createdTopics["Average"],
-      tags: ["Average", "Problem Sum"],
+      pointsAwarded: 2,
     },
-  });
-
-  // Category: Geometry - Angles
-  await prisma.question.create({
-    data: {
-      text: "In the figure, ABC is a straight line. Find angle x.",
-      questionType: QuestionType.OPEN_ENDED,
-      // Assume an image would show angle ABD = 70 degrees, angle DBC = x
-      imageUrl: "/sample_angle_question.png", // You'd need to host this image
-      correctAnswer: "110", // or "110°"
-      explanation: "Angles on a straight line add up to 180°. So, x = 180° - 70° = 110°.",
-      difficulty: DifficultyLevel.EASY,
-      pointsAwarded: 10,
-      subjectId: mathSubject.id,
-      topicId: createdTopics["Angles"],
-      tags: ["Angles on a straight line"],
-    },
-  });
-  
-  // Category: Ratio & Percentage - Percentage
-  await prisma.question.create({
-    data: {
-      text: "There are 40 pupils in a class. 60% of them are girls. How many boys are there in the class?",
+    {
+      text: 'A rectangle has a length of 8 cm and a width of 5 cm. What is its area?',
       questionType: QuestionType.MULTIPLE_CHOICE,
       options: [
-        { id: "a", text: "16" },
-        { id: "b", text: "24" },
-        { id: "c", text: "10" },
-        { id: "d", text: "20" },
+        { id: 'a', text: '26 cm²' },
+        { id: 'b', text: '40 cm²' },
+        { id: 'c', text: '13 cm²' },
+        { id: 'd', text: '36 cm²' },
       ],
-      correctAnswer: ["a"],
-      explanation: "Percentage of boys = 100% - 60% = 40%. Number of boys = 40% of 40 = (40/100) * 40 = 16.",
-      difficulty: DifficultyLevel.MEDIUM,
-      pointsAwarded: 10,
-      subjectId: mathSubject.id,
-      topicId: createdTopics["Percentage"],
-      tags: ["Percentage", "Problem Sum"],
-    },
-  });
-
-  // Category: Rate & Speed
-  await prisma.question.create({
-    data: {
-      text: "A car travels at a speed of 60 km/h. How far will it travel in 2.5 hours?",
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: "150", // or "150 km"
-      explanation: "Distance = Speed × Time. Distance = 60 km/h × 2.5 h = 150 km.",
-      difficulty: DifficultyLevel.MEDIUM,
-      pointsAwarded: 10,
-      subjectId: mathSubject.id,
-      topicId: createdTopics["Rate & Speed"],
-      tags: ["Distance", "Speed", "Time"],
-    },
-  });
-
-  // Category: Algebra - Algebraic Expressions
-  await prisma.question.create({
-    data: {
-      text: "Simplify the expression: 3y + 7 - y + 2",
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: "2y + 9",
-      explanation: "Combine like terms: (3y - y) + (7 + 2) = 2y + 9.",
+      correctAnswer: 'b',
+      explanation: 'Area of rectangle = length × width = 8 × 5 = 40 cm²',
       difficulty: DifficultyLevel.EASY,
-      pointsAwarded: 5,
+      topicId: topics[1].id,
       subjectId: mathSubject.id,
-      topicId: createdTopics["Algebraic Expressions"],
-      tags: ["Simplification"],
+      pointsAwarded: 1,
     },
-  });
+    {
+      text: 'The ratio of boys to girls in a class is 3:4. If there are 28 girls, how many boys are there?',
+      questionType: QuestionType.MULTIPLE_CHOICE,
+      options: [
+        { id: 'a', text: '21' },
+        { id: 'b', text: '24' },
+        { id: 'c', text: '18' },
+        { id: 'd', text: '37' },
+      ],
+      correctAnswer: 'a',
+      explanation: 'If 4 parts = 28 girls, then 1 part = 7. Therefore, 3 parts (boys) = 21',
+      difficulty: DifficultyLevel.MEDIUM,
+      topicId: topics[5].id,
+      subjectId: mathSubject.id,
+      pointsAwarded: 2,
+    },
+    {
+      text: 'The mean of five numbers is 12. If four of the numbers are 10, 15, 8, and 13, what is the fifth number?',
+      questionType: QuestionType.MULTIPLE_CHOICE,
+      options: [
+        { id: 'a', text: '14' },
+        { id: 'b', text: '12' },
+        { id: 'c', text: '16' },
+        { id: 'd', text: '10' },
+      ],
+      correctAnswer: 'a',
+      explanation: 'Sum = Mean × Count = 12 × 5 = 60. Sum of known numbers = 46. Therefore, fifth number = 60 - 46 = 14',
+      difficulty: DifficultyLevel.HARD,
+      topicId: topics[3].id,
+      subjectId: mathSubject.id,
+      pointsAwarded: 3,
+    },
+    {
+      text: 'A container can hold 2.5 litres of water. How many millilitres is this?',
+      questionType: QuestionType.MULTIPLE_CHOICE,
+      options: [
+        { id: 'a', text: '250 ml' },
+        { id: 'b', text: '2500 ml' },
+        { id: 'c', text: '25 ml' },
+        { id: 'd', text: '25000 ml' },
+      ],
+      correctAnswer: 'b',
+      explanation: '1 litre = 1000 millilitres, so 2.5 litres = 2.5 × 1000 = 2500 millilitres',
+      difficulty: DifficultyLevel.EASY,
+      topicId: topics[2].id,
+      subjectId: mathSubject.id,
+      pointsAwarded: 1,
+    },
+    {
+      text: 'What is the perimeter of a square with an area of 36 cm²?',
+      questionType: QuestionType.MULTIPLE_CHOICE,
+      options: [
+        { id: 'a', text: '36 cm' },
+        { id: 'b', text: '24 cm' },
+        { id: 'c', text: '18 cm' },
+        { id: 'd', text: '12 cm' },
+      ],
+      correctAnswer: 'b',
+      explanation: 'Area = side², so side = √36 = 6 cm. Perimeter = 4 × side = 4 × 6 = 24 cm',
+      difficulty: DifficultyLevel.MEDIUM,
+      topicId: topics[1].id,
+      subjectId: mathSubject.id,
+      pointsAwarded: 2,
+    },
+    {
+      text: 'If 3a + 2b = 20 and a = 4, what is the value of b?',
+      questionType: QuestionType.MULTIPLE_CHOICE,
+      options: [
+        { id: 'a', text: '4' },
+        { id: 'b', text: '5' },
+        { id: 'c', text: '6' },
+        { id: 'd', text: '7' },
+      ],
+      correctAnswer: 'a',
+      explanation: 'Substitute a = 4: 3(4) + 2b = 20, 12 + 2b = 20, 2b = 8, b = 4',
+      difficulty: DifficultyLevel.MEDIUM,
+      topicId: topics[4].id,
+      subjectId: mathSubject.id,
+      pointsAwarded: 2,
+    },
+    {
+      text: 'A shop sells notebooks at $2 each. If you buy 5 notebooks, you get a 10% discount on the total price. How much would you pay for 5 notebooks?',
+      questionType: QuestionType.MULTIPLE_CHOICE,
+      options: [
+        { id: 'a', text: '$9.00' },
+        { id: 'b', text: '$9.50' },
+        { id: 'c', text: '$8.50' },
+        { id: 'd', text: '$9.25' },
+      ],
+      correctAnswer: 'a',
+      explanation: 'Original price = 5 × $2 = $10. Discount = 10% of $10 = $1. Final price = $10 - $1 = $9',
+      difficulty: DifficultyLevel.MEDIUM,
+      topicId: topics[0].id,
+      subjectId: mathSubject.id,
+      pointsAwarded: 2,
+    },
+    {
+      text: 'The bar graph shows the number of ice creams sold each day from Monday to Friday. If the mean number of ice creams sold per day is 30, how many ice creams were sold on Friday?',
+      questionType: QuestionType.MULTIPLE_CHOICE,
+      options: [
+        { id: 'a', text: '35' },
+        { id: 'b', text: '40' },
+        { id: 'c', text: '45' },
+        { id: 'd', text: '50' },
+      ],
+      correctAnswer: 'c',
+      explanation: 'If Mon=20, Tue=25, Wed=30, Thu=15, and mean=30, then: (20+25+30+15+x)/5 = 30, so x = 45',
+      difficulty: DifficultyLevel.HARD,
+      topicId: topics[3].id,
+      subjectId: mathSubject.id,
+      pointsAwarded: 3,
+    },
+  ];
 
+  // Create all questions
+  for (const question of questions) {
+    await prisma.question.create({
+      data: {
+        ...question,
+        tags: ['PSLE', 'Mathematics'],
+      },
+    });
+  }
 
   console.log("Sample Mathematics Questions seeded.");
 
@@ -397,7 +392,7 @@ async function main() {
 
   // --- Seed some assignments and exams (simplified) ---
   console.log("Seeding Assignments and Exams...");
-  const firstTopicId = createdTopics["Whole Numbers"];
+  const firstTopicId = topics[0].id;
   if (firstTopicId) {
     await prisma.assignment.create({
       data: {

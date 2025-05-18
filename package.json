@@ -10,6 +10,9 @@
     "seed": "node prisma/seed.js",
     "create-admin": "node src/scripts/create-admin-account.js"
   },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
     "@prisma/client": "^6.7.0",

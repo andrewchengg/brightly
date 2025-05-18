@@ -257,7 +257,7 @@ const Menu = () => {
                     key={item.label}
                     onClick={handleSignOut}
                     disabled={isSigningOut}
-                    className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md hover:bg-lamaSkyLight w-full"
+                    className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md hover:bg-blue-50 hover:text-blue-600 hover:translate-x-1 transition-all duration-200 w-full active:bg-blue-100"
                   >
                     <item.icon size={20} />
                     <span className="hidden lg:block">{item.label}</span>
@@ -269,7 +269,7 @@ const Menu = () => {
                 <Link
                   href={item.href}
                   key={item.label}
-                  className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md hover:bg-lamaSkyLight"
+                  className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md hover:bg-blue-50 hover:text-blue-600 hover:translate-x-1 transition-all duration-200 active:bg-blue-100"
                 >
                   <item.icon size={20} />
                   <span className="hidden lg:block">{item.label}</span>

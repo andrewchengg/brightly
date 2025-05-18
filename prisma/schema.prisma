@@ -160,6 +160,8 @@ model Question {
   subject        Subject         @relation("SubjectQuestions", fields: [subjectId], references: [id])
   topic          Topic           @relation(fields: [topicId], references: [id])
   studentAnswers StudentAnswer[]
+
+  @@unique([text, topicId, subjectId])
 }
 
 model PracticeSession {
@@ -182,13 +184,16 @@ model PracticeSession {
   xpEarned            Int                   @default(0)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
+  examDurationMinutes Int?
+  type                PracticeSessionType   @default(PRACTICE)
   assignedByParent    Parent?               @relation("AssignedSessionsByParent", fields: [assignedByParentId], references: [id])
   assignedByTeacher   Teacher?              @relation("AssignedSessionsByTeacher", fields: [assignedByTeacherId], references: [id])
   basedOnAssignment   Assignment?           @relation("PracticeSessionsForAssignment", fields: [basedOnAssignmentId], references: [id])
   basedOnExam         Exam?                 @relation("PracticeSessionsForExam", fields: [basedOnExamId], references: [id])
-  student             Student               @relation(fields: [studentId], references: [id])
+  student             Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
   subject             Subject?              @relation("SubjectPracticeSessions", fields: [subjectId], references: [id])
   topic               Topic?                @relation(fields: [topicId], references: [id])
+  Result              Result?
   studentAnswers      StudentAnswer[]
 }
 
@@ -220,7 +225,6 @@ model Exam {
   subject          Subject?          @relation("SubjectExams", fields: [subjectId], references: [id])
   topic            Topic?            @relation("TopicExams", fields: [topicId], references: [id])
   practiceSessions PracticeSession[] @relation("PracticeSessionsForExam")
-  results          Result[]
 }
 
 model Assignment {
@@ -235,18 +239,16 @@ model Assignment {
   subject          Subject?          @relation("SubjectAssignments", fields: [subjectId], references: [id])
   topic            Topic?            @relation("TopicAssignments", fields: [topicId], references: [id])
   practiceSessions PracticeSession[] @relation("PracticeSessionsForAssignment")
-  results          Result[]
 }
 
 model Result {
-  id           Int         @id @default(autoincrement())
-  score        Int
-  examId       Int?
-  assignmentId Int?
-  studentId    String
-  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  exam         Exam?       @relation(fields: [examId], references: [id], onDelete: Cascade)
-  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id                Int             @id @default(autoincrement())
+  score             Int
+  studentId         String
+  practiceSessionId String          @unique
+  submittedAt       DateTime        @default(now())
+  PracticeSession   PracticeSession @relation(fields: [practiceSessionId], references: [id], onDelete: Cascade)
+  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model Attendance {
@@ -327,4 +329,10 @@ enum PracticeSessionStatus {
   IN_PROGRESS
   COMPLETED
   PAUSED
+}
+
+enum PracticeSessionType {
+  PRACTICE
+  MOCK_EXAM
+  ASSIGNMENT_ATTEMPT
 }

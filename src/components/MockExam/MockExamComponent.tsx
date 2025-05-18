@@ -18,6 +18,7 @@ interface Question {
   correctAnswer: string | string[];
   topicName: string;
   questionType: string;
+  pointsAwarded: number;
   topic: {
     id: string;
     name: string;
@@ -62,16 +63,33 @@ interface Result {
   submittedAt: string;
 }
 
+interface PracticeSession {
+  id: string;
+  studentId: string;
+  title: string;
+  status: 'NOT_STARTED' | 'STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED';
+  startTime: Date;
+  endTime?: Date;
+  durationSeconds: number;
+  score?: number;
+  totalQuestions: number;
+  correctAnswers?: number;
+  xpEarned: number;
+}
+
 export default function MockExamComponent({ userId, examDurationMinutes }: MockExamComponentProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string | null>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [examStarted, setExamStarted] = useState(false);
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(examDurationMinutes * 60);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPracticeSessionId, setCurrentPracticeSessionId] = useState<string | null>(null);
+  const [totalMarks, setTotalMarks] = useState(0);
+  const [startTime, setStartTime] = useState<Date | null>(null);
   
   const router = useRouter();
   const supabase = createClientComponentClient();
@@ -79,8 +97,9 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
 
+  // Timer effect - only start when exam has started
   useEffect(() => {
-    if (timeRemaining <= 0 || examSubmitted) return;
+    if (!examStarted || timeRemaining <= 0 || examSubmitted) return;
 
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
@@ -94,40 +113,34 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeRemaining, examSubmitted]);
+  }, [examStarted, timeRemaining, examSubmitted]);
 
-  // Initial data fetching effect
+  // Initial data fetching effect - runs immediately
   useEffect(() => {
-    const initializeExam = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        console.log("Initializing mock exam for user:", userId);
-        
-        if (!userId) {
-          setError("User ID is missing. Please try logging in again.");
-          setIsLoading(false);
-          return;
-        }
-        
-        // Fetch questions
-        try {
-          await fetchQuestions();
-        } catch (questionError: any) {
-          console.error("Error fetching questions:", questionError);
-          setError("Failed to load questions: " + (questionError.message || "Unknown error"));
-          setIsLoading(false);
-        }
-      } catch (error: any) {
-        console.error("Error initializing exam:", error);
-        setError("Failed to initialize exam: " + (error.message || "Unknown error"));
-        setIsLoading(false);
-      }
-    };
-
     initializeExam();
   }, []);
+
+  const initializeExam = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      console.log("Initializing mock exam for user:", userId);
+      
+      if (!userId) {
+        setError("User ID is missing. Please try logging in again.");
+        setIsLoading(false);
+        return;
+      }
+      
+      await fetchQuestions();
+    } catch (error: any) {
+      console.error("Error initializing exam:", error);
+      setError("Failed to initialize exam: " + (error.message || "Unknown error"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -201,6 +214,11 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
       }
       
       console.log(`Loaded ${randomQuestions.length} questions`);
+      
+      // Calculate total marks
+      const total = randomQuestions.reduce((sum: number, q: Question) => sum + (q.pointsAwarded || 0), 0);
+      setTotalMarks(total);
+      
       setQuestions(randomQuestions);
       setIsLoading(false);
     } catch (error: any) {
@@ -231,80 +249,130 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
     }
   };
 
+  const handleStartExam = async () => {
+    const examStartTime = new Date();
+    setStartTime(examStartTime);
+    setExamStarted(true);
+
+    try {
+      // Create a new practice session when exam starts
+      const response = await fetch('/api/practice-sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studentId: userId,
+          title: `Mock Exam - ${new Date().toLocaleDateString()}`,
+          status: 'STARTED',
+          startTime: examStartTime.toISOString(),
+          durationSeconds: examDurationMinutes * 60,
+          totalQuestions: questions.length,
+          xpEarned: 0
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create practice session');
+      }
+
+      const session = await response.json();
+      setCurrentPracticeSessionId(session.id);
+    } catch (error) {
+      console.error('Error creating practice session:', error);
+      // Continue with exam even if session creation fails
+    }
+  };
+
   const handleSubmit = async () => {
     if (examSubmitted || isSubmitting) return;
     
     setIsSubmitting(true);
+    const endTime = new Date();
     
     try {
-      // Calculate correct answers
+      // Calculate correct answers and score
       let correctAnswersCount = 0;
+      let totalScore = 0;
+      
       questions.forEach(q => {
-        const selectedOptionId = answers[q.id]; // q.id is number
+        const selectedOptionId = answers[q.id];
         
-        // Handle different question types for scoring
         if (q.questionType === 'MULTIPLE_CHOICE' && selectedOptionId) {
           if (typeof q.correctAnswer === 'string' && selectedOptionId === q.correctAnswer) {
             correctAnswersCount++;
+            totalScore += q.pointsAwarded;
           } else if (Array.isArray(q.correctAnswer) && q.correctAnswer.includes(selectedOptionId)) {
             correctAnswersCount++;
+            totalScore += q.pointsAwarded;
           }
         }
-        // Add logic for other question types if needed
       });
 
-      const calculatedScore = correctAnswersCount;
-      
-      console.log('Submitting exam results:', {
-        studentId: userId,
-        practiceSessionId: currentPracticeSessionId,
-        score: calculatedScore,
-        answers
-      });
-      
+      // Calculate XP earned (example: 10 XP per correct answer)
+      const xpEarned = correctAnswersCount * 10;
+
+      if (currentPracticeSessionId) {
+        try {
+          // Update the practice session
+          const response = await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              status: 'COMPLETED',
+              endTime: endTime.toISOString(),
+              score: totalScore,
+              correctAnswers: correctAnswersCount,
+              xpEarned
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update practice session');
+          }
+        } catch (error) {
+          console.error('Error updating practice session:', error);
+          // Store results locally as backup
+          localStorage.setItem(`mockExamResult_${currentPracticeSessionId}`, JSON.stringify({
+            studentId: userId,
+            endTime: endTime.toISOString(),
+            score: totalScore,
+            correctAnswers: correctAnswersCount,
+            answers,
+            xpEarned
+          }));
+        }
+      }
+
+      // Create student answers records
       try {
-        // Create a result record using Prisma API instead of direct Supabase access
-        const response = await fetch('/api/results', {
+        const studentAnswers = Object.entries(answers).map(([questionId, answerId]) => ({
+          practiceSessionId: currentPracticeSessionId,
+          questionId: parseInt(questionId),
+          submittedAnswer: answerId,
+          isCorrect: questions.find(q => q.id === parseInt(questionId))?.correctAnswer === answerId,
+          pointsEarned: questions.find(q => q.id === parseInt(questionId))?.pointsAwarded || 0,
+          attemptedAt: new Date().toISOString()
+        }));
+
+        await fetch('/api/student-answers', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            studentId: userId,
-            practiceSessionId: currentPracticeSessionId,
-            score: calculatedScore,
-            answers,
-            submittedAt: new Date().toISOString(),
-          }),
+          body: JSON.stringify(studentAnswers),
         });
-        
-        if (!response.ok) {
-          // If API fails, store results locally
-          console.warn('Error saving results to database, storing locally');
-          localStorage.setItem(`mockExamResult_${userId}_${Date.now()}`, JSON.stringify({
-            studentId: userId,
-            score: calculatedScore,
-            answers,
-            submittedAt: new Date().toISOString(),
-          }));
-        }
-      } catch (resultError) {
-        console.error('Error creating result record:', resultError);
-        // Store results locally if API fails
-        localStorage.setItem(`mockExamResult_${userId}_${Date.now()}`, JSON.stringify({
-          studentId: userId,
-          score: calculatedScore,
-          answers,
-          submittedAt: new Date().toISOString(),
-        }));
+      } catch (error) {
+        console.error('Error saving student answers:', error);
       }
 
-      console.log('Exam submitted successfully, redirecting to results page');
       setExamSubmitted(true);
-      router.push('/(dashboard)/student/results');
+      router.push('/student/results');
     } catch (error: any) {
       console.error('Error submitting exam:', error.message || error);
-      setError('Failed to submit exam. Please try again. Error: ' + (error.message || 'Unknown error'));
+      setError('Failed to submit exam. Please try again.');
       setExamSubmitted(false);
     } finally {
       setIsSubmitting(false);
@@ -315,45 +383,123 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
     if (examSubmitted) return;
     
     try {
-      console.log('Cancelling exam...');
-      
-      // Don't try to update the session with an API call
-      // Just store the cancellation locally
       if (currentPracticeSessionId) {
-        localStorage.setItem(`cancelledExam_${currentPracticeSessionId}`, JSON.stringify({
-          status: 'CANCELLED',
-          cancelledAt: new Date().toISOString()
-        }));
-        console.log('Exam cancellation stored locally');
-      } else {
-        console.warn('No practice session ID found when cancelling');
+        // Update practice session status to CANCELLED
+        await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status: 'PAUSED',
+            endTime: new Date().toISOString()
+          }),
+        });
       }
       
-      router.push('/(dashboard)/student');
+      router.push('/student');
     } catch (error: any) {
-      console.error('Error canceling exam:', error.message || error);
-      // Even if there's an error, navigate back
-      router.push('/(dashboard)/student');
+      console.error('Error canceling exam:', error);
+      router.push('/student');
     }
   };
 
   if (isLoading) {
-    return <div className="text-center p-4">Loading questions...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg">
+          <h2 className="text-2xl font-bold mb-4">Preparing Your Mock Exam</h2>
+          <p className="text-gray-600 mb-4">Loading questions...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="text-center p-4 text-red-600">
-        {error}
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-lg">
+          <h2 className="text-xl font-bold mb-4 text-red-600">{error}</h2>
+          <button
+            onClick={() => router.push('/student')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Return to Dashboard
+          </button>
+        </div>
       </div>
     );
   }
 
   if (questions.length === 0) {
     return (
-      <div className="text-center p-4">
-        <p className="text-lg mb-4">No questions available.</p>
-        <p className="text-gray-600">Please contact your teacher to add some questions to the question bank.</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg">
+          <p className="text-lg mb-4">No questions available.</p>
+          <p className="text-gray-600 mb-4">Please contact your teacher to add some questions to the question bank.</p>
+          <button
+            onClick={() => router.push('/student')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show landing page if exam hasn't started
+  if (!examStarted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-2xl w-full">
+          <h1 className="text-3xl font-bold mb-6">Mock Exam</h1>
+          <div className="mb-8 text-left">
+            <div className="bg-blue-50 p-6 rounded-lg mb-6">
+              <h2 className="text-xl font-semibold mb-4">Exam Details</h2>
+              <ul className="space-y-3">
+                <li className="flex justify-between">
+                  <span className="text-gray-600">Duration:</span>
+                  <span className="font-medium">{examDurationMinutes} minutes</span>
+                </li>
+                <li className="flex justify-between">
+                  <span className="text-gray-600">Number of Questions:</span>
+                  <span className="font-medium">{questions.length}</span>
+                </li>
+                <li className="flex justify-between">
+                  <span className="text-gray-600">Total Marks:</span>
+                  <span className="font-medium">{totalMarks}</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div className="bg-yellow-50 p-6 rounded-lg">
+              <h2 className="text-xl font-semibold mb-4">Instructions</h2>
+              <ul className="list-disc list-inside space-y-2 text-gray-700">
+                <li>Read each question carefully before answering</li>
+                <li>Do not use a calculator when attempting this examination paper.</li>
+                <li>The examination will auto-submit when time expires</li>
+                <li>Click "Start Exam" when you're ready to begin</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => router.push('/student')}
+              className="px-8 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleStartExam}
+              className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Start Exam
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -374,7 +520,7 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
           <div>
             <h2 className="text-xl font-semibold">Mock Exam</h2>
             <p className="text-sm text-gray-600">
-              Question {currentQuestionIndex + 1} of {questions.length}
+              Question {currentQuestionIndex + 1} of {questions.length} | Total Marks: {totalMarks}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -392,12 +538,19 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
 
         <div className="bg-white shadow-lg rounded-lg mb-6 flex-1">
           <div className="p-6">
-            <h3 className="text-lg font-medium mb-4">
-              {currentQuestion.text}
-            </h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Topic: {currentQuestion.topicName || currentQuestion.topic?.name || 'General'}
-            </p>
+            <div className="mb-6">
+              <h3 className="text-xl font-medium mb-4">
+                {currentQuestion.question}
+              </h3>
+              <div className="flex justify-between items-center mb-6">
+                <p className="text-sm text-gray-600">
+                  Topic: {currentQuestion.topicName || currentQuestion.topic?.name || 'General'}
+                </p>
+                <p className="text-sm font-medium text-blue-600">
+                  [{currentQuestion.pointsAwarded} Marks]
+                </p>
+              </div>
+            </div>
 
             {isOpenEndedQuestion ? (
               // Open-ended question input

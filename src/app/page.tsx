@@ -23,7 +23,7 @@ const Homepage = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-lamaSkyLight">
       <div className="text-center p-8 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold mb-4">Welcome to SchooLama</h1>
+        <h1 className="text-2xl font-bold mb-4">Welcome to Edcel</h1>
         <p className="mb-4">Loading your dashboard...</p>
       </div>
     </div>
