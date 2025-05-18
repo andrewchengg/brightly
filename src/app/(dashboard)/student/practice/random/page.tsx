@@ -5,11 +5,17 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-interface Question {
+interface Option {
   id: string;
-  question: string;
-  options: string[] | any; // Add support for object options
-  correctAnswer: string | any; // Add support for object correctAnswer
+  text: string;
+}
+
+interface Question {
+  id: number;
+  text: string;
+  question?: string; // For backward compatibility
+  options: Option[];
+  correctAnswer: string | string[];
   hint?: string;
   topic: {
     id: string;
@@ -19,13 +25,14 @@ interface Question {
   pointsAwarded?: number;
   questionType?: string;
   imageUrl?: string;
+  topicName?: string; // For backward compatibility
 }
 
 interface PracticeProgress {
   questions: Question[];
   currentQuestionIndex: number;
   score: number;
-  answeredQuestions: Record<string, string>; // Maps question ID to selected answer
+  answeredQuestions: Record<number, string>; // Maps question ID (number) to selected option ID (string)
 }
 
 export default function RandomPractice() {
@@ -39,16 +46,17 @@ export default function RandomPractice() {
   const [loading, setLoading] = useState(true);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [splitPosition, setSplitPosition] = useState(65); // Default split: 65% question, 35% AI
-  const [answeredQuestions, setAnsweredQuestions] = useState<Record<string, string>>({});
+  const [answeredQuestions, setAnsweredQuestions] = useState<Record<number, string>>({});
   const [userMessage, setUserMessage] = useState('');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [chatHistory, setChatHistory] = useState<{role: string, content: string}[]>([]);
   const [showSummary, setShowSummary] = useState(false); // New state for summary page
-  const [questionResults, setQuestionResults] = useState<{id: string, correct: boolean, question: string, userAnswer: string, correctAnswer: string}[]>([]);
+  const [questionResults, setQuestionResults] = useState<{id: number, correct: boolean, question: string, userAnswer: string, correctAnswer: string}[]>([]);
   const [textAnswer, setTextAnswer] = useState(''); // New state for text answer input
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const aiContentRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Load saved progress on initial render
   useEffect(() => {
@@ -145,53 +153,21 @@ export default function RandomPractice() {
           // Get the correct answer in the right format
           const correctAnswerId = String(currentQuestion.correctAnswer || '').toLowerCase();
           
-          // Find the matching option
-          const optionIndex = currentQuestion.options.findIndex((opt: any) => {
-            // Check if the saved answer matches the option text
-            const optionText = typeof opt === 'object' && opt.text ? opt.text : String(opt);
-            return optionText === savedAnswer;
-          });
+          // Simple comparison of IDs
+          const isCorrect = savedAnswer.toLowerCase() === correctAnswerId;
+          setIsAnswerCorrect(isCorrect);
           
-          if (optionIndex >= 0) {
-            // Get the option ID from the matched option
-            const matchedOption = currentQuestion.options[optionIndex];
-            const optionId = typeof matchedOption === 'object' && matchedOption.id 
-              ? matchedOption.id.toLowerCase() 
-              : String.fromCharCode(97 + optionIndex);
-              
-            const isCorrect = optionId === correctAnswerId;
-            setIsAnswerCorrect(isCorrect);
-            
-            // Find correct option for display
-            const correctOptionIndex = currentQuestion.options.findIndex((opt: any, idx: number) => 
-              (typeof opt === 'object' && opt.id 
-                ? opt.id.toLowerCase() 
-                : String.fromCharCode(97 + idx)
-              ) === correctAnswerId
-            );
-            
-            const correctLetter = correctOptionIndex >= 0 
-              ? String.fromCharCode(65 + correctOptionIndex) 
-              : '?';
-            
-            const correctOption = correctOptionIndex >= 0 
-              ? currentQuestion.options[correctOptionIndex] 
-              : null;
-            
-            const correctText = correctOption 
-              ? (typeof correctOption === 'object' && correctOption.text ? correctOption.text : String(correctOption))
-              : correctAnswerId;
-            
-            if (isCorrect) {
-              setAiMessage("Great job! That's correct. Ready for the next question?");
-            } else {
-              setAiMessage(`Not quite right. The correct answer is "${correctLetter}. ${correctText}". Don't worry, learning is a process!`);
-            }
+          // Find the correct option with the correct ID
+          const correctOption = currentQuestion.options.find(option => 
+            option.id.toLowerCase() === correctAnswerId
+          );
+          
+          const correctText = correctOption ? correctOption.text : correctAnswerId;
+          
+          if (isCorrect) {
+            setAiMessage("Great job! That's correct. Ready for the next question?");
           } else {
-            // If we can't find the option, reset the state
-            setSelectedAnswer(null);
-            setIsAnswerCorrect(null);
-            setAiMessage(null);
+            setAiMessage(`Not quite right. The correct answer is "${correctText}". Don't worry, learning is a process!`);
           }
         }
       }
@@ -232,49 +208,44 @@ export default function RandomPractice() {
     try {
       setLoading(true);
       
-      const response = await fetch("/api/questions/random?limit=10");
+      console.log('Fetching random questions for practice...');
+      
+      const response = await fetch('/api/questions/random?limit=10');
+      
       if (!response.ok) {
-        throw new Error("Failed to fetch random questions");
+        throw new Error(`API error: ${response.status}`);
       }
       
-      const data = await response.json();
+      const randomQuestions = await response.json();
       
-      // Log the response from the API for debugging
-      console.log("API Response:", data);
-      
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        throw new Error("No questions returned from API");
+      if (!randomQuestions || randomQuestions.length === 0) {
+        throw new Error('No questions returned from API');
       }
       
-      setQuestions(data);
+      console.log(`Loaded ${randomQuestions.length} questions`);
+      setQuestions(randomQuestions);
       setLoading(false);
-    } catch (error) {
-      console.error("Error fetching random questions:", error);
-      // Don't use hardcoded questions; instead, show an error message to the user
-      setLoading(false);
+    } catch (error: any) {
+      console.error("Error setting up practice questions:", error);
       
-      // Use router to navigate back with an error message
-      router.push("/student/practice?error=failed-to-load-questions");
+      // Show the error in the UI instead of navigating away
+      setLoading(false);
+      setError(error.message || "Failed to load questions");
     }
   }
 
-  const handleAnswer = (answer: string, optionIndex: number) => {
+  const handleAnswer = (optionId: string, optionIndex: number) => {
     // Ensure currentQuestion and options exist
     if (!currentQuestion || !currentQuestion.options || !Array.isArray(currentQuestion.options)) {
       console.error("Current question or options are not available");
       return;
     }
     
-    // Get the current option and extract its ID
+    // Get the current option
     const currentOption = currentQuestion.options[optionIndex];
-    const optionId = typeof currentOption === 'object' && currentOption.id 
-      ? currentOption.id  // If option has an id property
-      : String.fromCharCode(97 + optionIndex).toLowerCase(); // Fallback to a, b, c, d
     
     // Get text for display
-    const optionText = typeof currentOption === 'object' && currentOption.text 
-      ? currentOption.text 
-      : String(currentOption);
+    const optionText = currentOption.text;
     
     setSelectedAnswer(optionText);
     
@@ -282,41 +253,27 @@ export default function RandomPractice() {
     const correctAnswerId = String(currentQuestion.correctAnswer || '').toLowerCase();
     
     // Simple comparison of IDs
-    const isCorrect = correctAnswerId === optionId;
+    const isCorrect = optionId.toLowerCase() === correctAnswerId;
     
     setIsAnswerCorrect(isCorrect);
     
-    // Save the answer in the answeredQuestions object
+    // Save the answer in the answeredQuestions object using the question ID (number)
     setAnsweredQuestions(prev => ({
       ...prev,
-      [questions[currentQuestionIndex].id]: optionText
+      [currentQuestion.id]: optionId
     }));
     
-    // Find the correct answer option for display
-    let correctOption: any = null;
-    let correctLetter = "?";
-    
-    // First try to find the option with matching ID
-    const correctOptionIndex = currentQuestion.options.findIndex((opt: any, index: number) => 
-      (typeof opt === 'object' && opt.id 
-        ? opt.id.toLowerCase() 
-        : String.fromCharCode(97 + index)
-      ) === correctAnswerId
+    // Find the correct option with the correct ID
+    const correctOption = currentQuestion.options.find(option => 
+      option.id.toLowerCase() === correctAnswerId
     );
     
-    if (correctOptionIndex >= 0) {
-      correctOption = currentQuestion.options[correctOptionIndex];
-      correctLetter = String.fromCharCode(65 + correctOptionIndex); // A, B, C, D for display
-    }
-    
     // Get the correct answer text for display
-    const correctAnswerText = correctOption 
-      ? (typeof correctOption === 'object' && correctOption.text ? correctOption.text : String(correctOption))
-      : correctAnswerId;
+    const correctAnswerText = correctOption ? correctOption.text : '';
     
     const feedbackMessage = isCorrect 
       ? "Great job! That's correct. Ready for the next question?" 
-      : `Not quite right. The correct answer is "${correctLetter}". Don't worry, learning is a process!`;
+      : `Not quite right. The correct answer is "${correctAnswerText}". Don't worry, learning is a process!`;
     
     setAiMessage(feedbackMessage);
     
@@ -327,14 +284,17 @@ export default function RandomPractice() {
     ]);
     
     // Record this question result for the summary
+    // Ensure the question property is a string
+    const questionText = currentQuestion.question || currentQuestion.text || '';
+    
     setQuestionResults(prev => [
       ...prev,
       {
         id: currentQuestion.id,
         correct: isCorrect,
-        question: currentQuestion.question,
-        userAnswer: `${String.fromCharCode(65 + optionIndex)}. ${optionText}`,
-        correctAnswer: `${correctLetter}. ${correctAnswerText}`
+        question: questionText,
+        userAnswer: optionText,
+        correctAnswer: correctAnswerText
       }
     ]);
     
@@ -588,12 +548,15 @@ export default function RandomPractice() {
     ]);
     
     // Record this question result for the summary
+    // Ensure the question property is a string
+    const questionText = currentQuestion.question || currentQuestion.text || '';
+    
     setQuestionResults(prev => [
       ...prev,
       {
         id: currentQuestion.id,
         correct: isCorrect,
-        question: currentQuestion.question,
+        question: questionText,
         userAnswer: textAnswer,
         correctAnswer: String(correctAnswer || '')
       }
@@ -608,6 +571,43 @@ export default function RandomPractice() {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="w-16 h-16 border-4 border-t-indigo-600 border-indigo-200 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-[50vh]">
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 max-w-2xl">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error Loading Questions</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p className="text-gray-600 mb-6">We encountered a problem while loading practice questions.</p>
+        <div className="flex space-x-4">
+          <Button 
+            onClick={() => fetchRandomQuestions()}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            Try Again
+          </Button>
+          <Button 
+            onClick={() => router.push("/student/practice")}
+            className="bg-gray-200 hover:bg-gray-300 text-gray-800"
+          >
+            Return to Practice Topics
+          </Button>
+        </div>
       </div>
     );
   }
@@ -874,61 +874,37 @@ export default function RandomPractice() {
                   </div>
                 </div>
               ) : currentQuestion?.options && Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0 ? (
-                currentQuestion.options.map((option: string | any, index: number) => {
-                  try {
-                    // Get option ID and text
-                    const optionId = typeof option === 'object' && option.id 
-                      ? option.id 
-                      : String.fromCharCode(97 + index).toLowerCase(); // a, b, c, d
-                      
-                    const optionText = typeof option === 'object' && option.text 
-                      ? option.text 
-                      : typeof option === 'string' ? option : JSON.stringify(option);
-                      
-                    const optionLetter = String.fromCharCode(65 + index); // A, B, C, D
-                    
-                    // Get the correct answer ID
-                    const correctAnswerId = String(currentQuestion.correctAnswer || '').toLowerCase();
-                    
-                    // Find index of correct answer option
-                    const correctOptionIndex = currentQuestion.options.findIndex((opt: any, idx: number) => 
-                      (typeof opt === 'object' && opt.id 
-                        ? opt.id.toLowerCase() 
-                        : String.fromCharCode(97 + idx)
-                      ) === correctAnswerId
-                    );
-                    
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => handleAnswer(optionText, index)}
-                        disabled={selectedAnswer !== null}
-                        className={`w-full text-left p-5 rounded-md transition-all duration-200 text-lg ${
-                          selectedAnswer === optionText
-                            ? isAnswerCorrect
-                              ? "bg-green-50 border-2 border-green-500 text-green-800"
-                              : "bg-red-50 border-2 border-red-500 text-red-800"
-                            : selectedAnswer !== null && index === correctOptionIndex
-                              ? "bg-green-50 border-2 border-green-500 text-green-800"
-                              : "bg-white hover:bg-gray-50 border border-gray-300"
-                        }`}
-                      >
-                        <span className="font-bold mr-2">{optionLetter}.</span> {optionText}
-                      </button>
-                    );
-                  } catch (error) {
-                    console.error("Error rendering option:", option, error);
-                    return (
-                      <button
-                        key={index}
-                        disabled={true}
-                        className="w-full text-left p-5 rounded-md bg-red-50 border border-red-300 text-red-800"
-                      >
-                        <span className="font-bold mr-2">{String.fromCharCode(65 + index)}.</span> Error displaying option
-                      </button>
-                    );
-                  }
-                }) 
+                currentQuestion.options.map((option, index: number) => {
+                  // Get option ID and text
+                  const optionId = option.id;
+                  const optionText = option.text;
+                  const optionLetter = String.fromCharCode(65 + index); // A, B, C, D
+                  
+                  // Get the correct answer ID
+                  const correctAnswerId = String(currentQuestion.correctAnswer || '').toLowerCase();
+                  
+                  // Check if this is the correct option
+                  const isCorrectOption = optionId.toLowerCase() === correctAnswerId;
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleAnswer(optionId, index)}
+                      disabled={selectedAnswer !== null}
+                      className={`w-full text-left p-5 rounded-md transition-all duration-200 text-lg ${
+                        answeredQuestions[currentQuestion.id] === optionId
+                          ? isAnswerCorrect
+                            ? "bg-green-50 border-2 border-green-500 text-green-800"
+                            : "bg-red-50 border-2 border-red-500 text-red-800"
+                          : selectedAnswer !== null && isCorrectOption
+                            ? "bg-green-50 border-2 border-green-500 text-green-800"
+                            : "bg-white hover:bg-gray-50 border border-gray-300"
+                      }`}
+                    >
+                      <span className="font-bold mr-2">{optionLetter}.</span> {optionText}
+                    </button>
+                  );
+                })
               ) : (
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-center">
                   <p>No answer options available for this question.</p>

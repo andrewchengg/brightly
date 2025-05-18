@@ -14,11 +14,36 @@ interface ResultsAnalysisProps {
   userId: string;
 }
 
-interface ExamResult {
+interface StudentAnswer {
+  questionId: number;
+  submittedAnswer: string;
+  isCorrect: boolean;
+  question: {
+    text: string;
+    correctAnswer: string;
+    topic: {
+      id: number;
+      name: string;
+      subject: {
+        name: string;
+      };
+    };
+  };
+}
+
+interface PracticeSession {
+  id: string;
+  title: string;
+  type: string;
+  totalQuestions: number;
+  studentAnswers: StudentAnswer[];
+}
+
+interface Result {
   id: string;
   submittedAt: string;
   score: number;
-  totalQuestions: number;
+  practiceSession: PracticeSession;
 }
 
 interface QuestionAnalysis {
@@ -31,8 +56,37 @@ interface QuestionAnalysis {
   userAnswer: string;
 }
 
+// Type for the data that comes from Supabase
+interface SupabaseResult {
+  id: string;
+  score: number;
+  submittedAt: string;
+  practiceSession: {
+    id: string;
+    title: string;
+    type: string;
+    totalQuestions: number;
+    studentAnswers: {
+      questionId: number;
+      submittedAnswer: string;
+      isCorrect: boolean;
+      question: {
+        text: string;
+        correctAnswer: string;
+        topic: {
+          id: number;
+          name: string;
+          subject: {
+            name: string;
+          };
+        };
+      };
+    }[];
+  };
+}
+
 export default function ResultsAnalysis({ userId }: ResultsAnalysisProps) {
-  const [examHistory, setExamHistory] = useState<ExamResult[]>([]);
+  const [examHistory, setExamHistory] = useState<Result[]>([]);
   const [incorrectQuestions, setIncorrectQuestions] = useState<QuestionAnalysis[]>([]);
   const [weakTopics, setWeakTopics] = useState<{ topic: string; count: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,61 +99,87 @@ export default function ResultsAnalysis({ userId }: ResultsAnalysisProps) {
 
   const fetchResults = async () => {
     try {
-      // Fetch exam history
-      const { data: examData, error: examError } = await supabase
+      // Fetch results with related practice sessions and student answers
+      const { data: resultsData, error: resultsError } = await supabase
         .from('Result')
-        .select('*')
-        .eq('studentId', userId)
-        .eq('type', 'MOCK_EXAM')
-        .order('submittedAt', { ascending: true });
-
-      if (examError) throw examError;
-
-      // Get the most recent exam result
-      const latestExam = examData?.[examData.length - 1];
-      
-      if (latestExam) {
-        // Fetch questions and answers for the latest exam
-        const { data: questionData, error: questionError } = await supabase
-          .from('Question')
-          .select(`
+        .select(`
+          id,
+          score,
+          submittedAt,
+          practiceSession:PracticeSession (
             id,
-            text,
-            correctAnswer,
-            Topic (
-              id,
-              name,
-              Subject (
-                name
+            title,
+            type,
+            totalQuestions,
+            studentAnswers:StudentAnswer (
+              questionId,
+              submittedAnswer,
+              isCorrect,
+              question:Question (
+                text,
+                correctAnswer,
+                topic:Topic (
+                  id,
+                  name,
+                  subject:Subject (name)
+                )
               )
             )
-          `)
-          .in('id', Object.keys(latestExam.answers || {}).map(Number));
+          )
+        `)
+        .eq('studentId', userId)
+        .order('submittedAt', { ascending: false });
 
-        if (questionError) throw questionError;
-
-        // Analyze incorrect answers
-        const incorrectOnes = questionData?.filter(q => {
-          const userAnswer = latestExam.answers?.[q.id];
-          return userAnswer !== q.correctAnswer;
-        }).map(q => ({
-          id: q.id,
-          text: q.text,
-          topicId: q.Topic.id,
-          topicName: q.Topic.name,
-          subjectName: q.Topic.Subject.name,
-          correctAnswer: q.correctAnswer,
-          userAnswer: latestExam.answers?.[q.id] || 'Not answered'
-        })) || [];
-
+      if (resultsError) throw resultsError;
+      
+      if (!resultsData || resultsData.length === 0) {
+        setIsLoading(false);
+        return;
+      }
+      
+      // Cast and transform the result data to match our interface
+      const typedResults = (resultsData as unknown[]).map((result: any): Result => ({
+        id: result.id,
+        score: result.score,
+        submittedAt: result.submittedAt,
+        practiceSession: {
+          id: result.practiceSession?.id,
+          title: result.practiceSession?.title,
+          type: result.practiceSession?.type,
+          totalQuestions: result.practiceSession?.totalQuestions,
+          studentAnswers: result.practiceSession?.studentAnswers || []
+        }
+      }));
+      
+      // Set the exam history
+      setExamHistory(typedResults);
+      
+      // Process the latest exam result for detailed analysis
+      if (typedResults.length > 0) {
+        const latestResult = typedResults[0];
+        const studentAnswers = latestResult.practiceSession.studentAnswers || [];
+        
+        // Find incorrect answers
+        const incorrectOnes = studentAnswers
+          .filter(answer => !answer.isCorrect)
+          .map(answer => ({
+            id: answer.questionId,
+            text: answer.question.text,
+            topicId: answer.question.topic.id,
+            topicName: answer.question.topic.name,
+            subjectName: answer.question.topic.subject.name,
+            correctAnswer: answer.question.correctAnswer,
+            userAnswer: answer.submittedAnswer || 'Not answered'
+          }));
+        
         setIncorrectQuestions(incorrectOnes);
 
         // Analyze weak topics
-        const topicCounts = incorrectOnes.reduce((acc, q) => {
+        const topicCounts = incorrectOnes.reduce((acc: Record<string, number>, q) => {
           const key = `${q.subjectName} - ${q.topicName}`;
           acc[key] = (acc[key] || 0) + 1;
           return acc;
-        }, {} as Record<string, number>);
+        }, {});
 
         const sortedTopics = Object.entries(topicCounts)
           .map(([topic, count]) => ({ topic, count }))
@@ -107,8 +187,7 @@ export default function ResultsAnalysis({ userId }: ResultsAnalysisProps) {
 
         setWeakTopics(sortedTopics);
       }
-
-      setExamHistory(examData || []);
+      
       setIsLoading(false);
     } catch (error) {
       console.error('Error fetching results:', error);
@@ -127,7 +206,7 @@ export default function ResultsAnalysis({ userId }: ResultsAnalysisProps) {
   const chartData = examHistory.map(result => ({
     date: new Date(result.submittedAt).toLocaleDateString(),
     score: result.score,
-    total: result.totalQuestions
+    total: result.practiceSession?.totalQuestions || 0
   }));
 
   return (
@@ -157,14 +236,18 @@ export default function ResultsAnalysis({ userId }: ResultsAnalysisProps) {
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4">Areas for Improvement</h2>
         <div className="space-y-4">
-          {weakTopics.map(({ topic, count }) => (
-            <div key={topic} className="flex justify-between items-center">
-              <span className="font-medium">{topic}</span>
-              <span className="text-red-500">
-                {count} incorrect {count === 1 ? 'question' : 'questions'}
-              </span>
-            </div>
-          ))}
+          {weakTopics.length > 0 ? (
+            weakTopics.map(({ topic, count }) => (
+              <div key={topic} className="flex justify-between items-center">
+                <span className="font-medium">{topic}</span>
+                <span className="text-red-500">
+                  {count} incorrect {count === 1 ? 'question' : 'questions'}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-600">Great job! No weak areas identified in your latest exam.</p>
+          )}
         </div>
       </div>
 
@@ -172,15 +255,20 @@ export default function ResultsAnalysis({ userId }: ResultsAnalysisProps) {
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4">Questions to Review</h2>
         <div className="space-y-6">
-          {incorrectQuestions.map((q) => (
-            <div key={q.id} className="border-b pb-4">
-              <h3 className="font-medium mb-2">{q.text}</h3>
-              <div className="text-sm text-gray-600">
-                <p>Topic: {q.topicName} ({q.subjectName})</p>
-                <p className="text-red-500">Your answer: {q.userAnswer}</p>
+          {incorrectQuestions.length > 0 ? (
+            incorrectQuestions.map((q) => (
+              <div key={q.id} className="border-b pb-4">
+                <h3 className="font-medium mb-2">{q.text}</h3>
+                <div className="text-sm text-gray-600">
+                  <p>Topic: {q.topicName} ({q.subjectName})</p>
+                  <p className="text-red-500">Your answer: {q.userAnswer}</p>
+                  <p className="text-green-600">Correct answer: {q.correctAnswer}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-gray-600">No incorrect questions in your latest exam. Great work!</p>
+          )}
         </div>
       </div>
     </div>

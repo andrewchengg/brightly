@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
 import MockExamLanding from "@/components/MockExam/MockExamLanding";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function MockExamPage() {
-  const supabase = createServerComponentClient({ cookies });
+  const supabase = createClient();
   
   const {
     data: { session },
