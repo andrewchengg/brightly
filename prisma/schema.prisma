@@ -142,26 +142,37 @@ model Lesson {
 }
 
 model Question {
-  id             Int             @id @default(autoincrement())
-  text           String
-  questionType   QuestionType    @default(MULTIPLE_CHOICE)
-  options        Json?
-  correctAnswer  Json?
-  explanation    String?
-  difficulty     DifficultyLevel @default(MEDIUM)
-  pointsAwarded  Int             @default(10)
-  subjectId      Int
-  topicId        Int
-  imageUrl       String?
-  audioUrl       String?
-  tags           String[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  subject        Subject         @relation("SubjectQuestions", fields: [subjectId], references: [id])
-  topic          Topic           @relation(fields: [topicId], references: [id])
-  studentAnswers StudentAnswer[]
+  id              Int             @id @default(autoincrement())
+  text            String
+  questionType    QuestionType    @default(MULTIPLE_CHOICE)
+  options         Json?
+  correctAnswer   Json?
+  explanation     String?
+  difficulty      DifficultyLevel @default(MEDIUM)
+  pointsAwarded   Int             @default(10)
+  subjectId       Int
+  topicId         Int
+  imageUrl        String?
+  audioUrl        String?
+  tags            String[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  hint            String?
+  marks           Int             @default(1)
+  questionGroupId Int?
+  questionGroup   QuestionGroup?  @relation(fields: [questionGroupId], references: [id])
+  subject         Subject         @relation("SubjectQuestions", fields: [subjectId], references: [id])
+  topic           Topic           @relation(fields: [topicId], references: [id])
+  studentAnswers  StudentAnswer[]
 
   @@unique([text, topicId, subjectId])
+}
+
+model QuestionGroup {
+  id        Int        @id @default(autoincrement())
+  preamble  String?
+  imageUrl  String?
+  questions Question[]
 }
 
 model PracticeSession {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
+import { PracticeSessionType } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,20 +15,76 @@ interface Option {
 interface Question {
   id: number;
   text: string;
-  options: Option[];
+  options?: Option[];
   correctAnswer: string | string[];
   topicName: string;
-  questionType: string;
-  pointsAwarded: number;
+  questionType: 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'LONG_ANSWER';
+  marks: number;
   topic: {
     id: string;
     name: string;
   };
+  booklet?: 'A' | 'B';
 }
+
+interface Paper {
+  id: string;
+  name: string;
+  duration: number;
+  totalMarks: number;
+  description: string;
+}
+
+interface Subject {
+  id: string;
+  name: string;
+  papers: Paper[];
+}
+
+const subjects: Subject[] = [
+  {
+    id: 'mathematics',
+    name: 'Mathematics',
+    papers: [
+      {
+        id: 'paper1',
+        name: 'Paper 1',
+        duration: 60,
+        totalMarks: 45,
+        description: 'Booklet A (MCQ) and Booklet B (Short Answer)'
+      },
+      {
+        id: 'paper2',
+        name: 'Paper 2',
+        duration: 90,
+        totalMarks: 55,
+        description: 'Short Answer and Long Answer Questions'
+      }
+    ]
+  },
+  {
+    id: 'science',
+    name: 'Science',
+    papers: []
+  },
+  {
+    id: 'english',
+    name: 'English',
+    papers: []
+  },
+  {
+    id: 'chinese',
+    name: 'Chinese',
+    papers: []
+  }
+];
 
 interface MockExamComponentProps {
   userId: string;
   examDurationMinutes: number;
+  subjectId: string;
+  paperId: string;
+  isBothPapers: boolean;
 }
 
 interface DatabaseQuestion {
@@ -77,7 +134,7 @@ interface PracticeSession {
   xpEarned: number;
 }
 
-export default function MockExamComponent({ userId, examDurationMinutes }: MockExamComponentProps) {
+export default function MockExamComponent({ userId, examDurationMinutes, subjectId, paperId, isBothPapers }: MockExamComponentProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string | null>>({});
@@ -90,6 +147,9 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
   const [currentPracticeSessionId, setCurrentPracticeSessionId] = useState<string | null>(null);
   const [totalMarks, setTotalMarks] = useState(0);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const [currentPaper, setCurrentPaper] = useState<'paper1' | 'paper2'>(paperId as 'paper1' | 'paper2');
+  const [showPaperTransition, setShowPaperTransition] = useState(false);
+  const [paper1Answers, setPaper1Answers] = useState<Record<number, string | null>>({});
   
   const router = useRouter();
   const supabase = createClientComponentClient();
@@ -164,7 +224,6 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
       
       if (!currentPracticeSessionId) {
         try {
-          // Create a practice session - fix the API path
           const newSession = await fetch('/api/practice-session', {
             method: 'POST',
             headers: {
@@ -172,7 +231,7 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
             },
             body: JSON.stringify({
               studentId: userId,
-              title: `Mock Exam - ${new Date().toLocaleDateString()}`,
+              title: `${subjectId.toUpperCase()} ${paperId.toUpperCase()} - ${new Date().toLocaleDateString()}`,
               type: 'MOCK_EXAM',
               status: 'STARTED',
               examDurationMinutes: examDurationMinutes
@@ -180,52 +239,85 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
           });
 
           if (!newSession.ok) {
-            console.error('Error creating practice session: ' + await newSession.text());
-            // Continue without session, using a mock ID
-            practiceSessionId = 'mock-session-' + Date.now();
-            setCurrentPracticeSessionId(practiceSessionId);
-            console.log('Using mock practice session ID:', practiceSessionId);
-          } else {
-            const sessionData = await newSession.json();
-            practiceSessionId = sessionData.id;
-            setCurrentPracticeSessionId(sessionData.id);
-            console.log('Practice session created with ID:', sessionData.id);
+            throw new Error('Failed to create practice session');
           }
-        } catch (sessionError) {
-          console.error('Error in practice session creation:', sessionError);
-          // Continue with a mock session ID
+
+          const sessionData = await newSession.json() as { id: string };
+          practiceSessionId = sessionData.id;
+          setCurrentPracticeSessionId(sessionData.id);
+        } catch (error) {
+          console.error('Error creating practice session:', error);
           practiceSessionId = 'mock-session-' + Date.now();
           setCurrentPracticeSessionId(practiceSessionId);
-          console.log('Using mock practice session ID after error:', practiceSessionId);
         }
       }
       
-      // Fetch questions from the API
-      const response = await fetch('/api/questions/random?limit=10');
+      // Fetch questions based on subject and paper type
+      let questions: Question[] = [];
       
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+      if (isBothPapers && currentPaper === 'paper2') {
+        // When fetching Paper 2 questions after Paper 1, ensure no duplicates
+        const paper1Questions = await fetchQuestionsByType(subjectId, 'paper1');
+        const paper2Questions = await fetchQuestionsByType(subjectId, 'paper2');
+        
+        // Filter out any questions from Paper 2 that have the same text as Paper 1 questions
+        const paper1Texts = new Set(paper1Questions.map(q => q.text));
+        questions = paper2Questions.filter(q => !paper1Texts.has(q.text));
+        
+        if (questions.length === 0) {
+          throw new Error('No unique questions available for Paper 2');
+        }
+      } else {
+        // Normal case - fetch questions for single paper
+        questions = await fetchQuestionsByType(subjectId, currentPaper);
       }
       
-      const randomQuestions = await response.json();
-      
-      if (!randomQuestions || randomQuestions.length === 0) {
+      if (!questions || questions.length === 0) {
         throw new Error('No questions returned from API');
       }
       
-      console.log(`Loaded ${randomQuestions.length} questions`);
+      console.log(`Loaded ${questions.length} questions`);
       
       // Calculate total marks
-      const total = randomQuestions.reduce((sum: number, q: Question) => sum + (q.pointsAwarded || 0), 0);
+      const total = questions.reduce((sum: number, q: Question) => sum + (q.marks || 0), 0);
       setTotalMarks(total);
       
-      setQuestions(randomQuestions);
+      setQuestions(questions);
       setIsLoading(false);
     } catch (error: any) {
       console.error('Error fetching questions:', error);
       setError('Failed to fetch questions: ' + (error.message || 'Unknown error'));
       setIsLoading(false);
     }
+  };
+
+  const fetchQuestionsByType = async (subject: string, paper: string): Promise<Question[]> => {
+    const response = await fetch(`/api/questions/${subject}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        paper,
+        requirements: paper === 'paper1' ? {
+          mcq1Mark: 10,
+          mcq2Mark: 5,
+          short1Mark: 5,
+          short2Mark: 10
+        } : {
+          short2Mark: 5,
+          longAnswer: 12,
+          longAnswerTotalMarks: 45
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data as Question[];
   };
 
   const handleAnswerChange = (questionId: number, optionId: string) => {
@@ -276,7 +368,7 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
         throw new Error('Failed to create practice session');
       }
 
-      const session = await response.json();
+      const session = await response.json() as { id: string };
       setCurrentPracticeSessionId(session.id);
     } catch (error) {
       console.error('Error creating practice session:', error);
@@ -301,10 +393,10 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
         if (q.questionType === 'MULTIPLE_CHOICE' && selectedOptionId) {
           if (typeof q.correctAnswer === 'string' && selectedOptionId === q.correctAnswer) {
             correctAnswersCount++;
-            totalScore += q.pointsAwarded;
+            totalScore += q.marks;
           } else if (Array.isArray(q.correctAnswer) && q.correctAnswer.includes(selectedOptionId)) {
             correctAnswersCount++;
-            totalScore += q.pointsAwarded;
+            totalScore += q.marks;
           }
         }
       });
@@ -321,7 +413,7 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              status: 'COMPLETED',
+              status: isBothPapers && currentPaper === 'paper1' ? 'IN_PROGRESS' : 'COMPLETED',
               endTime: endTime.toISOString(),
               score: totalScore,
               correctAnswers: correctAnswersCount,
@@ -332,17 +424,37 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
           if (!response.ok) {
             throw new Error('Failed to update practice session');
           }
+
+          if (isBothPapers && currentPaper === 'paper1') {
+            // Save Paper 1 answers and prepare for Paper 2
+            setPaper1Answers(answers);
+            setShowPaperTransition(true);
+            setTimeout(() => {
+              setCurrentPaper('paper2');
+              setShowPaperTransition(false);
+              setAnswers({});
+              setCurrentQuestionIndex(0);
+              setTimeRemaining(90 * 60); // 1 hour 30 minutes for Paper 2
+              fetchQuestions(); // Fetch Paper 2 questions
+            }, 5000); // Show transition screen for 5 seconds
+          } else {
+            setExamSubmitted(true);
+            router.push('/student/results');
+          }
         } catch (error) {
           console.error('Error updating practice session:', error);
           // Store results locally as backup
-          localStorage.setItem(`mockExamResult_${currentPracticeSessionId}`, JSON.stringify({
-            studentId: userId,
-            endTime: endTime.toISOString(),
-            score: totalScore,
-            correctAnswers: correctAnswersCount,
-            answers,
-            xpEarned
-          }));
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(`mockExamResult_${currentPracticeSessionId}`, JSON.stringify({
+              studentId: userId,
+              endTime: endTime.toISOString(),
+              score: totalScore,
+              correctAnswers: correctAnswersCount,
+              answers,
+              xpEarned,
+              paper: currentPaper
+            }));
+          }
         }
       }
 
@@ -353,8 +465,9 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
           questionId: parseInt(questionId),
           submittedAnswer: answerId,
           isCorrect: questions.find(q => q.id === parseInt(questionId))?.correctAnswer === answerId,
-          pointsEarned: questions.find(q => q.id === parseInt(questionId))?.pointsAwarded || 0,
-          attemptedAt: new Date().toISOString()
+          pointsEarned: questions.find(q => q.id === parseInt(questionId))?.marks || 0,
+          attemptedAt: new Date().toISOString(),
+          paper: currentPaper
         }));
 
         await fetch('/api/student-answers', {
@@ -367,9 +480,6 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
       } catch (error) {
         console.error('Error saving student answers:', error);
       }
-
-      setExamSubmitted(true);
-      router.push('/student/results');
     } catch (error: any) {
       console.error('Error submitting exam:', error.message || error);
       setError('Failed to submit exam. Please try again.');
@@ -397,10 +507,10 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
         });
       }
       
-      router.push('/student');
+      router.push('/student/mock-exam');
     } catch (error: any) {
       console.error('Error canceling exam:', error);
-      router.push('/student');
+      router.push('/student/mock-exam');
     }
   };
 
@@ -451,10 +561,13 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
 
   // Show landing page if exam hasn't started
   if (!examStarted) {
+    const currentSubject = subjects.find(s => s.id === subjectId);
+    const currentPaper = currentSubject?.papers.find(p => p.id === paperId);
+
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-2xl w-full">
-          <h1 className="text-3xl font-bold mb-6">Mock Exam</h1>
+          <h1 className="text-3xl font-bold mb-6">{currentSubject?.name} {currentPaper?.name}</h1>
           <div className="mb-8 text-left">
             <div className="bg-blue-50 p-6 rounded-lg mb-6">
               <h2 className="text-xl font-semibold mb-4">Exam Details</h2>
@@ -464,12 +577,12 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
                   <span className="font-medium">{examDurationMinutes} minutes</span>
                 </li>
                 <li className="flex justify-between">
-                  <span className="text-gray-600">Number of Questions:</span>
-                  <span className="font-medium">{questions.length}</span>
+                  <span className="text-gray-600">Total Marks:</span>
+                  <span className="font-medium">{currentPaper?.totalMarks}</span>
                 </li>
                 <li className="flex justify-between">
-                  <span className="text-gray-600">Total Marks:</span>
-                  <span className="font-medium">{totalMarks}</span>
+                  <span className="text-gray-600">Paper Type:</span>
+                  <span className="font-medium">{currentPaper?.description}</span>
                 </li>
               </ul>
             </div>
@@ -478,7 +591,20 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
               <h2 className="text-xl font-semibold mb-4">Instructions</h2>
               <ul className="list-disc list-inside space-y-2 text-gray-700">
                 <li>Read each question carefully before answering</li>
-                <li>Do not use a calculator when attempting this examination paper.</li>
+                {paperId === 'paper1' && (
+                  <>
+                    <li>Booklet A contains Multiple Choice Questions</li>
+                    <li>Booklet B contains Short Answer Questions</li>
+                    <li>Do not use a calculator for this paper</li>
+                  </>
+                )}
+                {paperId === 'paper2' && (
+                  <>
+                    <li>This paper contains Short Answer and Long Answer Questions</li>
+                    <li>Show all your working clearly</li>
+                    <li>You may use a calculator for this paper</li>
+                  </>
+                )}
                 <li>The examination will auto-submit when time expires</li>
                 <li>Click "Start Exam" when you're ready to begin</li>
               </ul>
@@ -487,7 +613,7 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
           
           <div className="flex justify-center gap-4">
             <button
-              onClick={() => router.push('/student')}
+              onClick={() => router.push('/student/mock-exam')}
               className="px-8 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
             >
               Cancel
@@ -504,11 +630,24 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
     );
   }
 
+  if (showPaperTransition) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-2xl">
+          <h2 className="text-2xl font-bold mb-4">Paper 1 Completed</h2>
+          <p className="text-gray-600 mb-4">Your time for Paper 1 is up. We will now proceed to Paper 2.</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+
   const currentQuestion = questions[currentQuestionIndex];
 
   // Check if the current question is open-ended
   const isOpenEndedQuestion = 
-    currentQuestion?.questionType === 'OPEN_ENDED' || 
+    currentQuestion?.questionType === 'SHORT_ANSWER' || 
+    currentQuestion?.questionType === 'LONG_ANSWER' || 
     !currentQuestion?.options ||
     !Array.isArray(currentQuestion?.options) || 
     currentQuestion?.options.length === 0;
@@ -540,14 +679,14 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
           <div className="p-6">
             <div className="mb-6">
               <h3 className="text-xl font-medium mb-4">
-                {currentQuestion.question}
+                {currentQuestion.text}
               </h3>
               <div className="flex justify-between items-center mb-6">
                 <p className="text-sm text-gray-600">
                   Topic: {currentQuestion.topicName || currentQuestion.topic?.name || 'General'}
                 </p>
                 <p className="text-sm font-medium text-blue-600">
-                  [{currentQuestion.pointsAwarded} Marks]
+                  [{currentQuestion.marks} Marks]
                 </p>
               </div>
             </div>
@@ -571,7 +710,7 @@ export default function MockExamComponent({ userId, examDurationMinutes }: MockE
             ) : (
               // Multiple choice options
               <div className="grid grid-cols-2 gap-6">
-                {currentQuestion.options.map((option) => (
+                {currentQuestion.options?.map((option) => (
                   <button 
                     key={option.id}
                     onClick={() => handleAnswerChange(currentQuestion.id, option.id)}
