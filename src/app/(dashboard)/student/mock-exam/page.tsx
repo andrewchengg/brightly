@@ -3,15 +3,15 @@ import MockExamLanding from "@/components/MockExam/MockExamLanding";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function MockExamPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session || !session.user?.id) {
+  if (!user || !user.id) {
     redirect("/sign-in");
   }
 
-  return <MockExamLanding userId={session.user.id} />;
+  return <MockExamLanding userId={user.id} />;
 }

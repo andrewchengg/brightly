@@ -128,6 +128,7 @@ export default function ParentChildSetupPage() {
             username: formData.parentUsername,
             email: formData.parentEmail,
             address: null, // Or collect if you add it to the form
+            updatedAt: new Date(), // Add updatedAt field
           },
           { onConflict: "id" }
         )
@@ -167,7 +168,21 @@ export default function ParentChildSetupPage() {
         let errorMessage = `Failed to create child account (status ${createChildUserResponse.status}).`;
         try {
             const errorJson = JSON.parse(childAuthUserResponseText);
-            errorMessage += ` ${errorJson.error || errorJson.message || 'Unknown API error'}`;
+            if (errorJson.error) {
+                // Handle nested error object from the API
+                if (typeof errorJson.error === 'object' && errorJson.error.message) {
+                    errorMessage += ` ${errorJson.error.message}`;
+                } else if (typeof errorJson.error === 'string') {
+                    errorMessage += ` ${errorJson.error}`;
+                } else {
+                    // For API errors that return error details in a different format
+                    errorMessage += ` ${JSON.stringify(errorJson.error)}`;
+                }
+            } else if (errorJson.message) {
+                errorMessage += ` ${errorJson.message}`;
+            } else {
+                errorMessage += ` Unknown error format: ${JSON.stringify(errorJson)}`;
+            }
         } catch (e) {
             errorMessage += ` Response: ${childAuthUserResponseText}`;
         }
@@ -207,6 +222,7 @@ export default function ParentChildSetupPage() {
         schoolLevel: formData.childSchoolLevel,
         schoolName: formData.childSchoolName || null,
         initialSetupComplete: false, // Child needs to complete setup
+        updatedAt: new Date(), // Add updatedAt field
       })
 
       if (studentError) {
@@ -244,15 +260,18 @@ export default function ParentChildSetupPage() {
 
   const handleCopyToClipboard = () => {
     if (generatedChildUsername && generatedChildPin) {
-      navigator.clipboard.writeText(
-        `Child Login Details:\nUsername: ${generatedChildUsername}\nPIN: ${generatedChildPin}`
-      ).then(() => {
-        setCredentialsCopied(true);
-        setTimeout(() => setCredentialsCopied(false), 2000); // Hide message after 2s
-      }).catch(err => {
-        console.error("Failed to copy credentials:", err);
+      try {
+        // Use modern clipboard API if available
+        if (typeof window !== 'undefined') {
+          const credentials = `Child Login Details:\nUsername: ${generatedChildUsername}\nPIN: ${generatedChildPin}`;
+          void window.navigator.clipboard.writeText(credentials);
+          setCredentialsCopied(true);
+          setTimeout(() => setCredentialsCopied(false), 2000);
+        }
+      } catch (err) {
+        console.error("Failed to copy:", err);
         setFormError("Failed to copy credentials to clipboard.");
-      });
+      }
     }
   };
 
@@ -421,7 +440,9 @@ export default function ParentChildSetupPage() {
                     <select
                       {...field}
                       id="childSchoolLevel"
-                      onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : "")}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                        field.onChange(e.currentTarget.value ? parseInt(e.currentTarget.value) : "");
+                      }}
                       className={`mt-1 block w-full px-3 py-2 border ${
                         errors.childSchoolLevel ? "border-red-500" : "border-gray-300"
                       } rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}

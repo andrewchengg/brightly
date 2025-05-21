@@ -13,7 +13,7 @@ const AnnouncementListPage = async ({
 }: {
   searchParams: { [key: string]: string | undefined };
 }) => {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role as string;
   const currentUserId = user?.id;

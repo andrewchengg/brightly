@@ -10,7 +10,9 @@ async function main() {
     where: { name: 'Mathematics' },
     update: {},
     create: {
-      name: 'Mathematics'
+      name: 'Mathematics',
+      createdAt: new Date(),
+      updatedAt: new Date()
     }
   });
 
@@ -26,7 +28,9 @@ async function main() {
       update: {},
       create: {
         name: 'Numbers and Operations',
-        subjectId: mathSubject.id
+        subjectId: mathSubject.id,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
     }),
     prisma.topic.upsert({
@@ -39,7 +43,9 @@ async function main() {
       update: {},
       create: {
         name: 'Algebra',
-        subjectId: mathSubject.id
+        subjectId: mathSubject.id,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
     }),
     prisma.topic.upsert({
@@ -52,7 +58,9 @@ async function main() {
       update: {},
       create: {
         name: 'Geometry',
-        subjectId: mathSubject.id
+        subjectId: mathSubject.id,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
     })
   ]);
@@ -76,8 +84,11 @@ async function main() {
       subjectId: mathSubject.id,
       marks: 1,
       pointsAwarded: 10,
-      tags: ['mcq', 'paper1'],
-      hint: `Hint for MCQ 1 Mark Question ${i + 1}`
+      hint: `Hint for MCQ 1 Mark Question ${i + 1}`,
+      pdfPageNumber: 1,
+      questionNumberOnPage: `${i + 1}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
     })),
 
     // 5 MCQ questions worth 2 marks each
@@ -97,8 +108,11 @@ async function main() {
       subjectId: mathSubject.id,
       marks: 2,
       pointsAwarded: 20,
-      tags: ['mcq', 'paper1'],
-      hint: `Hint for MCQ 2 Mark Question ${i + 1}`
+      hint: `Hint for MCQ 2 Mark Question ${i + 1}`,
+      pdfPageNumber: 1,
+      questionNumberOnPage: `${i + 11}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
     })),
 
     // 5 Short answer questions worth 1 mark each
@@ -112,8 +126,11 @@ async function main() {
       subjectId: mathSubject.id,
       marks: 1,
       pointsAwarded: 10,
-      tags: ['short-answer', 'paper1'],
-      hint: `Hint for Short Answer 1 Mark Question ${i + 1}`
+      hint: `Hint for Short Answer 1 Mark Question ${i + 1}`,
+      pdfPageNumber: 2,
+      questionNumberOnPage: `${i + 1}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
     })),
 
     // 10 Short answer questions worth 2 marks each
@@ -127,8 +144,11 @@ async function main() {
       subjectId: mathSubject.id,
       marks: 2,
       pointsAwarded: 20,
-      tags: ['short-answer', 'paper1'],
-      hint: `Hint for Short Answer 2 Mark Question ${i + 1}`
+      hint: `Hint for Short Answer 2 Mark Question ${i + 1}`,
+      pdfPageNumber: 2,
+      questionNumberOnPage: `${i + 6}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
     }))
   ];
 
@@ -145,8 +165,11 @@ async function main() {
       subjectId: mathSubject.id,
       marks: 2,
       pointsAwarded: 20,
-      tags: ['short-answer', 'paper2'],
-      hint: `Hint for Paper 2 Short Answer 2 Mark Question ${i + 1}`
+      hint: `Hint for Paper 2 Short Answer 2 Mark Question ${i + 1}`,
+      pdfPageNumber: 3,
+      questionNumberOnPage: `${i + 1}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
     })),
 
     // 12 Long answer questions (mix of 3, 4, and 5 marks)
@@ -160,8 +183,11 @@ async function main() {
       subjectId: mathSubject.id,
       marks: 3,
       pointsAwarded: 30,
-      tags: ['long-answer', 'paper2'],
-      hint: `Hint for Long Answer 3 Mark Question ${i + 1}`
+      hint: `Hint for Long Answer 3 Mark Question ${i + 1}`,
+      pdfPageNumber: 3,
+      questionNumberOnPage: `${i + 6}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
     })),
     ...Array(4).fill().map((_, i) => ({
       text: `Long Answer 4 Mark Question ${i + 1}`,
@@ -173,8 +199,11 @@ async function main() {
       subjectId: mathSubject.id,
       marks: 4,
       pointsAwarded: 40,
-      tags: ['long-answer', 'paper2'],
-      hint: `Hint for Long Answer 4 Mark Question ${i + 1}`
+      hint: `Hint for Long Answer 4 Mark Question ${i + 1}`,
+      pdfPageNumber: 3,
+      questionNumberOnPage: `${i + 10}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
     })),
     ...Array(4).fill().map((_, i) => ({
       text: `Long Answer 5 Mark Question ${i + 1}`,
@@ -186,8 +215,11 @@ async function main() {
       subjectId: mathSubject.id,
       marks: 5,
       pointsAwarded: 50,
-      tags: ['long-answer', 'paper2'],
-      hint: `Hint for Long Answer 5 Mark Question ${i + 1}`
+      hint: `Hint for Long Answer 5 Mark Question ${i + 1}`,
+      pdfPageNumber: 3,
+      questionNumberOnPage: `${i + 14}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
     }))
   ];
 

@@ -8,7 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 const StudentPage = async () => {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id;
   

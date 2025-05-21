@@ -11,10 +11,10 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }>) {
   // Server-side auth check
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   
-  if (!session) {
+  if (!user) {
     redirect('/sign-in');
   }
 
