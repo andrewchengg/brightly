@@ -5,6 +5,43 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
+// Safe storage utility functions for client-side only code
+const safeStorage = {
+  getItem: (key: string, storageType: 'local' | 'session' = 'local'): string | null => {
+    try {
+      if (typeof window === 'undefined') return null;
+      return storageType === 'local' 
+        ? localStorage.getItem(key) 
+        : sessionStorage.getItem(key);
+    } catch (e) {
+      console.error(`Error accessing ${storageType} storage:`, e);
+      return null;
+    }
+  },
+  
+  setItem: (key: string, value: string, storageType: 'local' | 'session' = 'local'): void => {
+    try {
+      if (typeof window === 'undefined') return;
+      storageType === 'local' 
+        ? localStorage.setItem(key, value) 
+        : sessionStorage.setItem(key, value);
+    } catch (e) {
+      console.error(`Error setting ${storageType} storage:`, e);
+    }
+  },
+  
+  removeItem: (key: string, storageType: 'local' | 'session' = 'local'): void => {
+    try {
+      if (typeof window === 'undefined') return;
+      storageType === 'local' 
+        ? localStorage.removeItem(key) 
+        : sessionStorage.removeItem(key);
+    } catch (e) {
+      console.error(`Error removing from ${storageType} storage:`, e);
+    }
+  }
+};
+
 interface Option {
   id: string;
   text: string;
@@ -18,7 +55,7 @@ interface Question {
   correctAnswer: string | string[];
   hint?: string;
   topic: {
-    id: string;
+    id: string | number;
     name: string;
   };
   difficulty?: string;
@@ -57,11 +94,13 @@ export default function RandomPractice() {
   const containerRef = useRef<HTMLDivElement>(null);
   const aiContentRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [multiPartAnswers, setMultiPartAnswers] = useState<Record<string, string>>({});
+  const [multiPartResults, setMultiPartResults] = useState<Record<string, boolean>>({});
 
   // Load saved progress on initial render
   useEffect(() => {
     // Get current user ID from localStorage or session
-    const currentUserId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
+    const currentUserId = safeStorage.getItem('userId');
     
     if (!currentUserId) {
       console.warn('User ID not found in storage. Practice progress won\'t be saved.');
@@ -70,7 +109,7 @@ export default function RandomPractice() {
     }
     
     // Use user-specific key for practice progress
-    const savedProgress = localStorage.getItem(`randomPracticeProgress_${currentUserId}`);
+    const savedProgress = safeStorage.getItem(`randomPracticeProgress_${currentUserId}`);
     if (savedProgress) {
       try {
         const progress: PracticeProgress = JSON.parse(savedProgress);
@@ -91,7 +130,7 @@ export default function RandomPractice() {
   // Save progress whenever relevant state changes
   useEffect(() => {
     // Get current user ID from localStorage or session
-    const currentUserId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
+    const currentUserId = safeStorage.getItem('userId');
     
     if (!currentUserId) {
       console.warn('User ID not found in storage. Practice progress won\'t be saved.');
@@ -106,7 +145,7 @@ export default function RandomPractice() {
         answeredQuestions
       };
       // Use user-specific key for practice progress
-      localStorage.setItem(`randomPracticeProgress_${currentUserId}`, JSON.stringify(progress));
+      safeStorage.setItem(`randomPracticeProgress_${currentUserId}`, JSON.stringify(progress));
     }
   }, [questions, currentQuestionIndex, score, answeredQuestions]);
 
@@ -216,19 +255,47 @@ export default function RandomPractice() {
         throw new Error(`API error: ${response.status}`);
       }
       
-      const randomQuestions = await response.json();
+      const data = await response.json();
       
-      if (!randomQuestions || randomQuestions.length === 0) {
+      // Check if we got an error response
+      if (data.error) {
+        throw new Error(data.error.message || 'API error');
+      }
+      
+      // Ensure we have an array of questions
+      const randomQuestions = Array.isArray(data) ? data : [];
+      
+      if (randomQuestions.length === 0) {
         throw new Error('No questions returned from API');
       }
       
       console.log(`Loaded ${randomQuestions.length} questions`);
-      setQuestions(randomQuestions);
+      
+      // Process questions to ensure they have a consistent format
+      const processedQuestions = randomQuestions.map(q => {
+        // Ensure we have the expected fields, normalize the data structure
+        return {
+          id: typeof q.id === 'string' ? parseInt(q.id, 10) : q.id,
+          text: q.text || q.question || '',
+          question: q.text || q.question || '', // For backward compatibility
+          options: Array.isArray(q.options) ? q.options : [],
+          correctAnswer: q.correctAnswer || '',
+          hint: q.hint || q.explanation || '',
+          topic: {
+            id: q.topic?.id || '',
+            name: q.topic?.name || ''
+          },
+          difficulty: q.difficulty || 'MEDIUM',
+          pointsAwarded: q.pointsAwarded || 10,
+          questionType: q.questionType || 'MULTIPLE_CHOICE',
+          imageUrl: q.imageUrl || null
+        };
+      });
+      
+      setQuestions(processedQuestions);
       setLoading(false);
     } catch (error: any) {
       console.error("Error setting up practice questions:", error);
-      
-      // Show the error in the UI instead of navigating away
       setLoading(false);
       setError(error.message || "Failed to load questions");
     }
@@ -319,13 +386,11 @@ export default function RandomPractice() {
 
   const completeSession = async () => {
     // Get current user ID for clearing the correct storage item
-    const currentUserId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
+    const currentUserId = safeStorage.getItem('userId');
     
     // Clear saved progress when session is completed using the user-specific key
     if (currentUserId) {
-      localStorage.removeItem(`randomPracticeProgress_${currentUserId}`);
-    } else {
-      localStorage.removeItem('randomPracticeProgress'); // Fallback
+      safeStorage.removeItem(`randomPracticeProgress_${currentUserId}`);
     }
     
     // Award XP to the user
@@ -354,21 +419,24 @@ export default function RandomPractice() {
 
   // Add function to explicitly clear progress (for the Exit button)
   const clearProgress = () => {
-    // Get current user ID
-    const currentUserId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
+    setQuestions([]);
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setSelectedAnswer(null);
+    setIsAnswerCorrect(null);
+    setShowHint(false);
+    setAnsweredQuestions({});
+    setChatHistory([]);
     
-    if (confirm('Do you want to save your progress? Click Cancel to reset progress.')) {
-      // Progress is already being saved automatically
-      router.push("/student/practice");
-    } else {
-      // Clear progress if user doesn't want to save, using the user-specific key
-      if (currentUserId) {
-        localStorage.removeItem(`randomPracticeProgress_${currentUserId}`);
-      } else {
-        localStorage.removeItem('randomPracticeProgress'); // Fallback
-      }
-      router.push("/student/practice");
+    // Clear saved progress in localStorage
+    const currentUserId = safeStorage.getItem('userId');
+    
+    if (currentUserId) {
+      safeStorage.removeItem(`randomPracticeProgress_${currentUserId}`);
     }
+    
+    // Fetch new questions
+    fetchRandomQuestions();
   };
   
   // Handle AI tutor chat functionality
@@ -565,6 +633,245 @@ export default function RandomPractice() {
     if (isCorrect) {
       setScore(score + 1);
     }
+  };
+
+  const renderQuestionContent = () => {
+    if (!currentQuestion) return null;
+
+    const questionTypeString = String(currentQuestion.questionType);
+
+    switch(questionTypeString) {
+      case 'MULTIPLE_CHOICE':
+        return (
+          <div className="space-y-4 mb-20">
+            {currentQuestion?.options && Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0 ? (
+              currentQuestion.options.map((option, index: number) => {
+                // Get option ID and text
+                const optionId = option.id;
+                const optionText = option.text;
+                const optionLetter = String.fromCharCode(65 + index); // A, B, C, D
+                
+                // Get the correct answer ID
+                const correctAnswerId = String(currentQuestion.correctAnswer || '').toLowerCase();
+                
+                // Check if this is the correct option
+                const isCorrectOption = optionId.toLowerCase() === correctAnswerId;
+                
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleAnswer(optionId, index)}
+                    disabled={selectedAnswer !== null}
+                    className={`w-full text-left p-5 rounded-md transition-all duration-200 text-lg ${
+                      answeredQuestions[currentQuestion.id] === optionId
+                        ? isAnswerCorrect
+                          ? "bg-green-50 border-2 border-green-500 text-green-800"
+                          : "bg-red-50 border-2 border-red-500 text-red-800"
+                        : selectedAnswer !== null && isCorrectOption
+                          ? "bg-green-50 border-2 border-green-500 text-green-800"
+                          : "bg-white hover:bg-gray-50 border border-gray-300"
+                    }`}
+                  >
+                    <span className="font-bold mr-2">{optionLetter}.</span> {optionText}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-center">
+                <p>No answer options available for this question.</p>
+                <p className="text-sm mt-2">This may be due to an API error or missing data.</p>
+              </div>
+            )}
+          </div>
+        );
+      
+      case 'FILL_IN_THE_BLANK':
+      case 'OPEN_ENDED':
+        return (
+          <div className="mt-8">
+            <div className="mb-4">
+              <label htmlFor="text-answer" className="block text-gray-700 text-sm font-medium mb-2">
+                Your Answer:
+              </label>
+              <div className="flex">
+                <input
+                  id="text-answer"
+                  type="text"
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && textAnswer.trim() && selectedAnswer === null) {
+                      e.preventDefault();
+                      handleTextAnswerSubmit();
+                    }
+                  }}
+                  placeholder="Type your answer here..."
+                  disabled={selectedAnswer !== null}
+                  className={`w-full p-4 text-lg rounded-l-md border ${
+                    selectedAnswer === null 
+                      ? "border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200"
+                      : isAnswerCorrect
+                        ? "border-green-500 bg-green-50 text-green-800"
+                        : "border-red-500 bg-red-50 text-red-800"
+                  }`}
+                />
+                <button
+                  onClick={handleTextAnswerSubmit}
+                  disabled={selectedAnswer !== null || !textAnswer.trim()}
+                  className={`px-6 rounded-r-md ${
+                    selectedAnswer === null && textAnswer.trim()
+                      ? "bg-blue-500 hover:bg-blue-600 text-white"
+                      : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  Submit
+                </button>
+              </div>
+              {selectedAnswer !== null && (
+                <div className={`mt-4 p-4 rounded-md ${
+                  isAnswerCorrect
+                    ? "bg-green-50 border border-green-200 text-green-800"
+                    : "bg-red-50 border border-red-200 text-red-800"
+                }`}>
+                  <p className="font-medium">
+                    {isAnswerCorrect 
+                      ? "Correct! Well done." 
+                      : `Incorrect. The correct answer is "${
+                          Array.isArray(currentQuestion.correctAnswer) 
+                            ? currentQuestion.correctAnswer[0] 
+                            : currentQuestion.correctAnswer
+                        }".`
+                    }
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      
+      case 'MULTI_PART':
+        // For multi-part questions, we'll need to handle part A, B, etc.
+        // This is a simplified version - you might want to expand this based on your requirements
+        return (
+          <div className="mt-8">
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-amber-800 font-medium">This is a multi-part question. Enter your answers for each part:</p>
+            </div>
+            
+            {Object.keys(currentQuestion.correctAnswer || {}).map((part, index) => (
+              <div key={part} className="mb-6">
+                <div className="mb-2 font-medium text-gray-700">Part {part.toUpperCase()}:</div>
+                <div className="flex">
+                  <input
+                    type="text"
+                    value={multiPartAnswers[part] || ''}
+                    onChange={(e) => {
+                      const newAnswers = {...multiPartAnswers};
+                      newAnswers[part] = e.target.value;
+                      setMultiPartAnswers(newAnswers);
+                    }}
+                    placeholder={`Enter answer for part ${part.toUpperCase()}`}
+                    disabled={selectedAnswer !== null}
+                    className="w-full p-4 text-lg rounded-l-md border border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200"
+                  />
+                </div>
+              </div>
+            ))}
+            
+            <button
+              onClick={handleMultiPartSubmit}
+              disabled={selectedAnswer !== null || !isMultiPartComplete()}
+              className={`px-6 py-3 rounded-md ${
+                selectedAnswer === null && isMultiPartComplete()
+                  ? "bg-blue-500 hover:bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              Submit All Answers
+            </button>
+            
+            {selectedAnswer !== null && (
+              <div className="mt-4 p-4 rounded-md bg-blue-50 border border-blue-200">
+                <p className="font-medium text-blue-800 mb-2">Results:</p>
+                {Object.keys(currentQuestion.correctAnswer || {}).map(part => (
+                  <div key={part} className={`mb-2 p-2 rounded ${
+                    multiPartResults[part] 
+                      ? "bg-green-50 text-green-800" 
+                      : "bg-red-50 text-red-800"
+                  }`}>
+                    <p>
+                      <span className="font-medium">Part {part.toUpperCase()}: </span>
+                      {multiPartResults[part] 
+                        ? "Correct!" 
+                        : `Incorrect. The correct answer is "${currentQuestion.correctAnswer[part]}".`
+                      }
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      
+      default:
+        return (
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-center">
+            <p>Unknown question type: {currentQuestion.questionType}</p>
+            <p className="text-sm mt-2">Please contact support if you see this message.</p>
+          </div>
+        );
+    }
+  };
+
+  // Add this function to determine if multi-part answers are complete
+  const isMultiPartComplete = () => {
+    if (!currentQuestion || !currentQuestion.correctAnswer) return false;
+    
+    const requiredParts = Object.keys(currentQuestion.correctAnswer);
+    for (const part of requiredParts) {
+      if (!multiPartAnswers[part] || !multiPartAnswers[part].trim()) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Add handler for multi-part questions
+  const handleMultiPartSubmit = () => {
+    if (!currentQuestion || !currentQuestion.correctAnswer) return;
+    
+    const correctAnswers = currentQuestion.correctAnswer;
+    let results = {};
+    let correctCount = 0;
+    
+    // Check each part's answer
+    for (const part in correctAnswers) {
+      const userAnswer = (multiPartAnswers[part] || '').trim().toLowerCase();
+      const correctAnswer = String(correctAnswers[part]).trim().toLowerCase();
+      const isCorrect = userAnswer === correctAnswer;
+      
+      results[part] = isCorrect;
+      if (isCorrect) correctCount++;
+    }
+    
+    setMultiPartResults(results);
+    
+    // Consider the question correct if all parts are correct
+    const totalCorrect = Object.keys(correctAnswers).length === correctCount;
+    setIsAnswerCorrect(totalCorrect);
+    
+    // Score is based on how many parts are correct
+    if (totalCorrect) {
+      setScore(score + 1);
+    }
+    
+    // Save the answers to reference later
+    setAnsweredQuestions(prev => ({
+      ...prev,
+      [currentQuestion.id]: JSON.stringify(multiPartAnswers)
+    }));
+    
+    setSelectedAnswer(JSON.stringify(multiPartAnswers));
   };
 
   if (loading) {
@@ -812,109 +1119,7 @@ export default function RandomPractice() {
               </div>
             )}
             
-            <div className="space-y-4 mb-20">
-              {currentQuestion?.questionType === "OPEN_ENDED" ? (
-                <div className="mt-8">
-                  <div className="mb-4">
-                    <label htmlFor="text-answer" className="block text-gray-700 text-sm font-medium mb-2">
-                      Your Answer:
-                    </label>
-                    <div className="flex">
-                      <input
-                        id="text-answer"
-                        type="text"
-                        value={textAnswer}
-                        onChange={(e) => setTextAnswer(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && textAnswer.trim() && selectedAnswer === null) {
-                            e.preventDefault();
-                            handleTextAnswerSubmit();
-                          }
-                        }}
-                        placeholder="Type your answer here..."
-                        disabled={selectedAnswer !== null}
-                        className={`w-full p-4 text-lg rounded-l-md border ${
-                          selectedAnswer === null 
-                            ? "border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200"
-                            : isAnswerCorrect
-                              ? "border-green-500 bg-green-50 text-green-800"
-                              : "border-red-500 bg-red-50 text-red-800"
-                        }`}
-                      />
-                      <button
-                        onClick={handleTextAnswerSubmit}
-                        disabled={selectedAnswer !== null || !textAnswer.trim()}
-                        className={`px-6 rounded-r-md ${
-                          selectedAnswer === null && textAnswer.trim()
-                            ? "bg-blue-500 hover:bg-blue-600 text-white"
-                            : "bg-gray-200 text-gray-500 cursor-not-allowed"
-                        }`}
-                      >
-                        Submit
-                      </button>
-                    </div>
-                    {selectedAnswer !== null && (
-                      <div className={`mt-4 p-4 rounded-md ${
-                        isAnswerCorrect
-                          ? "bg-green-50 border border-green-200 text-green-800"
-                          : "bg-red-50 border border-red-200 text-red-800"
-                      }`}>
-                        <p className="font-medium">
-                          {isAnswerCorrect 
-                            ? "Correct! Well done." 
-                            : `Incorrect. The correct answer is "${
-                                Array.isArray(currentQuestion.correctAnswer) 
-                                  ? currentQuestion.correctAnswer[0] 
-                                  : currentQuestion.correctAnswer
-                              }".`
-                          }
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : currentQuestion?.options && Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0 ? (
-                currentQuestion.options.map((option, index: number) => {
-                  // Get option ID and text
-                  const optionId = option.id;
-                  const optionText = option.text;
-                  const optionLetter = String.fromCharCode(65 + index); // A, B, C, D
-                  
-                  // Get the correct answer ID
-                  const correctAnswerId = String(currentQuestion.correctAnswer || '').toLowerCase();
-                  
-                  // Check if this is the correct option
-                  const isCorrectOption = optionId.toLowerCase() === correctAnswerId;
-                  
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => handleAnswer(optionId, index)}
-                      disabled={selectedAnswer !== null}
-                      className={`w-full text-left p-5 rounded-md transition-all duration-200 text-lg ${
-                        answeredQuestions[currentQuestion.id] === optionId
-                          ? isAnswerCorrect
-                            ? "bg-green-50 border-2 border-green-500 text-green-800"
-                            : "bg-red-50 border-2 border-red-500 text-red-800"
-                          : selectedAnswer !== null && isCorrectOption
-                            ? "bg-green-50 border-2 border-green-500 text-green-800"
-                            : "bg-white hover:bg-gray-50 border border-gray-300"
-                      }`}
-                    >
-                      <span className="font-bold mr-2">{optionLetter}.</span> {optionText}
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-center">
-                  <p>No answer options available for this question.</p>
-                  <p className="text-sm mt-2">This may be due to an API error or missing data.</p>
-                  <pre className="text-xs mt-2 p-2 bg-yellow-100 rounded overflow-auto max-h-20">
-                    {JSON.stringify(currentQuestion?.options || null, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
+            {renderQuestionContent()}
 
             {showHint && currentQuestion?.hint && (
               <div className="my-8 p-4 bg-amber-50 border border-amber-200 rounded-md text-amber-800">

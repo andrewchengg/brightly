@@ -2,9 +2,15 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
+interface XpRequestBody {
+  xpAmount: number;
+  activityType?: string;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
     // Get user session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -16,7 +22,7 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
     
     // Get request body
-    const { xpAmount, activityType } = await req.json();
+    const { xpAmount, activityType } = await req.json() as XpRequestBody;
     
     if (!xpAmount || typeof xpAmount !== 'number') {
       return NextResponse.json({ error: 'Invalid XP amount' }, { status: 400 });
@@ -24,8 +30,8 @@ export async function POST(req: NextRequest) {
     
     // First, get the user's current XP
     const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('xp_points')
+      .from('Student')
+      .select('xpPoints')
       .eq('id', userId)
       .single();
       
@@ -35,13 +41,18 @@ export async function POST(req: NextRequest) {
     }
     
     // Calculate new XP total
-    const currentXP = userData?.xp_points || 0;
+    const currentXP = userData?.xpPoints || 0;
     const newXP = currentXP + xpAmount;
+    
+    // Calculate level information
+    const oldLevel = Math.floor(currentXP / 1000) + 1;
+    const newLevel = Math.floor(newXP / 1000) + 1;
+    const leveledUp = newLevel > oldLevel;
     
     // Update user's XP in the database
     const { data, error } = await supabase
-      .from('users')
-      .update({ xp_points: newXP, updated_at: new Date().toISOString() })
+      .from('Student')
+      .update({ xpPoints: newXP, updatedAt: new Date().toISOString() })
       .eq('id', userId);
       
     if (error) {
@@ -65,7 +76,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       current_xp: newXP,
-      awarded: xpAmount
+      awarded: xpAmount,
+      level: newLevel,
+      leveled_up: leveledUp,
+      previous_level: oldLevel,
+      next_level_xp: newLevel * 1000,
+      progress_to_next_level: ((newXP - (newLevel - 1) * 1000) / 1000) * 100
     });
     
   } catch (error) {
