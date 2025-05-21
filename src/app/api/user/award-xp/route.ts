@@ -1,6 +1,6 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
 
 interface XpRequestBody {
   xpAmount: number;
@@ -8,9 +8,27 @@ interface XpRequestBody {
 }
 
 export async function POST(req: NextRequest) {
+  const cookieStore = cookies();
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    
     // Get user session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
@@ -36,7 +54,7 @@ export async function POST(req: NextRequest) {
       
     if (userError) {
       console.error('Error fetching user data:', userError);
-      return NextResponse.json({ error: 'Failed to fetch user data', details: userError }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to fetch user data', details: userError.message }, { status: 500 });
     }
     
     // Calculate new XP total
@@ -49,31 +67,15 @@ export async function POST(req: NextRequest) {
     const leveledUp = newLevel > oldLevel;
     
     // Update user's XP in the database
-    const { data, error } = await supabase
+    const { error: updateError } = await supabase
       .from('Student')
       .update({ xpPoints: newXP, updatedAt: new Date().toISOString() })
       .eq('id', userId);
       
-    if (error) {
-      console.error('Error updating XP:', error);
-      return NextResponse.json({ error: 'Failed to update XP', details: error }, { status: 500 });
+    if (updateError) {
+      console.error('Error updating XP:', updateError);
+      return NextResponse.json({ error: 'Failed to update XP', details: updateError.message }, { status: 500 });
     }
-    
-    // Log the XP award in an activity log if such a table exists
-    // We'll skip activity logging for now since it's not critical to the core functionality
-    /* 
-    try {
-      await supabase.from('activity_logs').insert({
-        user_id: userId,
-        activity_type: activityType || 'xp_earned',
-        xp_amount: xpAmount,
-        created_at: new Date().toISOString()
-      });
-    } catch (logError) {
-      // Continue even if logging fails
-      console.error('Error logging activity:', logError);
-    }
-    */
     
     return NextResponse.json({
       success: true,
@@ -86,8 +88,8 @@ export async function POST(req: NextRequest) {
       progressToNextLevel: ((newXP - (newLevel - 1) * 1000) / 1000) * 100
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in award-xp endpoint:', error);
-    return NextResponse.json({ error: 'Internal server error', details: error }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
-} 
+}
