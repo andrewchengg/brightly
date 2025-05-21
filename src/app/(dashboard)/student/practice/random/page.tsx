@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { toast } from "react-toastify";
 
 // Safe storage utility functions for client-side only code
 const safeStorage = {
@@ -377,10 +378,83 @@ export default function RandomPractice() {
       setIsAnswerCorrect(null);
       setShowHint(false);
       setAiMessage(null);
+      setChatHistory([]);
       setTextAnswer(''); // Reset text answer input when moving to next question
     } else {
-      // Show summary instead of immediately ending
+      // Show summary and update streak automatically
       setShowSummary(true);
+      
+      // When reaching the end, automatically run the XP and streak updates
+      // but don't navigate away
+      const updateProgressAndStreak = async () => {
+        // Get current user ID
+        const currentUserId = safeStorage.getItem('userId');
+        
+        // Clear saved progress
+        if (currentUserId) {
+          safeStorage.removeItem(`randomPracticeProgress_${currentUserId}`);
+        }
+        
+        // Award XP to the user and update streak
+        try {
+          const response = await fetch('/api/user/award-xp', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              xpAmount: 100,
+              activityType: 'practice_completed'
+            }),
+          });
+          
+          const responseData = await response.json().catch(() => null);
+          
+          if (!response.ok) {
+            console.error('Failed to award XP', responseData || response.statusText);
+            toast.error("There was an issue awarding XP, but your progress was saved.");
+          } else {
+            console.log('Successfully awarded XP:', responseData);
+            toast.success(`You earned 100 XP!`);
+          }
+          
+          // Then, try to update streak - even if XP award failed
+          try {
+            const streakResponse = await fetch('/api/user/update-streak', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                activityType: 'practice_completed'
+              }),
+            });
+            
+            const streakData = await streakResponse.json().catch(() => null);
+            
+            if (!streakResponse.ok) {
+              console.error('Failed to update streak', streakData || streakResponse.statusText);
+              toast.error("There was an issue updating your streak.");
+            } else {
+              console.log('Successfully updated streak:', streakData);
+              if (streakData?.currentStreak > 1) {
+                toast.success(`You're on a ${streakData.currentStreak} day streak! Keep it up!`);
+              }
+            }
+          } catch (streakError) {
+            console.error('Error updating streak:', streakError);
+            toast.error("There was an issue updating your streak.");
+          }
+          
+          // DO NOT navigate away - stay on the summary page
+        } catch (error) {
+          console.error('Error in complete session:', error);
+          toast.error("There was an issue saving your results.");
+        }
+      };
+      
+      // Run the streak and XP updates
+      updateProgressAndStreak();
     }
   };
 
@@ -393,8 +467,9 @@ export default function RandomPractice() {
       safeStorage.removeItem(`randomPracticeProgress_${currentUserId}`);
     }
     
-    // Award XP to the user
+    // Award XP to the user and update streak
     try {
+      // First, try to award XP
       const response = await fetch('/api/user/award-xp', {
         method: 'POST',
         headers: {
@@ -406,15 +481,51 @@ export default function RandomPractice() {
         }),
       });
       
+      const responseData = await response.json().catch(() => null);
+      
       if (!response.ok) {
-        console.error('Failed to award XP');
+        console.error('Failed to award XP', responseData || response.statusText);
+        toast.error("There was an issue awarding XP, but your progress has been recorded.");
+      } else {
+        console.log('Successfully awarded XP:', responseData);
+        toast.success("XP awarded! Great job completing the practice session.");
       }
+      
+      // Then, try to update streak - even if XP award failed
+      try {
+        const streakResponse = await fetch('/api/user/update-streak', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            activityType: 'practice_completed'
+          }),
+        });
+        
+        const streakData = await streakResponse.json().catch(() => null);
+        
+        if (!streakResponse.ok) {
+          console.error('Failed to update streak', streakData || streakResponse.statusText);
+          toast.error("There was an issue updating your streak, but your progress has been recorded.");
+        } else {
+          console.log('Successfully updated streak:', streakData);
+          if (streakData?.currentStreak > 1) {
+            toast.success(`You're on a ${streakData.currentStreak} day streak! Keep it up!`);
+          }
+        }
+      } catch (streakError) {
+        console.error('Error updating streak:', streakError);
+        toast.error("There was an issue updating your streak, but your progress has been recorded.");
+      }
+      
+      // Do NOT navigate away automatically
+      toast.success("Session completed! Your progress has been saved.");
+      
     } catch (error) {
-      console.error('Error awarding XP:', error);
+      console.error('Error in complete session:', error);
+      toast.error("There was an issue saving your results, but your progress has been recorded.");
     }
-    
-    // Now navigate back to practice page
-    router.push("/student/practice");
   };
 
   // Add function to explicitly clear progress (for the Exit button)
@@ -989,7 +1100,7 @@ export default function RandomPractice() {
               {/* Stats */}
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Session Overview</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-gray-500 text-sm">Total Questions</p>
                     <p className="text-2xl font-semibold">{questions.length}</p>
@@ -1006,6 +1117,22 @@ export default function RandomPractice() {
                     <p className="text-gray-500 text-sm">XP Earned</p>
                     <p className="text-2xl font-semibold text-amber-500">100</p>
                   </div>
+                </div>
+                
+                {/* Buttons - moved here from the header */}
+                <div className="flex justify-end space-x-4">
+                  <Button 
+                    onClick={() => router.push("/student/practice")}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-800"
+                  >
+                    Return to Practice
+                  </Button>
+                  <Button 
+                    onClick={completeSession}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    Complete Session
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1048,22 +1175,6 @@ export default function RandomPractice() {
                 </div>
               ))}
             </div>
-          </div>
-          
-          {/* Buttons */}
-          <div className="mt-8 flex justify-between">
-            <Button 
-              onClick={() => router.push("/student/practice")}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800"
-            >
-              Return to Practice
-            </Button>
-            <Button 
-              onClick={completeSession}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              Complete Session
-            </Button>
           </div>
         </div>
       </div>

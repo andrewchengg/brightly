@@ -9,8 +9,7 @@ interface XpRequestBody {
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = createRouteHandlerClient({ cookies });
     
     // Get user session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -37,7 +36,7 @@ export async function POST(req: NextRequest) {
       
     if (userError) {
       console.error('Error fetching user data:', userError);
-      return NextResponse.json({ error: 'Failed to fetch user data' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to fetch user data', details: userError }, { status: 500 });
     }
     
     // Calculate new XP total
@@ -57,10 +56,12 @@ export async function POST(req: NextRequest) {
       
     if (error) {
       console.error('Error updating XP:', error);
-      return NextResponse.json({ error: 'Failed to update XP' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to update XP', details: error }, { status: 500 });
     }
     
     // Log the XP award in an activity log if such a table exists
+    // We'll skip activity logging for now since it's not critical to the core functionality
+    /* 
     try {
       await supabase.from('activity_logs').insert({
         user_id: userId,
@@ -72,20 +73,21 @@ export async function POST(req: NextRequest) {
       // Continue even if logging fails
       console.error('Error logging activity:', logError);
     }
+    */
     
     return NextResponse.json({
       success: true,
-      current_xp: newXP,
+      currentXp: newXP,
       awarded: xpAmount,
       level: newLevel,
-      leveled_up: leveledUp,
-      previous_level: oldLevel,
-      next_level_xp: newLevel * 1000,
-      progress_to_next_level: ((newXP - (newLevel - 1) * 1000) / 1000) * 100
+      leveledUp: leveledUp,
+      previousLevel: oldLevel,
+      nextLevelXp: newLevel * 1000,
+      progressToNextLevel: ((newXP - (newLevel - 1) * 1000) / 1000) * 100
     });
     
   } catch (error) {
     console.error('Error in award-xp endpoint:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', details: error }, { status: 500 });
   }
 } 

@@ -14,12 +14,15 @@ const StudentPage = async () => {
   
   console.log(`Student page loaded for user: ${userId}`);
 
-  // Get student information including XP points
+  // Get student information including XP points and streak data
   const student = await prisma.student.findUnique({
     where: { id: userId! },
     select: { 
       name: true,
-      xpPoints: true
+      xpPoints: true,
+      currentStreak: true,
+      longestStreak: true,
+      lastActivityDate: true
     }
   });
 
@@ -30,6 +33,9 @@ const StudentPage = async () => {
   const previousLevelXP = (level - 1) * 1000;
   const progressToNextLevel = ((xpPoints - previousLevelXP) / (nextLevelXP - previousLevelXP)) * 100;
   const xpToNextLevel = nextLevelXP - xpPoints;
+
+  // Get streak information
+  const streak = student?.currentStreak || 0;
 
   const classItem = await prisma.class.findMany({
     where: {
@@ -51,7 +57,6 @@ const StudentPage = async () => {
 
   // Other gamification data
   const studentData = {
-    streak: 7,
     weeklyChallenge: {
       completed: 3,
       total: 5,
@@ -106,9 +111,19 @@ const StudentPage = async () => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1 bg-orange-50 px-3 py-1 rounded-full">
+              <div className="flex items-center gap-1 bg-orange-50 px-3 py-1 rounded-full relative group">
                 <span className="text-orange-500">🔥</span>
-                <span className="text-orange-600 font-medium">{studentData.streak} day streak</span>
+                <span className="text-orange-600 font-medium">{streak} day streak</span>
+                <div className="cursor-help ml-1">
+                  <span className="text-gray-400 text-sm">ⓘ</span>
+                  <div className="absolute hidden group-hover:block bg-white p-3 shadow-lg rounded-md w-64 text-sm text-gray-600 border border-gray-200 z-10 top-full left-0 mt-2">
+                    <p className="font-medium mb-1">Activity Streak</p>
+                    <p className="mb-2">Your streak increases when you practice on consecutive days.</p>
+                    <p className="mb-1">• Current streak: {streak} days</p>
+                    <p className="mb-1">• Longest streak: {student?.longestStreak || 0} days</p>
+                    <p>• Keep your streak alive by practicing daily!</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

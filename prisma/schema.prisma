@@ -33,11 +33,11 @@ model Student {
   schoolLevel          Int       // e.g., 1 for Primary 1, 6 for Primary 6
   schoolName           String?
   initialSetupComplete Boolean   @default(false)
-  currentStreak        Int       @default(0) @map("current_streak")
-  lastActivityDate     DateTime? @map("last_activity_date")
+  currentStreak        Int       @default(0)
+  lastActivityDate     DateTime?
   level                Int       @default(1) // Gamification level
-  longestStreak        Int       @default(0) @map("longest_streak")
-  xpPoints             Int       @default(0) @map("xp_points")
+  longestStreak        Int       @default(0)
+  xpPoints             Int       @default(0)
   
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
