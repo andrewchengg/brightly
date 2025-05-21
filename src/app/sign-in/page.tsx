@@ -159,6 +159,11 @@ export default function SignInPage() {
       const { error: signInError, data } = signInResponse
 
       if (signInError) {
+        console.error('Sign in error details:', {
+          message: signInError.message,
+          status: signInError.status,
+          name: signInError.name
+        })
         setError(signInError.message)
       } else if (data.user) {
         // Redirect based on role or to a default dashboard

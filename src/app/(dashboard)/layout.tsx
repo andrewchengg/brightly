@@ -11,10 +11,10 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }>) {
   // Server-side auth check
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   
-  if (!session) {
+  if (!user) {
     redirect('/sign-in');
   }
 
@@ -27,7 +27,7 @@ export default async function DashboardLayout({
           className="flex items-center justify-center lg:justify-start gap-2"
         >
           <Image src="/logo.png" alt="logo" width={32} height={32} />
-          <span className="hidden lg:block font-bold">SchooLama</span>
+          <span className="hidden lg:block font-bold">Edcel</span>
         </Link>
         <Menu />
       </div>

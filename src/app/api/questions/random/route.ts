@@ -53,6 +53,8 @@ export async function GET(request: Request) {
     const topicId = searchParams.get('topicId');
     const subjectId = searchParams.get('subjectId');
     
+    console.log(`Fetching random questions with limit=${limit}, topicId=${topicId || 'any'}, subjectId=${subjectId || 'any'}`);
+    
     // Build the query with any filters provided
     const whereClause: any = {};
     
@@ -63,6 +65,9 @@ export async function GET(request: Request) {
     if (subjectId) {
       whereClause.subjectId = parseInt(subjectId, 10);
     }
+    
+    // Debug log the query we're about to make
+    console.log("Query parameters:", JSON.stringify(whereClause));
     
     // Fetch questions from the database
     const questions = await prisma.question.findMany({
@@ -77,59 +82,95 @@ export async function GET(request: Request) {
       },
       take: limit,
       orderBy: {
-        // Use a random ordering approach
         id: 'asc' // We'll randomize the results after fetching
       }
     });
+    
+    console.log(`Found ${questions.length} questions in database`);
+    
+    // If no questions found, return early with a clear message
+    if (questions.length === 0) {
+      return NextResponse.json(
+        { error: { message: "No questions found matching the criteria" } },
+        { status: 404 }
+      );
+    }
     
     // Shuffle the questions array for randomization
     const randomQuestions = [...questions]
       .sort(() => 0.5 - Math.random())
       .map(q => {
-        // Format options properly based on question's questionType
-        const formattedOptions = formatOptions(q.options);
-        
-        // Format correctAnswer based on options
-        let correctAnswer = q.correctAnswer;
-        
-        // If correctAnswer is a JSON string, parse it
-        if (typeof correctAnswer === 'string' && (
-            correctAnswer.startsWith('{') || 
-            correctAnswer.startsWith('[') ||
-            correctAnswer.startsWith('"')
-          )) {
-          try {
-            correctAnswer = JSON.parse(correctAnswer);
-          } catch (e) {
-            console.warn("Could not parse correctAnswer:", correctAnswer);
+        try {
+          // Format options properly based on question's questionType
+          const formattedOptions = formatOptions(q.options);
+          
+          // Format correctAnswer based on question type
+          let correctAnswer = q.correctAnswer;
+          
+          // If correctAnswer is a JSON string, parse it
+          if (typeof correctAnswer === 'string' && (
+              correctAnswer.startsWith('{') || 
+              correctAnswer.startsWith('[') ||
+              correctAnswer.startsWith('"')
+            )) {
+            try {
+              correctAnswer = JSON.parse(correctAnswer);
+            } catch (e) {
+              console.warn("Could not parse correctAnswer:", correctAnswer);
+            }
           }
+          
+          // Common fields for all question types
+          const questionData: any = {
+            id: q.id,
+            text: q.text,
+            hint: q.hint,
+            explanation: q.explanation,
+            difficulty: q.difficulty,
+            topic: {
+              id: q.topic.id,
+              name: q.topic.name
+            },
+            pointsAwarded: q.pointsAwarded,
+            questionType: q.questionType,
+            imageUrl: q.imageUrl,
+            correctAnswer: correctAnswer
+          };
+          
+          // Add options based on question type
+          const questionTypeString = String(q.questionType);
+          
+          // Add options only for multiple choice questions
+          if (questionTypeString === 'MULTIPLE_CHOICE') {
+            questionData.options = formattedOptions;
+          } else {
+            // For other question types, provide an empty array for consistency
+            questionData.options = [];
+          }
+          
+          return questionData;
+        } catch (error) {
+          console.error(`Error processing question ID ${q.id}:`, error);
+          // Return a minimal valid question object to prevent the whole request from failing
+          return {
+            id: q.id,
+            text: q.text || "Error processing question",
+            options: [],
+            correctAnswer: "",
+            questionType: q.questionType || "MULTIPLE_CHOICE",
+            topic: {
+              id: q.topic?.id || 0,
+              name: q.topic?.name || "Unknown"
+            }
+          };
         }
-
-        // Log for debugging
-        console.log(`Question ${q.id}: options=${JSON.stringify(formattedOptions)}, correctAnswer=${JSON.stringify(correctAnswer)}`);
-        
-        return {
-          id: q.id.toString(),
-          question: q.text,
-          options: formattedOptions,
-          correctAnswer: correctAnswer,
-          hint: q.explanation,
-          difficulty: q.difficulty,
-          topic: {
-            id: q.topic.id.toString(),
-            name: q.topic.name
-          },
-          pointsAwarded: q.pointsAwarded,
-          questionType: q.questionType,
-          imageUrl: q.imageUrl
-        };
       });
     
     return NextResponse.json(randomQuestions);
   } catch (error: any) {
     console.error("Error fetching random questions:", error);
     return NextResponse.json(
-      { error: { message: "Failed to fetch random questions" } },
+      { error: { message: "Failed to fetch random questions", details: error.message, stack: error.stack } },
       { status: 500 }
     );
   } finally {

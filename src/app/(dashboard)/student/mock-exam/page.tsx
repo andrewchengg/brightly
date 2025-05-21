@@ -1,10 +1,17 @@
-import React from 'react';
+import { redirect } from "next/navigation";
+import MockExamLanding from "@/components/MockExam/MockExamLanding";
+import { createClient } from "@/lib/supabase/server";
 
-export default function MockExam() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Mock Exam</h1>
-      <p>Practice with full-length mock exams to prepare for your assessments.</p>
-    </div>
-  );
-} 
+export default async function MockExamPage() {
+  const supabase = await createClient();
+  
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !user.id) {
+    redirect("/sign-in");
+  }
+
+  return <MockExamLanding userId={user.id} />;
+}

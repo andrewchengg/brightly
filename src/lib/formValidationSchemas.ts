@@ -91,10 +91,20 @@ export const parentSetupAndAddChildSchema = z.object({
   childFullName: z.string().min(1, "Child full name is required"),
   childUsername: z.string().min(3, "Child username must be at least 3 characters").optional().or(z.literal("")),
   childEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
-  childSchoolLevel: z.number({
-    required_error: "Child school level is required",
-    invalid_type_error: "Child school level must be a number"
-  }).int().min(1, "Invalid school level").max(6, "Invalid school level"),
+  childSchoolLevel: z.union([
+    z.literal(""),
+    z.number()
+      .int()
+      .min(1, "Invalid school level")
+      .max(6, "Invalid school level")
+  ]).superRefine((val, ctx) => {
+    if (val === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please select a level"
+      });
+    }
+  }),
   childSchoolName: z.string().optional(),
 });
 

@@ -24,6 +24,7 @@ export interface Database {
           initialSetupComplete: boolean
           createdAt?: string | null
           updatedAt?: string | null
+          xp_points?: number | null
         }
         Insert: {
           id: string
@@ -39,6 +40,7 @@ export interface Database {
           initialSetupComplete: boolean
           createdAt?: string | null
           updatedAt?: string | null
+          xp_points?: number | null
         }
         Update: {
           id?: string
@@ -54,6 +56,7 @@ export interface Database {
           initialSetupComplete?: boolean
           createdAt?: string | null
           updatedAt?: string | null
+          xp_points?: number | null
         }
       }
       Parent: {

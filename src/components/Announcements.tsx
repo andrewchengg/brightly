@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
 const Announcements = async () => {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id;
   const role = user?.user_metadata?.role as string;

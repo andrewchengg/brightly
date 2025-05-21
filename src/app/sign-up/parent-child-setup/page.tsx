@@ -24,6 +24,11 @@ const generateUsername = (name: string): string => {
   return `${safeName}${randomDigit}`;
 };
 
+// Add type for form data
+type FormData = Omit<ParentSetupAndAddChildData, 'childSchoolLevel'> & {
+  childSchoolLevel: string | number;
+}
+
 export default function ParentChildSetupPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -51,7 +56,7 @@ export default function ParentChildSetupPage() {
     handleSubmit,
     formState: { errors },
     reset,
-  } = useForm<ParentSetupAndAddChildData>({
+  } = useForm<FormData>({
     resolver: zodResolver(parentSetupAndAddChildSchema),
     defaultValues: {
       parentFullName: parentName || "",
@@ -60,7 +65,7 @@ export default function ParentChildSetupPage() {
       childFullName: "",
       childUsername: "",
       childEmail: "",
-      childSchoolLevel: undefined, // Or a default like 1
+      childSchoolLevel: "",
       childSchoolName: "",
     },
   })
@@ -74,7 +79,7 @@ export default function ParentChildSetupPage() {
       childFullName: "",
       childUsername: "",
       childEmail: "",
-      childSchoolLevel: undefined,
+      childSchoolLevel: "",
       childSchoolName: "",
     })
   }, [parentName, parentEmail, reset])
@@ -98,7 +103,7 @@ export default function ParentChildSetupPage() {
     )
   }
 
-  const onSubmit = async (data: ParentSetupAndAddChildData) => {
+  const onSubmit = async (data: FormData) => {
     setIsLoading(true)
     setFormError(null)
     setSuccessMessage(null)
@@ -107,16 +112,23 @@ export default function ParentChildSetupPage() {
     setChildSetupComplete(false);
 
     try {
+      // Convert childSchoolLevel to number for database
+      const formData = {
+        ...data,
+        childSchoolLevel: typeof data.childSchoolLevel === 'string' ? parseInt(data.childSchoolLevel) : data.childSchoolLevel
+      };
+
       // 1. Upsert Parent record
       const { error: parentError } = await supabase
         .from("Parent")
         .upsert(
           {
             id: parentId, // Supabase Auth User ID
-            name: data.parentFullName,
-            username: data.parentUsername,
-            email: data.parentEmail,
+            name: formData.parentFullName,
+            username: formData.parentUsername,
+            email: formData.parentEmail,
             address: null, // Or collect if you add it to the form
+            updatedAt: new Date(), // Add updatedAt field
           },
           { onConflict: "id" }
         )
@@ -130,7 +142,7 @@ export default function ParentChildSetupPage() {
       console.log("Parent details saved/updated for ID:", parentId)
 
       // 2. Generate child's username and PIN
-      const childUsername = data.childUsername ? data.childUsername : generateUsername(data.childFullName);
+      const childUsername = formData.childUsername ? formData.childUsername : generateUsername(formData.childFullName);
       const childPin = generatePin();
       
       // 3. Call API to create child Supabase Auth user
@@ -140,10 +152,10 @@ export default function ParentChildSetupPage() {
         body: JSON.stringify({
           username: childUsername, // Use username instead of email
           password: childPin, // Use the generated PIN
-          email: data.childEmail || data.parentEmail, // Use child's email if provided, otherwise use parent's email
+          email: formData.childEmail || formData.parentEmail, // Use child's email if provided, otherwise use parent's email
           metadata: {
             role: "student",
-            name: data.childFullName,
+            name: formData.childFullName,
             parentIdForReference: parentId, // For easy linking if needed, not a formal FK
           },
         }),
@@ -156,7 +168,21 @@ export default function ParentChildSetupPage() {
         let errorMessage = `Failed to create child account (status ${createChildUserResponse.status}).`;
         try {
             const errorJson = JSON.parse(childAuthUserResponseText);
-            errorMessage += ` ${errorJson.error || errorJson.message || 'Unknown API error'}`;
+            if (errorJson.error) {
+                // Handle nested error object from the API
+                if (typeof errorJson.error === 'object' && errorJson.error.message) {
+                    errorMessage += ` ${errorJson.error.message}`;
+                } else if (typeof errorJson.error === 'string') {
+                    errorMessage += ` ${errorJson.error}`;
+                } else {
+                    // For API errors that return error details in a different format
+                    errorMessage += ` ${JSON.stringify(errorJson.error)}`;
+                }
+            } else if (errorJson.message) {
+                errorMessage += ` ${errorJson.message}`;
+            } else {
+                errorMessage += ` Unknown error format: ${JSON.stringify(errorJson)}`;
+            }
         } catch (e) {
             errorMessage += ` Response: ${childAuthUserResponseText}`;
         }
@@ -190,12 +216,13 @@ export default function ParentChildSetupPage() {
       const { error: studentError } = await supabase.from("Student").insert({
         id: childAuthUser.id, // Supabase Auth ID of the student
         parentId: parentId,
-        name: data.childFullName,
-        email: data.childEmail || data.parentEmail, // Use child's email if provided, otherwise use parent's
+        name: formData.childFullName,
+        email: formData.childEmail || formData.parentEmail, // Use child's email if provided, otherwise use parent's
         username: childUsername, // Use custom or generated username
-        schoolLevel: data.childSchoolLevel,
-        schoolName: data.childSchoolName || null,
+        schoolLevel: formData.childSchoolLevel,
+        schoolName: formData.childSchoolName || null,
         initialSetupComplete: false, // Child needs to complete setup
+        updatedAt: new Date(), // Add updatedAt field
       })
 
       if (studentError) {
@@ -213,13 +240,13 @@ export default function ParentChildSetupPage() {
       setChildSetupComplete(true); // To show credentials and dashboard button
       setSuccessMessage("Child account created successfully! Please share the credentials below with your child.");
       reset({ // Clear child fields, keep parent fields for potential next child
-        parentFullName: data.parentFullName,
-        parentEmail: data.parentEmail,
-        parentUsername: data.parentUsername,
+        parentFullName: formData.parentFullName,
+        parentEmail: formData.parentEmail,
+        parentUsername: formData.parentUsername,
         childFullName: "",
         childUsername: "",
         childEmail: "",
-        childSchoolLevel: undefined,
+        childSchoolLevel: "",
         childSchoolName: "",
       });
 
@@ -233,15 +260,18 @@ export default function ParentChildSetupPage() {
 
   const handleCopyToClipboard = () => {
     if (generatedChildUsername && generatedChildPin) {
-      navigator.clipboard.writeText(
-        `Child Login Details:\nUsername: ${generatedChildUsername}\nPIN: ${generatedChildPin}`
-      ).then(() => {
-        setCredentialsCopied(true);
-        setTimeout(() => setCredentialsCopied(false), 2000); // Hide message after 2s
-      }).catch(err => {
-        console.error("Failed to copy credentials:", err);
+      try {
+        // Use modern clipboard API if available
+        if (typeof window !== 'undefined') {
+          const credentials = `Child Login Details:\nUsername: ${generatedChildUsername}\nPIN: ${generatedChildPin}`;
+          void window.navigator.clipboard.writeText(credentials);
+          setCredentialsCopied(true);
+          setTimeout(() => setCredentialsCopied(false), 2000);
+        }
+      } catch (err) {
+        console.error("Failed to copy:", err);
         setFormError("Failed to copy credentials to clipboard.");
-      });
+      }
     }
   };
 
@@ -410,14 +440,14 @@ export default function ParentChildSetupPage() {
                     <select
                       {...field}
                       id="childSchoolLevel"
-                      onChange={(e) => field.onChange(parseInt(e.target.value))}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                        field.onChange(e.currentTarget.value ? parseInt(e.currentTarget.value) : "");
+                      }}
                       className={`mt-1 block w-full px-3 py-2 border ${
                         errors.childSchoolLevel ? "border-red-500" : "border-gray-300"
                       } rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
                     >
-                      <option value="" disabled>
-                        Select level
-                      </option>
+                      <option value="">Select A Level</option>
                       {[1, 2, 3, 4, 5, 6].map((level) => (
                         <option key={level} value={level}>
                           Primary {level}

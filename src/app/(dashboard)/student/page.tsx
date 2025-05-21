@@ -8,17 +8,34 @@ import Image from "next/image";
 import Link from "next/link";
 
 const StudentPage = async () => {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id;
   
   console.log(`Student page loaded for user: ${userId}`);
 
-  // Get student information
+  // Get student information including XP points and streak data
   const student = await prisma.student.findUnique({
     where: { id: userId! },
-    select: { name: true }
+    select: { 
+      name: true,
+      xpPoints: true,
+      currentStreak: true,
+      longestStreak: true,
+      lastActivityDate: true
+    }
   });
+
+  // Calculate level and progress
+  const xpPoints = student?.xpPoints || 0;
+  const level = Math.floor(xpPoints / 1000) + 1;
+  const nextLevelXP = level * 1000;
+  const previousLevelXP = (level - 1) * 1000;
+  const progressToNextLevel = ((xpPoints - previousLevelXP) / (nextLevelXP - previousLevelXP)) * 100;
+  const xpToNextLevel = nextLevelXP - xpPoints;
+
+  // Get streak information
+  const streak = student?.currentStreak || 0;
 
   const classItem = await prisma.class.findMany({
     where: {
@@ -38,10 +55,8 @@ const StudentPage = async () => {
     console.log(`Found ${lessons.length} lessons for class ${classItem[0].id}`);
   }
 
-  // Mock gamification data
+  // Other gamification data
   const studentData = {
-    xp: 1250,
-    streak: 7,
     weeklyChallenge: {
       completed: 3,
       total: 5,
@@ -64,12 +79,51 @@ const StudentPage = async () => {
               Welcome back, {student?.name || "Student"}!
             </h1>
             <div className="flex items-center gap-4 mt-2">
-              <div className="flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full">
-                <span className="text-blue-600 font-medium">{studentData.xp} XP</span>
+              <div className="flex flex-col gap-1 relative group">
+                <div className="flex items-center gap-2">
+                  <div className="bg-yellow-100 px-3 py-1 rounded-full">
+                    <span className="text-yellow-600 font-semibold">Level {level}</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full">
+                    <span className="text-blue-600 font-medium">{xpPoints} XP</span>
+                  </div>
+                  <div className="cursor-help ml-1">
+                    <span className="text-gray-400 text-sm">ⓘ</span>
+                    <div className="absolute hidden group-hover:block bg-white p-3 shadow-lg rounded-md w-72 text-sm text-gray-600 border border-gray-200 z-10 top-full left-0 mt-2">
+                      <p className="font-medium mb-1">XP & Level System</p>
+                      <p className="mb-2">You gain XP by completing activities, quizzes, and daily challenges.</p>
+                      <p className="mb-1">• You need 1000 XP to reach each new level</p>
+                      <p className="mb-1">• You need {xpToNextLevel} more XP to reach Level {level + 1}</p>
+                      <p>• Higher levels unlock new badges and achievements</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="w-64 mt-1">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>{previousLevelXP} XP</span>
+                    <span>{nextLevelXP} XP</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-yellow-400 h-2 rounded-full" 
+                      style={{ width: `${progressToNextLevel}%` }}
+                    ></div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-1 bg-orange-50 px-3 py-1 rounded-full">
+              <div className="flex items-center gap-1 bg-orange-50 px-3 py-1 rounded-full relative group">
                 <span className="text-orange-500">🔥</span>
-                <span className="text-orange-600 font-medium">{studentData.streak} day streak</span>
+                <span className="text-orange-600 font-medium">{streak} day streak</span>
+                <div className="cursor-help ml-1">
+                  <span className="text-gray-400 text-sm">ⓘ</span>
+                  <div className="absolute hidden group-hover:block bg-white p-3 shadow-lg rounded-md w-64 text-sm text-gray-600 border border-gray-200 z-10 top-full left-0 mt-2">
+                    <p className="font-medium mb-1">Activity Streak</p>
+                    <p className="mb-2">Your streak increases when you practice on consecutive days.</p>
+                    <p className="mb-1">• Current streak: {streak} days</p>
+                    <p className="mb-1">• Longest streak: {student?.longestStreak || 0} days</p>
+                    <p>• Keep your streak alive by practicing daily!</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
