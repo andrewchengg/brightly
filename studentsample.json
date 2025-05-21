@@ -1,0 +1,23 @@
+[
+    {
+      "id": "b6110bc6-6b24-4f4f-bfc1-00a6f98277b7",
+      "username": "211maytestchild",
+      "name": "asdfasdf",
+      "email": "211maychild@gmail.com",
+      "phone": null,
+      "img": null,
+      "createdAt": "2025-05-21 02:55:27.874",
+      "parentId": "c833467e-4266-4b9d-9a08-67c69a18c693",
+      "classId": null,
+      "gradeId": null,
+      "schoolLevel": 6,
+      "schoolName": "asdfasdf",
+      "initialSetupComplete": true,
+      "current_streak": 0,
+      "last_activity_date": null,
+      "level": 1,
+      "longest_streak": 0,
+      "xp_points": 100,
+      "updatedAt": "2025-05-21 04:35:48.737"
+    }
+  ]
