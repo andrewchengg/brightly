@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 
 
 
+
 interface CompletedSession {
   id: string;
   title?: string | null;
@@ -62,10 +63,7 @@ export default function StudentResultsPage() {
   }, [router, supabase]);
 
   const viewSessionDetails = (sessionId: string) => {
-    // For now, we'll just log. Later, this will navigate to a detailed page.
-    console.log("View details for session:", sessionId);
-    toast.info(`Viewing details for session ${sessionId} (Feature coming soon!)`);
-    // router.push(`/student/results/${sessionId}`); 
+    router.push(`/student/results/${sessionId}`); 
   };
 
   if (loading) {
@@ -119,7 +117,7 @@ export default function StudentResultsPage() {
         <div className="space-y-6">
           {completedSessions.map((session) => (
             <div key={session.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow duration-300">
-              <div className={`p-6 border-l-4 ${ (session.score || 0) >= ((session.totalQuestions || 1) * 10 * 0.7) ? 'border-green-500' : (session.score || 0) >= ((session.totalQuestions || 1) * 10 * 0.4) ? 'border-yellow-500' : 'border-red-500'}`}>
+              <div className={`p-6 border-l-4 ${ (session.score || 0) >= ((session.totalQuestions || 1) * (session.type === PracticeSessionType.MOCK_EXAM ? 1 : 10) * 0.7) ? 'border-green-500' : (session.score || 0) >= ((session.totalQuestions || 1) * (session.type === PracticeSessionType.MOCK_EXAM ? 1 : 10) * 0.4) ? 'border-yellow-500' : 'border-red-500'}`}>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3">
                   <h2 className="text-xl font-semibold text-gray-800 mb-1 sm:mb-0">
                     {session.title || `${session.subjectName || session.topicName || session.questionGroupName || 'Practice'} Session`}
@@ -133,7 +131,7 @@ export default function StudentResultsPage() {
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wider">Score</p>
                     <p className="text-2xl font-bold text-indigo-600">
-                      {session.score ?? 0} / { (session.totalQuestions || 0) * (session.type === PracticeSessionType.MOCK_EXAM ? 1 : 10) /* Assuming 10 points per Q for practice */}
+                      {session.score ?? 0} / { (session.totalQuestions || 0) * (session.type === PracticeSessionType.MOCK_EXAM ? 1 : 10) }
                     </p>
                   </div>
                   <div>
@@ -168,7 +166,7 @@ export default function StudentResultsPage() {
                     variant="outline"
                     className="text-indigo-600 border-indigo-600 hover:bg-indigo-50"
                   >
-                    View Details (Soon)
+                    View Details
                   </Button>
                 </div>
               </div>
