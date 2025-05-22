@@ -1,6 +1,6 @@
 "use client";
 
-import { useUserRole, useSignOut } from "@/app/sign-in/page";
+import { useUserRole, useSignOut } from "@/lib/hooks/auth";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 // Import React Icons

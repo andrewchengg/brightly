@@ -1,89 +1,15 @@
+// src/app/sign-in/page.tsx
 "use client"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { type User } from "@supabase/supabase-js"
-
-// Client-side hook to get the current user
-export const useSupabaseUser = () => {
-  const supabase = createClient()
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  useEffect(() => {
-    // Fetch the user on initial load
-    const fetchUser = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        setUser(user)
-      } catch (error) {
-        console.error("Error fetching user:", error)
-      } finally {
-        setIsLoaded(true)
-      }
-    }
-
-    fetchUser()
-
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null)
-        setIsLoaded(true)
-      }
-    )
-
-    // Clean up the subscription when the component unmounts
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [supabase])
-
-  return {
-    user,
-    isLoaded,
-  }
-}
-
-// Client-side helper to get the user's role
-export const useUserRole = () => {
-  const { user, isLoaded } = useSupabaseUser()
-
-  if (!isLoaded || !user) {
-    return { role: null, isLoaded }
-  }
-
-  return {
-    role: (user.user_metadata?.role as string) || "student",
-    isLoaded,
-  }
-}
-
-// Client-side helper to sign out
-export const useSignOut = () => {
-  const supabase = createClient()
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-
-  const signOut = async () => {
-    setIsLoading(true)
-    try {
-      await supabase.auth.signOut()
-      router.push('/sign-in')
-    } catch (error) {
-      console.error("Error signing out:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  return { signOut, isLoading }
-}
+import Link from "next/link";
+// Removed local definitions of hooks, they should be in "@/lib/hooks/auth"
 
 export default function SignInPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [identifier, setIdentifier] = useState("")
+  const [identifier, setIdentifier] = useState("") // Can be email or username
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -94,118 +20,129 @@ export default function SignInPage() {
     setError(null)
     
     try {
-      // Determine if the identifier is an email or username
-      const isEmail = identifier.includes('@')
-      
-      let signInResponse
-      
+      let signInResponse;
+      const isEmail = identifier.includes('@');
+
       if (isEmail) {
-        // Sign in using email
+        console.log("Attempting sign-in with email:", identifier);
         signInResponse = await supabase.auth.signInWithPassword({
           email: identifier,
           password,
-        })
+        });
       } else {
-        // First we need to find the user's email using their username
-        const { data: userData, error: findUserError } = await supabase
+        console.log("Attempting to find user by username:", identifier);
+        
+        let userEmailToTry: string | null = null;
+
+        // Check Student table
+        const { data: studentData, error: findStudentError } = await supabase
           .from('Student')
           .select('email')
           .eq('username', identifier)
           .single();
 
-        if (findUserError || !userData?.email) {
-          // If not found in Student table, try Parent table
+        if (studentData?.email) {
+          userEmailToTry = studentData.email;
+          console.log("Found student email:", userEmailToTry);
+        } else {
+          // If not found in Student, check Parent table
           const { data: parentData, error: findParentError } = await supabase
             .from('Parent')
             .select('email')
             .eq('username', identifier)
             .single();
-            
-          if (findParentError || !parentData?.email) {
-            // Try Teacher table as a last resort
+
+          if (parentData?.email) {
+            userEmailToTry = parentData.email;
+            console.log("Found parent email:", userEmailToTry);
+          } else {
+            // If not found in Parent, check Teacher table
             const { data: teacherData, error: findTeacherError } = await supabase
               .from('Teacher')
               .select('email')
               .eq('username', identifier)
               .single();
+
+            if (teacherData?.email) {
+              userEmailToTry = teacherData.email;
+              console.log("Found teacher email:", userEmailToTry);
+            } else {
+              // If not found in any table, check Admin table
+              const { data: adminData, error: findAdminError } = await supabase
+                .from('Admin') // Assuming Admin table has an email field or you sign in admins via email
+                .select('email') // Adjust if admin email is stored elsewhere or they use username directly for auth
+                .eq('username', identifier)
+                .single();
               
-            if (findTeacherError || !teacherData?.email) {
-              setError("Username not found. Please check your credentials.");
-              setIsLoading(false);
-              return;
+              if (adminData?.email) {
+                userEmailToTry = adminData.email;
+                console.log("Found admin email:", userEmailToTry);
+              } else {
+                setError("Username not found. Please check your credentials or use your email.");
+                setIsLoading(false);
+                return;
+              }
             }
-            
-            // Sign in using teacher email
-            signInResponse = await supabase.auth.signInWithPassword({
-              email: teacherData.email,
-              password,
-            })
-          } else {
-            // Sign in using parent email
-            signInResponse = await supabase.auth.signInWithPassword({
-              email: parentData.email,
-              password,
-            })
           }
-        } else {
-          // Sign in using student email
+        }
+
+        if (userEmailToTry) {
           signInResponse = await supabase.auth.signInWithPassword({
-            email: userData.email,
+            email: userEmailToTry,
             password,
-          })
+          });
+        } else {
+           // This case should ideally be caught by the "Username not found" above
+          setError("Could not resolve username to an email. Please try again or use your email address.");
+          setIsLoading(false);
+          return;
         }
       }
 
-      const { error: signInError, data } = signInResponse
+      const { error: signInError, data: sessionData } = signInResponse;
 
       if (signInError) {
-        console.error('Sign in error details:', {
-          message: signInError.message,
-          status: signInError.status,
-          name: signInError.name
-        })
-        setError(signInError.message)
-      } else if (data.user) {
-        // Redirect based on role or to a default dashboard
-        const role = data.user.user_metadata?.role || 'student' // Default if no role
-        router.push(`/${role}`)
-        router.refresh() // Important to re-fetch server components with new auth state
+        console.error('Sign in error details:', signInError);
+        setError(signInError.message || "Invalid email/username or password.");
+      } else if (sessionData?.user) {
+        console.log("Sign-in successful for user:", sessionData.user.id);
+        
+        // Fetch the user again to ensure metadata is fresh for role redirection
+        const { data: { user: authenticatedUser } } = await supabase.auth.getUser();
+        const role = authenticatedUser?.user_metadata?.role || 'student'; 
+        
+        router.push(`/${role}`);
+        router.refresh(); 
+      } else {
+        setError("Sign-in failed. Please check your credentials.");
       }
-    } catch (err) {
-      setError("An unexpected error occurred")
-      console.error(err)
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred during sign-in.");
+      console.error("Sign-in submission error:", err);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true)
-    setError(null)
-    
+    setIsLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback`, 
         }
-      })
-      
-      if (error) {
-        setError(error.message)
-      }
-      
-      // The user will be automatically redirected to Google's consent page
-      if (data?.url) {
-        window.location.href = data.url
-      }
-    } catch (err) {
-      setError("An unexpected error occurred with Google sign-in")
-      console.error(err)
-    } finally {
-      setIsLoading(false)
+      });
+      if (error) { setError(error.message); setIsLoading(false); return; }
+      if (data?.url) { window.location.href = data.url; } 
+      else { setIsLoading(false); }
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred with Google sign-in");
+      console.error("Google Sign-in error:", err);
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -288,11 +225,11 @@ export default function SignInPage() {
         </div>
         <p className="mt-4 text-center text-sm">
           Don't have an account?{' '}
-          <a href="/sign-up" className="font-medium text-indigo-600 hover:text-indigo-500">
+          <Link href="/sign-up" className="font-medium text-indigo-600 hover:text-indigo-500">
             Sign Up
-          </a>
+          </Link>
         </p>
       </div>
     </div>
   )
-} 
+}

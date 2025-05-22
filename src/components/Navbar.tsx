@@ -1,6 +1,6 @@
 "use client";
 
-import { useSupabaseUser, useUserRole, useSignOut } from "@/app/sign-in/page";
+import { useSupabaseUser, useUserRole, useSignOut } from "@/lib/hooks/auth";
 import Image from "next/image";
 
 const Navbar = () => {
