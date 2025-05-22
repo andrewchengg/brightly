@@ -1,14 +1,39 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+// src/lib/supabase/server.ts
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { cache } from 'react'
 
-// This follows the pattern recommended in Next.js 15 for working with cookies()
-// https://nextjs.org/docs/messages/sync-dynamic-apis
-export const createClient = cache(async () => {
-  // In Next.js 15, cookies() must be awaited
-  const cookieStore = await cookies()
-  
-  return createServerComponentClient({ 
-    cookies: () => cookieStore 
-  })
-}) 
+// Removed cache for simplicity with Next.js 14 style, direct cookies() usage.
+// If using Next.js 15 alpha/beta, `cache` can be re-added.
+export const createClient = () => {
+  const cookieStore = cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // The `set` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch (error) {
+            // The `delete` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    }
+  )
+}

@@ -1,3 +1,4 @@
+// src/app/api/user/update-streak/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
@@ -18,45 +19,43 @@ export async function POST(req: NextRequest) {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options });
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch (error) { /* Ignored for server components */ }
         },
         remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options });
+          try {
+            cookieStore.set({ name, value: '', ...options });
+          } catch (error) { /* Ignored for server components */ }
         },
       },
     }
   );
 
   try {
-    // Get user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (sessionError || !session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized: ' + (authError?.message || 'No user session') }, { status: 401 });
     }
     
-    const userId = session.user.id;
+    const userId = user.id;
+    const { activityType } = await req.json() as StreakRequestBody; // activityType not currently used but kept
     
-    // Get request body
-    const { activityType } = await req.json() as StreakRequestBody;
-    
-    // Get the student data
-    const { data: studentData, error: userError } = await supabase
+    const { data: studentData, error: studentFetchError } = await supabase
       .from('Student')
       .select('currentStreak, longestStreak, lastActivityDate')
       .eq('id', userId)
       .single();
       
-    if (userError) {
-      console.error('Error fetching user data:', userError);
-      return NextResponse.json({ error: 'Failed to fetch user data', details: userError.message }, { status: 500 });
+    if (studentFetchError) {
+      console.error('Error fetching student data for streak:', studentFetchError);
+      return NextResponse.json({ error: 'Failed to fetch student data', details: studentFetchError.message }, { status: 500 });
     }
     
-    // Get current date in YYYY-MM-DD format
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to the start of the day
+    today.setHours(0, 0, 0, 0);
     
-    // Calculate streak
     let newStreak = studentData.currentStreak || 0;
     let longestStreak = studentData.longestStreak || 0;
     const lastActivityDateStr = studentData.lastActivityDate;
@@ -64,39 +63,34 @@ export async function POST(req: NextRequest) {
 
     if (lastActivityDateStr) {
       const lastDate = new Date(lastActivityDateStr);
-      lastDate.setHours(0,0,0,0); // Normalize
+      lastDate.setHours(0,0,0,0);
       lastActivityDateEpoch = lastDate.getTime();
     }
     
     const todayEpoch = today.getTime();
     const oneDayMilliseconds = 24 * 60 * 60 * 1000;
 
-    if (lastActivityDateEpoch === 0) { // First activity ever
+    if (lastActivityDateEpoch === 0) {
         newStreak = 1;
     } else if (todayEpoch === lastActivityDateEpoch) {
-        // Activity already logged today, streak remains the same
-        // (newStreak is already studentData.currentStreak)
+        // Activity already logged today
     } else if (todayEpoch - lastActivityDateEpoch === oneDayMilliseconds) {
-        // Consecutive day
         newStreak += 1;
     } else {
-        // Gap in activity, reset streak
-        newStreak = 1;
+        newStreak = 1; // Streak broken
     }
     
-    // Update longest streak if needed
     if (newStreak > longestStreak) {
       longestStreak = newStreak;
     }
     
-    // Update user's streak in the database only if it's a new day of activity or first activity
     if (lastActivityDateEpoch === 0 || todayEpoch > lastActivityDateEpoch) {
         const { error: updateError } = await supabase
           .from('Student')
           .update({
             currentStreak: newStreak,
             longestStreak: longestStreak,
-            lastActivityDate: today.toISOString().split('T')[0], // Store as YYYY-MM-DD
+            lastActivityDate: today.toISOString().split('T')[0],
             updatedAt: new Date().toISOString()
           })
           .eq('id', userId);

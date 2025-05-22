@@ -1,3 +1,4 @@
+// src/app/api/user/award-xp/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
@@ -10,6 +11,7 @@ interface XpRequestBody {
 export async function POST(req: NextRequest) {
   const cookieStore = cookies();
 
+  // Use createServerClient from @supabase/ssr for API routes
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,54 +21,61 @@ export async function POST(req: NextRequest) {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options });
+          // Setting cookies in Route Handlers is usually done by returning them in the response.
+          // For session management, Supabase client handles this internally if set up correctly.
+          // If you need to explicitly set a cookie, you'd do it on the NextResponse.
+          // However, for auth, the client should manage this.
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch (error) {
+            // Can be ignored if middleware handles refreshing
+          }
         },
         remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options });
+          try {
+            cookieStore.set({ name, value: '', ...options });
+          } catch (error) {
+            // Can be ignored if middleware handles refreshing
+          }
         },
       },
     }
   );
 
   try {
-    // Get user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Get the authenticated user directly for security
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (sessionError || !session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized: ' + (authError?.message || 'No user session') }, { status: 401 });
     }
     
-    const userId = session.user.id;
+    const userId = user.id;
     
-    // Get request body
     const { xpAmount, activityType } = await req.json() as XpRequestBody;
     
-    if (!xpAmount || typeof xpAmount !== 'number') {
+    if (xpAmount == null || typeof xpAmount !== 'number') { // Check for null or undefined explicitly
       return NextResponse.json({ error: 'Invalid XP amount' }, { status: 400 });
     }
     
-    // First, get the user's current XP
-    const { data: userData, error: userError } = await supabase
+    const { data: studentData, error: studentError } = await supabase
       .from('Student')
       .select('xpPoints')
       .eq('id', userId)
       .single();
       
-    if (userError) {
-      console.error('Error fetching user data:', userError);
-      return NextResponse.json({ error: 'Failed to fetch user data', details: userError.message }, { status: 500 });
+    if (studentError) {
+      console.error('Error fetching student data:', studentError);
+      return NextResponse.json({ error: 'Failed to fetch student data', details: studentError.message }, { status: 500 });
     }
     
-    // Calculate new XP total
-    const currentXP = userData?.xpPoints || 0;
+    const currentXP = studentData?.xpPoints || 0;
     const newXP = currentXP + xpAmount;
     
-    // Calculate level information
     const oldLevel = Math.floor(currentXP / 1000) + 1;
     const newLevel = Math.floor(newXP / 1000) + 1;
     const leveledUp = newLevel > oldLevel;
     
-    // Update user's XP in the database
     const { error: updateError } = await supabase
       .from('Student')
       .update({ xpPoints: newXP, updatedAt: new Date().toISOString() })
@@ -85,7 +94,7 @@ export async function POST(req: NextRequest) {
       leveledUp: leveledUp,
       previousLevel: oldLevel,
       nextLevelXp: newLevel * 1000,
-      progressToNextLevel: ((newXP - (newLevel - 1) * 1000) / 1000) * 100
+      progressToNextLevel: Math.max(0, Math.min(100, ((newXP - (newLevel - 1) * 1000) / 1000) * 100)) // Ensure progress is between 0-100
     });
     
   } catch (error: any) {
