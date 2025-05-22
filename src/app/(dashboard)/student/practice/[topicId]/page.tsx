@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress";
-import { Topic } from "@prisma/client";
+import { Topic } from "@/generated/prisma";
 
 interface TopicWithMastery extends Topic {
   masteryPercentage: number;
