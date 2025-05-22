@@ -1,52 +1,80 @@
+// src/app/api/practice-session/route.ts
 import { NextResponse } from 'next/server';
-import { PrismaClient, PracticeSessionType } from '@prisma/client';
+import { PrismaClient, PracticeSessionType, PracticeSessionStatus } from '@/generated/prisma';
 
 const prisma = new PrismaClient();
 
-interface PracticeSessionRequest {
+interface PracticeSessionCreateRequest {
   studentId: string;
   title: string;
-  type: string;
-  status: 'NOT_STARTED' | 'STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED';
-  examDurationMinutes: number;
+  type: keyof typeof PracticeSessionType; // Expecting enum key as string
+  status: keyof typeof PracticeSessionStatus; // Expecting enum key as string
+  examDurationMinutes?: number; // Optional for random practice
+  subjectId?: number;
+  topicId?: number;
+  basedOnQuestionGroupId?: number; // If practice is based on a specific question group
+  totalQuestions: number; // Number of questions in this session
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as PracticeSessionRequest;
-    const { studentId, title, type, status, examDurationMinutes } = body;
+    const body = await request.json() as PracticeSessionCreateRequest;
+    const { 
+      studentId, 
+      title, 
+      type, 
+      status, 
+      examDurationMinutes,
+      subjectId,
+      topicId,
+      basedOnQuestionGroupId,
+      totalQuestions 
+    } = body;
 
-    if (!studentId || !title || !type || !status) {
+    if (!studentId || !title || !type || !status || totalQuestions === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields (studentId, title, type, status, totalQuestions)' },
         { status: 400 }
       );
     }
 
-    // Convert string type to PracticeSessionType enum
-    const sessionType = type as PracticeSessionType;
+    // Validate enum values
+    const sessionTypeEnumValue = PracticeSessionType[type];
+    const sessionStatusEnumValue = PracticeSessionStatus[status];
+
+    if (!sessionTypeEnumValue) {
+        return NextResponse.json({ error: `Invalid practice session type: ${type}` }, { status: 400 });
+    }
+    if (!sessionStatusEnumValue) {
+        return NextResponse.json({ error: `Invalid practice session status: ${status}` }, { status: 400 });
+    }
 
     const practiceSession = await prisma.practiceSession.create({
       data: {
         studentId,
         title,
-        type: sessionType,
-        status,
-        startTime: new Date(),
-        durationSeconds: examDurationMinutes * 60,
-        totalQuestions: 0,
-        xpEarned: 0
+        type: sessionTypeEnumValue,
+        status: sessionStatusEnumValue,
+        startTime: new Date(), // Set start time on creation
+        durationSeconds: examDurationMinutes ? examDurationMinutes * 60 : undefined,
+        subjectId: subjectId ? Number(subjectId) : undefined,
+        topicId: topicId ? Number(topicId) : undefined,
+        basedOnQuestionGroupId: basedOnQuestionGroupId ? Number(basedOnQuestionGroupId) : undefined,
+        totalQuestions: Number(totalQuestions),
+        xpEarned: 0, // XP is typically awarded at the end
+        // score and correctAnswers will be updated upon completion
       }
     });
+    console.log("API: PracticeSession created:", practiceSession.id);
+    return NextResponse.json(practiceSession, { status: 201 });
 
-    return NextResponse.json(practiceSession);
   } catch (error: any) {
-    console.error('Error creating practice session:', error);
+    console.error('API: Error creating practice session:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create practice session' },
+      { error: error.message || 'Failed to create practice session', details: error.stack },
       { status: 500 }
     );
   } finally {
     await prisma.$disconnect();
   }
-} 
+}

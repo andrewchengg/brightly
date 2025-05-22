@@ -15,19 +15,9 @@ export async function POST(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value, ...options });
-          } catch (error) { /* Ignored for server components */ }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: '', ...options });
-          } catch (error) { /* Ignored for server components */ }
-        },
+        get(name: string) { return cookieStore.get(name)?.value },
+        set(name: string, value: string, options: CookieOptions) { try { cookieStore.set({ name, value, ...options }) } catch (error) { /* Ignored */ }},
+        remove(name: string, options: CookieOptions) { try { cookieStore.set({ name, value: '', ...options }) } catch (error) { /* Ignored */ }},
       },
     }
   );
@@ -40,7 +30,6 @@ export async function POST(req: NextRequest) {
     }
     
     const userId = user.id;
-    const { activityType } = await req.json() as StreakRequestBody; // activityType not currently used but kept
     
     const { data: studentData, error: studentFetchError } = await supabase
       .from('Student')
@@ -54,58 +43,80 @@ export async function POST(req: NextRequest) {
     }
     
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    let newStreak = studentData.currentStreak || 0;
+    const todayDateString = today.toISOString().split('T')[0]; // YYYY-MM-DD format for today
+
+    let currentStreak = studentData.currentStreak || 0;
     let longestStreak = studentData.longestStreak || 0;
-    const lastActivityDateStr = studentData.lastActivityDate;
-    let lastActivityDateEpoch = 0;
+    const lastActivityDateString = studentData.lastActivityDate; // Should be YYYY-MM-DD from DB
 
-    if (lastActivityDateStr) {
-      const lastDate = new Date(lastActivityDateStr);
-      lastDate.setHours(0,0,0,0);
-      lastActivityDateEpoch = lastDate.getTime();
-    }
-    
-    const todayEpoch = today.getTime();
-    const oneDayMilliseconds = 24 * 60 * 60 * 1000;
+    let needsDatabaseUpdate = false;
+    let newLastActivityDate = lastActivityDateString;
 
-    if (lastActivityDateEpoch === 0) {
-        newStreak = 1;
-    } else if (todayEpoch === lastActivityDateEpoch) {
-        // Activity already logged today
-    } else if (todayEpoch - lastActivityDateEpoch === oneDayMilliseconds) {
-        newStreak += 1;
+    if (!lastActivityDateString) {
+      // First activity ever for this user
+      currentStreak = 1;
+      newLastActivityDate = todayDateString;
+      needsDatabaseUpdate = true;
+      console.log(`Streak: First activity. New streak: 1. Last activity: ${newLastActivityDate}`);
     } else {
-        newStreak = 1; // Streak broken
-    }
-    
-    if (newStreak > longestStreak) {
-      longestStreak = newStreak;
-    }
-    
-    if (lastActivityDateEpoch === 0 || todayEpoch > lastActivityDateEpoch) {
-        const { error: updateError } = await supabase
-          .from('Student')
-          .update({
-            currentStreak: newStreak,
-            longestStreak: longestStreak,
-            lastActivityDate: today.toISOString().split('T')[0],
-            updatedAt: new Date().toISOString()
-          })
-          .eq('id', userId);
-          
-        if (updateError) {
-          console.error('Error updating streak:', updateError);
-          return NextResponse.json({ error: 'Failed to update streak', details: updateError.message }, { status: 500 });
+      // User has prior activity
+      if (lastActivityDateString === todayDateString) {
+        // Activity already logged today. Streak does NOT change.
+        // lastActivityDate also does not change. No DB update needed for streak logic itself.
+        console.log(`Streak: Activity already logged today (${todayDateString}). Current streak: ${currentStreak}`);
+        // needsDatabaseUpdate remains false unless longestStreak changes below
+      } else {
+        // It's a new day for activity
+        newLastActivityDate = todayDateString; // Update last activity to today
+        needsDatabaseUpdate = true; // We'll be updating at least lastActivityDate
+
+        const lastActivityDay = new Date(lastActivityDateString); // Already YYYY-MM-DD
+        const dayBeforeToday = new Date(today);
+        dayBeforeToday.setDate(today.getDate() - 1);
+        const dayBeforeTodayString = dayBeforeToday.toISOString().split('T')[0];
+
+        if (lastActivityDateString === dayBeforeTodayString) {
+          // Consecutive day
+          currentStreak += 1;
+          console.log(`Streak: Consecutive day. New streak: ${currentStreak}. Last activity: ${newLastActivityDate}`);
+        } else {
+          // Streak broken, reset to 1
+          currentStreak = 1;
+          console.log(`Streak: Broken. New streak: 1. Last activity: ${newLastActivityDate}`);
         }
+      }
+    }
+    
+    // Update longest streak if current streak surpasses it
+    if (currentStreak > longestStreak) {
+      longestStreak = currentStreak;
+      needsDatabaseUpdate = true; // If longestStreak changed, we must update DB
+      console.log(`Streak: New longest streak: ${longestStreak}`);
+    }
+    
+    if (needsDatabaseUpdate) {
+      const { error: updateError } = await supabase
+        .from('Student')
+        .update({
+          currentStreak: currentStreak,
+          longestStreak: longestStreak,
+          lastActivityDate: newLastActivityDate, // Always update to the new last activity date if an update occurs
+          updatedAt: new Date().toISOString()
+        })
+        .eq('id', userId);
+          
+      if (updateError) {
+        console.error('Error updating streak in DB:', updateError);
+        return NextResponse.json({ error: 'Failed to update streak in DB', details: updateError.message }, { status: 500 });
+      }
+      console.log(`DB Streak updated for user ${userId}: Current: ${currentStreak}, Longest: ${longestStreak}, Last Activity: ${newLastActivityDate}`);
     }
     
     return NextResponse.json({
       success: true,
-      currentStreak: newStreak,
+      currentStreak: currentStreak,
       longestStreak: longestStreak,
-      lastActivityDate: today.toISOString().split('T')[0]
+      lastActivityDate: newLastActivityDate // Return the potentially updated lastActivityDate
     });
     
   } catch (error: any) {
