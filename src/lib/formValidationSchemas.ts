@@ -18,6 +18,8 @@ export const classSchema = z.object({
 
 export type ClassSchema = z.infer<typeof classSchema>;
 
+
+
 export const teacherSchema = z.object({
   id: z.string().optional(),
   username: z
@@ -90,9 +92,9 @@ export const parentSetupAndAddChildSchema = z.object({
   parentUsername: z.string().min(3, "Parent username must be at least 3 characters"),
   childFullName: z.string().min(1, "Child full name is required"),
   childUsername: z.string().min(3, "Child username must be at least 3 characters").optional().or(z.literal("")),
-  childEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
+  childEmail: z.string().email("A valid email address for the child is required"), // Made required
   childSchoolLevel: z.union([
-    z.literal(""),
+    z.literal(""), // Still allow empty string for initial state before selection
     z.number()
       .int()
       .min(1, "Invalid school level")
@@ -101,7 +103,7 @@ export const parentSetupAndAddChildSchema = z.object({
     if (val === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Please select a level"
+        message: "Please select a school level for the child"
       });
     }
   }),
@@ -109,6 +111,7 @@ export const parentSetupAndAddChildSchema = z.object({
 });
 
 export type ParentSetupAndAddChildData = z.infer<typeof parentSetupAndAddChildSchema>;
+
 
 export const studentCompleteSetupSchema = z.object({
   email: z.string().email("Invalid email address").optional().or(z.literal('')),

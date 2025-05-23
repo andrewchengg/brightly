@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import { PracticeSessionStatus, PracticeSessionType, QuestionType as PrismaQuestionType } from '@/generated/prisma';
 import safeStorage from '@/lib/safeStorage'; 
 import { useSupabaseUser } from "@/lib/hooks/auth"; 
+import { FaLightbulb, FaArrowLeft, FaSpinner, FaExclamationTriangle, FaRedo, FaCheck, FaTimes, FaCommentDots, FaPaperPlane, FaTrophy, FaMedal, FaChartBar, FaArrowRight, FaRocket } from "react-icons/fa";
 
 // Interfaces
 interface OptionClient {
@@ -345,7 +346,7 @@ export default function RandomPractice() {
   }, [textAnswer, currentQuestion, selectedAnswer, saveStudentAnswerToDb]);
 
   const handleMultiPartSubmit = useCallback(() => {
-    if (!currentQuestion || typeof currentQuestion.correctAnswer !== 'object' || currentQuestion.correctAnswer === null || Array.isArray(currentQuestion.correctAnswer) || selectedAnswer !== null) return;
+    if (!currentQuestion || typeof currentQuestion.correctAnswer !== 'object' || currentQuestion.correctAnswer === null || Array.isArray(currentQuestion.correctAnswer)) return;
     const correctAnswersMap = currentQuestion.correctAnswer as Record<string, string>;
     const results: Record<string, boolean> = {}; let allPartsCorrect = true; let correctPartsCount = 0;
     const totalParts = Object.keys(correctAnswersMap).length;
@@ -401,8 +402,7 @@ export default function RandomPractice() {
   }, [currentPracticeSessionId, userId, router]);
   
   const handleSendMessage = useCallback(async () => {
-    // ... (Full implementation from your previous response)
-     if (!userMessage.trim() || !currentQuestion) return;
+    if (!userMessage.trim() || !currentQuestion) return;
     const currentUserMessage = userMessage.trim(); setUserMessage(''); setIsLoadingAI(true);
     const currentChatHistory = [...chatHistory, { role: "user", content: currentUserMessage }];
     setChatHistory(currentChatHistory); 
@@ -412,7 +412,8 @@ export default function RandomPractice() {
       let cAnsDisp = 'Not available';
       if(currentQuestion.correctAnswer){
         if(typeof currentQuestion.correctAnswer === 'string' && currentQuestion.questionType === PrismaQuestionType.MULTIPLE_CHOICE) {
-            const opt = currentQuestion.options.find(o => o.id.toLowerCase() === currentQuestion.correctAnswer!.toLowerCase());
+            const correctAnswerStr = currentQuestion.correctAnswer as string;
+            const opt = currentQuestion.options.find(o => o.id.toLowerCase() === correctAnswerStr.toLowerCase());
             cAnsDisp = opt ? opt.text : String(currentQuestion.correctAnswer);
         } else { cAnsDisp = JSON.stringify(currentQuestion.correctAnswer); }
       }
@@ -435,7 +436,6 @@ export default function RandomPractice() {
   const isMultiPartComplete = () => { if (!currentQuestion || typeof currentQuestion.correctAnswer !== 'object' || currentQuestion.correctAnswer === null || Array.isArray(currentQuestion.correctAnswer)) return false; const parts = Object.keys(currentQuestion.correctAnswer); return parts.length > 0 && parts.every(p => multiPartAnswers[p]?.trim()); };
   
   const renderQuestionContent = () => {
-    // ... (Full implementation from your previous response)
     if (!currentQuestion) return <p className="text-center text-gray-500">Loading question...</p>;
     const questionTypeString = String(currentQuestion.questionType) as keyof typeof PrismaQuestionType | "UNKNOWN";
 
@@ -510,68 +510,205 @@ export default function RandomPractice() {
     }
   };
   
-  // --- Main Return JSX ---
-  if (loading && !userId) return <div className="flex justify-center items-center min-h-screen"><div className="w-16 h-16 border-4 border-t-indigo-600 border-indigo-200 rounded-full animate-spin"></div><p className="ml-4 text-lg">Authenticating...</p></div>;
-  if (loading) return <div className="flex justify-center items-center min-h-screen"><div className="w-16 h-16 border-4 border-t-indigo-600 border-indigo-200 rounded-full animate-spin"></div><p className="ml-4 text-lg">Loading practice session...</p></div>;
-  if (error) return <div className="p-6 flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]"><div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 max-w-2xl"><div className="flex items-center"><div className="flex-shrink-0"><svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg></div><div className="ml-3"><h3 className="text-sm font-medium text-red-800">Error</h3><div className="mt-2 text-sm text-red-700"><p>{error}</p></div></div></div></div><p className="text-gray-600 mb-6">We encountered a problem.</p><Button onClick={() => fetchRandomQuestionsAndStartSession()} className="bg-indigo-600 hover:bg-indigo-700 text-white">Try Again</Button><Button onClick={() => router.push("/student/practice")} className="mt-2 bg-gray-200 hover:bg-gray-300 text-gray-800">Return to Topics</Button></div>;
-  if (!currentQuestion && !loading && !error && questions.length === 0) { return <div className="p-6 flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]"><h1 className="text-2xl font-bold mb-4">No Questions Available</h1><p className="text-gray-600 mb-6">We couldn't find any practice questions right now.</p><Button onClick={() => router.push("/student/practice")} className="bg-indigo-600 hover:bg-indigo-700 text-white">Return to Topics</Button></div>;}
-  
+  // Rendering section - modernized design
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+        <div className="bg-white p-8 rounded-2xl shadow-lg text-center w-full max-w-md">
+          <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-full bg-indigo-100">
+            <FaSpinner className="animate-spin text-indigo-600 text-3xl" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Preparing Your Practice Session</h2>
+          <p className="text-gray-600 mb-4">Loading questions and personalizing your experience...</p>
+          <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+            <div className="bg-indigo-600 h-2 animate-pulse" style={{width: '75%'}}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+        <div className="bg-white p-8 rounded-2xl shadow-lg text-center w-full max-w-md">
+          <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-full bg-red-100">
+            <FaExclamationTriangle className="text-red-600 text-3xl" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Oops! Something went wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex flex-col gap-3">
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm w-full"
+              onClick={fetchRandomQuestionsAndStartSession}
+            >
+              <FaRedo className="mr-2" /> Try Again
+            </Button>
+            <Button 
+              variant="outline"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 w-full"
+              onClick={() => router.push('/student/practice')}
+            >
+              <FaArrowLeft className="mr-2" /> Back to Subjects
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Return the practice UI - keep all the logic but modernize the presentation
   if (showSummary) {
     const totalPossibleScore = questions.reduce((acc, q) => acc + (q.pointsAwarded || 10), 0);
-    const percentageCorrect = totalPossibleScore > 0 ? Math.round((score / totalPossibleScore) * 100) : 0; 
+    const percentageCorrect = totalPossibleScore > 0 ? Math.round((score / totalPossibleScore) * 100) : 0;
+    const correctAnswers = questionResults.filter(r => r.correct).length;
+    
     return (
-      <div className="flex flex-col min-h-screen bg-gray-50">
-        <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
-          <h1 className="text-xl font-semibold text-center flex-1 text-gray-700">Practice Session Results</h1>
+      <div className="max-w-6xl mx-auto p-4 md:p-6">
+        {/* Header with results title */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+          <div className="flex items-center">
+            <h1 className="text-xl font-bold text-gray-800">Practice Session Results</h1>
+          </div>
         </div>
-        <div className="container mx-auto p-6 max-w-4xl flex-1">
-          <div className="bg-white rounded-xl shadow-xl p-6 md:p-8 mb-8">
-            <div className="flex flex-col md:flex-row items-center">
-              <div className="w-36 h-36 md:w-48 md:h-48 relative mb-6 md:mb-0 md:mr-8">
+        
+        {/* Results overview */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            {/* Score circle */}
+            <div className="flex justify-center">
+              <div className="relative w-48 h-48">
                 <svg viewBox="0 0 100 100" className="w-full h-full">
                   <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" strokeWidth="8" />
-                  <circle cx="50" cy="50" r="45" fill="none" stroke={percentageCorrect >= 70 ? "#10b981" : percentageCorrect >= 40 ? "#f59e0b" : "#ef4444"} strokeWidth="8" strokeDasharray="282.7" strokeDashoffset={282.7 - (282.7 * percentageCorrect) / 100} strokeLinecap="round" transform="rotate(-90 50 50)" />
-                  <text x="50" y="50" textAnchor="middle" dominantBaseline="middle" className="font-bold text-3xl fill-gray-700">{percentageCorrect}%</text>
+                  <circle 
+                    cx="50" 
+                    cy="50" 
+                    r="45" 
+                    fill="none" 
+                    stroke={percentageCorrect >= 70 ? "#10b981" : percentageCorrect >= 40 ? "#f59e0b" : "#ef4444"} 
+                    strokeWidth="8" 
+                    strokeDasharray="282.7" 
+                    strokeDashoffset={282.7 - (282.7 * percentageCorrect) / 100} 
+                    strokeLinecap="round" 
+                    transform="rotate(-90 50 50)"
+                    className="transition-all duration-1000 ease-out"
+                  />
+                  <text x="50" y="45" textAnchor="middle" className="font-bold text-3xl fill-gray-700">{percentageCorrect}%</text>
+                  <text x="50" y="65" textAnchor="middle" className="text-sm fill-gray-500">Score</text>
                 </svg>
               </div>
-              <div className="flex-1 text-center md:text-left">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">Session Overview</h2>
-                <div className="grid grid-cols-2 gap-4 mb-6 text-base md:text-lg">
-                  <div className="bg-gray-100 p-4 rounded-lg shadow-sm"><p className="text-gray-500 text-xs sm:text-sm">Total Questions</p><p className="font-semibold">{questions.length}</p></div>
-                  <div className="bg-gray-100 p-4 rounded-lg shadow-sm"><p className="text-gray-500 text-xs sm:text-sm">Your Score</p><p className="font-semibold text-green-600">{score} / {totalPossibleScore}</p></div>
-                  <div className="bg-gray-100 p-4 rounded-lg shadow-sm"><p className="text-gray-500 text-xs sm:text-sm">Correct Answers</p><p className="font-semibold text-green-600">{questionResults.filter(r => r.correct).length}</p></div>
-                  <div className="bg-gray-100 p-4 rounded-lg shadow-sm"><p className="text-gray-500 text-sm">XP Earned</p><p className="font-semibold text-amber-500">{score}</p></div>
+            </div>
+            
+            {/* Stats grid */}
+            <div className="md:col-span-2">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Session Overview</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-indigo-50 p-4 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mr-3">
+                      <FaChartBar className="text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Questions</p>
+                      <p className="font-semibold text-lg">{questions.length}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col sm:flex-row justify-center md:justify-end space-y-3 sm:space-y-0 sm:space-x-4">
-                  <Button onClick={clearProgressAndExit} variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">Return to Practice Menu</Button>
-                  <Button onClick={completeSessionAndStartNew} className="bg-indigo-600 hover:bg-indigo-700 text-white">Start New Random Practice</Button>
+                
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                      <FaCheck className="text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Correct Answers</p>
+                      <p className="font-semibold text-lg text-green-700">{correctAnswers} / {questions.length}</p>
+                    </div>
+                  </div>
                 </div>
+                
+                <div className="bg-amber-50 p-4 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center mr-3">
+                      <FaTrophy className="text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Your Score</p>
+                      <p className="font-semibold text-lg text-amber-600">{score} / {totalPossibleScore}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center mr-3">
+                      <FaMedal className="text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">XP Earned</p>
+                      <p className="font-semibold text-lg text-purple-600">{score}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action buttons */}
+              <div className="flex flex-col sm:flex-row mt-6 gap-3">
+                <Button
+                  onClick={clearProgressAndExit}
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  <FaArrowLeft className="mr-2" /> Return to Practice Menu
+                </Button>
+                
+                <Button
+                  onClick={completeSessionAndStartNew}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  <FaRocket className="mr-2" /> Start New Practice
+                </Button>
               </div>
             </div>
           </div>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-6">Question Review</h2>
-          <div className="bg-white rounded-xl shadow-xl overflow-hidden"><div className="divide-y divide-gray-200">
+        </div>
+        
+        {/* Question review */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="border-b border-gray-200 px-6 py-4">
+            <h2 className="text-xl font-bold text-gray-800">Question Review</h2>
+          </div>
+          
+          <div className="divide-y divide-gray-100">
             {questionResults.map((result, index) => (
-              <div key={index} className={`p-4 md:p-6 ${result.correct ? 'bg-green-50' : 'bg-red-50'}`}>
-                 <div className="flex items-start">
-                  <div className={`mt-1 mr-3 md:mr-4 flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center ${result.correct ? 'bg-green-500' : 'bg-red-500'} text-white text-base md:text-lg font-bold`}>
-                    {result.correct ? "✓" : "✕"}
+              <div key={index} className={`p-5 ${result.correct ? 'bg-green-50' : 'bg-red-50'}`}>
+                <div className="flex items-start">
+                  <div className={`mt-1 mr-4 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    result.correct ? 'bg-green-500' : 'bg-red-500'
+                  } text-white font-bold`}>
+                    {result.correct ? <FaCheck /> : <FaTimes />}
                   </div>
+                  
                   <div className="flex-1">
-                    <p className="font-semibold text-gray-800 mb-2 text-sm md:text-base">Q{index + 1}: {result.question}</p>
-                    <div className="text-xs md:text-sm space-y-1">
+                    <p className="font-medium text-gray-800 mb-2">Q{index + 1}: {result.question}</p>
+                    
+                    <div className="space-y-1 text-sm">
                       <p className={`${result.correct ? 'text-green-700' : 'text-gray-600'}`}>
-                        <span className="font-medium">Your answer: </span> 
-                        {typeof result.userAnswer === 'object' ? JSON.stringify(result.userAnswer) : result.userAnswer}
+                        <span className="font-medium">Your answer: </span>
+                        {typeof result.userAnswer === 'object' ? 
+                          JSON.stringify(result.userAnswer) : 
+                          result.userAnswer
+                        }
                       </p>
+                      
                       {!result.correct && (
-                        <p className="text-blue-700 font-medium">
-                          Correct answer: {
-                            typeof result.correctAnswer === 'object' 
-                              ? JSON.stringify(result.correctAnswer) 
-                              : Array.isArray(result.correctAnswer) 
-                                ? result.correctAnswer.join(' or ') 
-                                : String(result.correctAnswer)
+                        <p className="text-blue-700">
+                          <span className="font-medium">Correct answer: </span>
+                          {typeof result.correctAnswer === 'object' ? 
+                            JSON.stringify(result.correctAnswer) : 
+                            Array.isArray(result.correctAnswer) ? 
+                              result.correctAnswer.join(' or ') : 
+                              String(result.correctAnswer)
                           }
                         </p>
                       )}
@@ -580,85 +717,238 @@ export default function RandomPractice() {
                 </div>
               </div>
             ))}
-          </div></div>
+          </div>
+          
+          {/* Bottom action bar */}
+          <div className="border-t border-gray-200 p-4 bg-gray-50 flex justify-between items-center">
+            <p className="text-sm text-gray-500">Session completed</p>
+            <Button
+              onClick={completeSessionAndStartNew}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              Practice Again <FaArrowRight className="ml-2" />
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
-  
-  if (!currentQuestion) { return <div className="flex justify-center items-center min-h-screen"><p>Loading next question...</p></div>; }
-  
-  const progressPercentageDisplay = questions.length > 0 ? ((currentQuestionIndex +1 ) / questions.length) * 100 : 0;
 
-  return ( 
-    <div className="flex flex-col h-screen bg-gray-100" ref={containerRef}>
-      <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
-        <button onClick={clearProgressAndExit} className="text-gray-600 hover:text-gray-800 mr-4 p-2 rounded-md hover:bg-gray-100 transition-colors">← Exit Practice</button>
-        <div className="flex-1 text-center font-medium text-gray-700">{currentQuestion?.topic?.name || 'Random Practice'} • Question {currentQuestionIndex + 1} of {questions.length}</div>
-        <div className="text-amber-600 font-semibold">{score} XP</div>
-      </div>
-      <div className="w-full h-1.5 bg-gray-300"><div className="h-full bg-blue-600 transition-all duration-300 ease-out" style={{ width: `${progressPercentageDisplay}%` }} /></div>
-      
-      <div className="flex flex-1 overflow-hidden">
-        <div className="overflow-auto bg-white" style={{ width: `${splitPosition}%` }}>
-            <div className="p-6 md:p-10">
-                <h1 className="text-xl md:text-2xl font-medium text-gray-800 mb-6 leading-tight">{currentQuestion?.text}</h1>
-                {currentQuestion?.imageUrl && (
-                <div className="mb-6 flex justify-center border border-gray-200 rounded-lg p-2 bg-gray-50 shadow-sm">
-                    <img src={currentQuestion.imageUrl} alt="Question diagram" className="max-w-full h-auto max-h-96 rounded-md object-contain"/>
-                </div>
-                )}
-                {renderQuestionContent()}
-                {showHint && currentQuestion?.hint && (
-                    <div className="my-8 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md text-yellow-800 shadow">
-                        <p className="font-semibold mb-1 text-yellow-900">Hint:</p>
-                        <p>{currentQuestion.hint}</p>
-                    </div>
-                )}
-                <div className="mt-8 border-t border-gray-200 pt-6 flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
-                <Button 
-                    onClick={() => setShowHint(true)} 
-                    disabled={selectedAnswer !== null || showHint || !currentQuestion?.hint} 
-                    variant="outline"
-                    className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 w-full sm:w-auto"
-                >
-                    💡 Get Hint
-                </Button>
-                <Button 
-                    onClick={handleNextQuestion} 
-                    disabled={selectedAnswer === null} 
-                    className={`px-8 py-3 text-base w-full sm:w-auto font-semibold rounded-lg shadow-md hover:shadow-lg transition-all ${selectedAnswer !== null ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}
-                >
-                    {currentQuestionIndex < questions.length - 1 ? 'Next Question →' : '🏁 Show Results'}
-                </Button>
-                </div>
+  return (
+    <div className="max-w-7xl mx-auto p-4 md:p-6">
+      {/* Header with progress and score */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <div className="flex items-center mb-4 md:mb-0">
+            <Button 
+              variant="ghost" 
+              className="text-gray-500 hover:text-gray-700 mr-2"
+              onClick={() => router.push('/student/practice')}
+            >
+              <FaArrowLeft className="mr-2" /> Back
+            </Button>
+            <h1 className="text-xl font-bold text-gray-800">Random Practice Session</h1>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="bg-indigo-50 px-4 py-2 rounded-lg">
+              <span className="text-sm text-gray-600">Question</span>
+              <div className="font-bold text-indigo-700">{currentQuestionIndex + 1} / {questions.length}</div>
             </div>
+            
+            <div className="bg-green-50 px-4 py-2 rounded-lg">
+              <span className="text-sm text-gray-600">Score</span>
+              <div className="font-bold text-green-700">{score} pts</div>
+            </div>
+          </div>
         </div>
         
-        <div className="w-1.5 bg-gray-200 hover:bg-blue-400 cursor-col-resize flex flex-col items-center justify-center group transition-colors duration-150" onMouseDown={handleMouseDown}><div className="h-10 w-1 bg-gray-400 rounded-full group-hover:bg-blue-500 transition-colors duration-150"></div></div>
+        {/* Progress bar */}
+        <div className="w-full bg-gray-200 h-2 rounded-full mt-4">
+          <div 
+            className="bg-indigo-600 h-2 rounded-full transition-all duration-300" 
+            style={{ width: `${(currentQuestionIndex / questions.length) * 100}%` }}
+          ></div>
+        </div>
+      </div>
+      
+      {/* Keep the existing rendered content but wrapped in modern UI containers */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" ref={containerRef}>
+        {/* Question section - Left column (larger) */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          {/* Question content */}
+          {currentQuestion && (
+            <div>
+              <div className="mb-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center">
+                    <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded mr-2">
+                      {currentQuestion.topic?.name || "Topic"}
+                    </span>
+                    {currentQuestion.difficulty && (
+                      <span className={`text-xs font-medium px-2 py-1 rounded ${
+                        currentQuestion.difficulty === 'HARD' ? 'bg-red-100 text-red-700' : 
+                        currentQuestion.difficulty === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' : 
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {currentQuestion.difficulty}
+                      </span>
+                    )}
+                  </div>
+                  {currentQuestion.pointsAwarded && (
+                    <span className="text-sm font-semibold text-green-600">
+                      {currentQuestion.pointsAwarded} points
+                    </span>
+                  )}
+                </div>
+                
+                <div className="text-lg font-medium text-gray-800 mb-6">
+                  {currentQuestion.text}
+                </div>
+                
+                {currentQuestion.imageUrl && (
+                  <div className="mb-4">
+                    <img 
+                      src={currentQuestion.imageUrl} 
+                      alt="Question image" 
+                      className="max-w-full h-auto rounded-lg border border-gray-200" 
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Show hint button */}
+              {!showHint && currentQuestion.hint && (
+                <Button
+                  variant="outline"
+                  className="mb-4 border-amber-300 text-amber-600 hover:bg-amber-50"
+                  onClick={() => setShowHint(true)}
+                >
+                  <FaLightbulb className="mr-2 text-amber-500" /> Show Hint
+                </Button>
+              )}
+              
+              {/* Hint display */}
+              {showHint && currentQuestion.hint && (
+                <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-4 rounded-r-lg">
+                  <div className="flex items-start">
+                    <FaLightbulb className="text-amber-500 mt-1 mr-2 flex-shrink-0" />
+                    <p className="text-amber-800">{currentQuestion.hint}</p>
+                  </div>
+                </div>
+              )}
+              
+              {renderQuestionContent()}
+            </div>
+          )}
+        </div>
         
-        <div className="bg-emerald-50 flex flex-col overflow-hidden" style={{ width: `${100 - splitPosition - 0.5}%` }}>
-          <div className="p-4 border-b border-emerald-200 bg-emerald-100 flex items-center shadow-sm">
-            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white mr-3 text-lg font-bold">AI</div>
-            <div className="flex-1"><div className="font-semibold text-emerald-800">AI Tutor</div><div className="text-xs text-emerald-600">Your personal learning assistant</div></div>
-            <div className="text-xs text-emerald-600 flex items-center"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1.5 border-2 border-emerald-100 shadow-md"></span>Online</div>
+        {/* AI Assistant panel - Right column (smaller) */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+          <div className="bg-indigo-600 text-white p-4">
+            <div className="flex items-center">
+              <FaCommentDots className="mr-2" />
+              <h3 className="font-medium">AI Learning Assistant</h3>
+            </div>
           </div>
-          <div ref={aiContentRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-emerald-25 custom-scrollbar">
-            {chatHistory.length > 0 ? ( chatHistory.map((message, index) => (<div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[85%] rounded-xl p-3 shadow-md text-sm ${message.role === 'user' ? 'ml-auto bg-blue-500 text-white rounded-br-none' : 'mr-auto bg-white text-gray-800 border border-gray-200 rounded-bl-none'}`}><p className="whitespace-pre-wrap">{message.content}</p></div></div>)) )
-            : aiMessage ? (<div className="flex justify-start"><div className="max-w-[85%] rounded-xl p-3 shadow-md text-sm mr-auto bg-white text-gray-800 border border-gray-200 rounded-bl-none"><p className="whitespace-pre-wrap">{aiMessage}</p></div></div>)
-            : (<div className="flex flex-col items-center justify-center h-full text-center text-gray-500 p-8"><div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mb-4 text-4xl">💡</div><p>I'm here to help! Ask me anything about this question, or I'll give you feedback after you answer.</p></div>)}
-            {isLoadingAI && (<div className="flex justify-start"><div className="max-w-[85%] rounded-xl p-3 shadow-md text-sm mr-auto bg-white text-gray-800 border border-gray-200 rounded-bl-none"><div className="flex space-x-1.5 items-center"><div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div><div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div><div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div></div></div></div>)}
+          
+          <div className="flex-grow p-4 overflow-y-auto" ref={aiContentRef}>
+            {/* Chat history display */}
+            <div className="space-y-4">
+              {/* Default welcome message */}
+              {!chatHistory.length && (
+                <div className="bg-indigo-50 p-3 rounded-lg text-gray-700 text-sm">
+                  I'm your AI learning assistant. Ask me questions about this topic if you need help!
+                </div>
+              )}
+              
+              {/* Render chat messages */}
+              {chatHistory.map((msg, i) => (
+                <div key={i} className={`p-3 rounded-lg text-sm ${
+                  msg.role === 'user' 
+                    ? 'bg-indigo-100 text-indigo-900 ml-auto max-w-[80%]' 
+                    : 'bg-gray-100 text-gray-800 max-w-[80%]'
+                }`}>
+                  {msg.content}
+                </div>
+              ))}
+              
+              {/* Loading indicator for AI response */}
+              {isLoadingAI && (
+                <div className="flex items-center space-x-2 p-3 bg-gray-100 rounded-lg text-sm">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="p-3 border-t border-emerald-200 bg-emerald-100">
-            <div className="flex items-center rounded-full border border-gray-300 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 bg-white shadow-sm">
-              <input type="text" value={userMessage} onChange={(e) => setUserMessage(e.target.value)} onKeyDown={handleKeyDown} placeholder="Ask about this question..." className="flex-1 py-2.5 px-4 text-sm border-none outline-none bg-transparent rounded-l-full" disabled={isLoadingAI || selectedAnswer !== null} />
-              <button onClick={handleSendMessage} disabled={isLoadingAI || !userMessage.trim() || selectedAnswer !== null} className={`w-9 h-9 m-1 rounded-full flex items-center justify-center transition-colors ${userMessage.trim() && !isLoadingAI && selectedAnswer === null ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 16.571V11a1 1 0 112 0v5.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+          
+          {/* Message input */}
+          <div className="p-3 border-t border-gray-200">
+            <div className="flex">
+              <input
+                type="text"
+                placeholder="Ask a question..."
+                className="flex-grow border border-gray-300 rounded-l-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={userMessage}
+                onChange={(e) => setUserMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              <button 
+                className="bg-indigo-600 text-white px-4 py-2 rounded-r-lg hover:bg-indigo-700 flex items-center justify-center"
+                onClick={handleSendMessage}
+                disabled={isLoadingAI || !userMessage.trim()}
+              >
+                <FaPaperPlane />
               </button>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Answer feedback section */}
+      {isAnswerCorrect !== null && (
+        <div className={`mt-6 p-4 rounded-xl ${
+          isAnswerCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className="flex items-center mb-2">
+            {isAnswerCorrect ? (
+              <>
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                  <FaCheck className="text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-green-800">Correct Answer!</h3>
+              </>
+            ) : (
+              <>
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                  <FaTimes className="text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-red-800">Incorrect Answer</h3>
+              </>
+            )}
+          </div>
+          
+          <div className="flex justify-end mt-4">
+            <Button 
+              onClick={async () => {
+                if (currentQuestionIndex < questions.length - 1) {
+                  handleNextQuestion();
+                } else {
+                  // Force summary view to appear when it's the last question
+                  setShowSummary(true);
+                  await finalizePracticeSessionInDb();
+                  console.log("Showing summary view");
+                }
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg shadow-sm"
+            >
+              {currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'View Results'}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

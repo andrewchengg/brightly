@@ -263,6 +263,7 @@ model PracticeSession {
   totalQuestions         Int?
   correctAnswers         Int?
   xpEarned               Int                   @default(0)
+  challengeWeekIdentifier DateTime?
   
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
@@ -438,4 +439,5 @@ enum PracticeSessionType {
   ASSIGNMENT_ATTEMPT
   TOPIC_QUIZ
   QUESTION_GROUP_PRACTICE // Practice based on a specific uploaded paper
+  WEEKLY_CHALLENGE 
 }

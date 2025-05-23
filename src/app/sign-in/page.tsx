@@ -2,14 +2,13 @@
 "use client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client" // For Google OAuth & direct email login
 import Link from "next/link";
-// Removed local definitions of hooks, they should be in "@/lib/hooks/auth"
 
 export default function SignInPage() {
   const router = useRouter()
-  const supabase = createClient()
-  const [identifier, setIdentifier] = useState("") // Can be email or username
+  const supabase = createClient() // Keep for Google OAuth & direct email login
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -18,104 +17,58 @@ export default function SignInPage() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    const typedIdentifier = identifier.trim();
     
     try {
-      let signInResponse;
-      const isEmail = identifier.includes('@');
+      let authSuccessful = false;
+      let userRole = 'student'; // Default role
 
-      if (isEmail) {
-        console.log("Attempting sign-in with email:", identifier);
-        signInResponse = await supabase.auth.signInWithPassword({
-          email: identifier,
+      if (typedIdentifier.includes('@')) { // Email login
+        console.log("[CLIENT_SIGN_IN] Attempting direct email login:", typedIdentifier);
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email: typedIdentifier,
           password,
         });
-      } else {
-        console.log("Attempting to find user by username:", identifier);
-        
-        let userEmailToTry: string | null = null;
 
-        // Check Student table
-        const { data: studentData, error: findStudentError } = await supabase
-          .from('Student')
-          .select('email')
-          .eq('username', identifier)
-          .single();
-
-        if (studentData?.email) {
-          userEmailToTry = studentData.email;
-          console.log("Found student email:", userEmailToTry);
+        if (signInError) {
+          setError(signInError.message || "Invalid email or password.");
+        } else if (data?.user) {
+          authSuccessful = true;
+          // Fetch role from user_metadata after successful direct email login
+          const { data: { user: authenticatedUser } } = await supabase.auth.getUser();
+          userRole = authenticatedUser?.user_metadata?.role || 'student';
+          console.log("[CLIENT_SIGN_IN] Direct email login successful. Role:", userRole);
         } else {
-          // If not found in Student, check Parent table
-          const { data: parentData, error: findParentError } = await supabase
-            .from('Parent')
-            .select('email')
-            .eq('username', identifier)
-            .single();
-
-          if (parentData?.email) {
-            userEmailToTry = parentData.email;
-            console.log("Found parent email:", userEmailToTry);
-          } else {
-            // If not found in Parent, check Teacher table
-            const { data: teacherData, error: findTeacherError } = await supabase
-              .from('Teacher')
-              .select('email')
-              .eq('username', identifier)
-              .single();
-
-            if (teacherData?.email) {
-              userEmailToTry = teacherData.email;
-              console.log("Found teacher email:", userEmailToTry);
-            } else {
-              // If not found in any table, check Admin table
-              const { data: adminData, error: findAdminError } = await supabase
-                .from('Admin') // Assuming Admin table has an email field or you sign in admins via email
-                .select('email') // Adjust if admin email is stored elsewhere or they use username directly for auth
-                .eq('username', identifier)
-                .single();
-              
-              if (adminData?.email) {
-                userEmailToTry = adminData.email;
-                console.log("Found admin email:", userEmailToTry);
-              } else {
-                setError("Username not found. Please check your credentials or use your email.");
-                setIsLoading(false);
-                return;
-              }
-            }
-          }
+          setError("Sign-in failed. Please check your credentials.");
         }
+      } else { // Username login - call our API
+        console.log("[CLIENT_SIGN_IN] Attempting username login via API for:", typedIdentifier);
+        const response = await fetch('/api/auth/sign-in-with-username', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: typedIdentifier, password }),
+        });
 
-        if (userEmailToTry) {
-          signInResponse = await supabase.auth.signInWithPassword({
-            email: userEmailToTry,
-            password,
-          });
+        const result = await response.json();
+
+        if (response.ok && result.user) {
+          authSuccessful = true;
+          userRole = result.role || 'student'; // Use role from API response
+          console.log("[CLIENT_SIGN_IN] API username login successful. Role:", userRole);
+          // The API route should have set the auth cookies.
+          // We might need to refresh Supabase client's session state.
+          await supabase.auth.refreshSession(); // Or getSession() to update client state
         } else {
-           // This case should ideally be caught by the "Username not found" above
-          setError("Could not resolve username to an email. Please try again or use your email address.");
-          setIsLoading(false);
-          return;
+          setError(result.error || "Invalid username or password.");
         }
       }
 
-      const { error: signInError, data: sessionData } = signInResponse;
-
-      if (signInError) {
-        console.error('Sign in error details:', signInError);
-        setError(signInError.message || "Invalid email/username or password.");
-      } else if (sessionData?.user) {
-        console.log("Sign-in successful for user:", sessionData.user.id);
-        
-        // Fetch the user again to ensure metadata is fresh for role redirection
-        const { data: { user: authenticatedUser } } = await supabase.auth.getUser();
-        const role = authenticatedUser?.user_metadata?.role || 'student'; 
-        
-        router.push(`/${role}`);
-        router.refresh(); 
-      } else {
-        setError("Sign-in failed. Please check your credentials.");
+      if (authSuccessful) {
+        console.log(`[REDIRECT] Auth successful. Redirecting to /${userRole}`);
+        router.push(`/${userRole}`);
+        router.refresh();
       }
+
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred during sign-in.");
       console.error("Sign-in submission error:", err);
@@ -125,6 +78,7 @@ export default function SignInPage() {
   }
 
   const handleGoogleSignIn = async () => {
+    // ... (Google sign-in logic remains the same) ...
     setIsLoading(true);
     setError(null);
     try {
@@ -186,12 +140,12 @@ export default function SignInPage() {
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
           <div>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
               {isLoading ? "Signing in..." : "Sign in"}
             </button>
@@ -211,7 +165,7 @@ export default function SignInPage() {
               onClick={handleGoogleSignIn}
               type="button"
               disabled={isLoading}
-              className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
               <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
                 <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
@@ -228,6 +182,9 @@ export default function SignInPage() {
           <Link href="/sign-up" className="font-medium text-indigo-600 hover:text-indigo-500">
             Sign Up
           </Link>
+        </p>
+        <p className="mt-2 text-center text-xs text-gray-500">
+          Forgot password? {/* TODO: Add forgot password link */}
         </p>
       </div>
     </div>
