@@ -5,13 +5,19 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
-import { PracticeSessionStatus, PrismaQuestionType } from '@/generated/prisma';
+// Corrected import for enums:
+import { 
+    PracticeSessionStatus, 
+    QuestionType, // Use QuestionType directly
+    PracticeSessionType 
+} from '@/generated/prisma'; 
 import safeStorage from '@/lib/safeStorage';
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
+import { FaLightbulb, FaArrowLeft, FaSpinner, FaExclamationTriangle, FaRedo, FaCheck, FaTimes, FaCommentDots, FaPaperPlane, FaTrophy, FaMedal, FaChartBar, FaArrowRight, FaRocket } from "react-icons/fa";
 
 
-// Interfaces (similar to RandomPractice)
+// Interfaces
 interface OptionClient { id: string; text: string; }
 interface QuestionClient {
   id: number; text: string; question?: string; options: OptionClient[];
@@ -19,23 +25,25 @@ interface QuestionClient {
   hint?: string; explanation?: string | null;
   topic: { id: number; name: string; subjectId?: number; };
   difficulty?: string; pointsAwarded?: number;
-  questionType?: keyof typeof PrismaQuestionType; imageUrl?: string;
+  questionType?: keyof typeof QuestionType; // Use the imported QuestionType here
+  imageUrl?: string;
 }
 interface LocalStorageWeeklyChallengeProgress {
   questions: QuestionClient[]; currentQuestionIndex: number; score: number;
-  answeredQuestions: Record<number, string | Record<string, string>>; // Allow for multi-part
+  answeredQuestions: Record<number, string | Record<string, string>>; 
   questionResults: { id: number; correct: boolean; question: string; userAnswer: string | Record<string, string>; correctAnswer: string | string[] | Record<string, string> | null;}[];
   sessionFinalized?: boolean; practiceSessionId: string | null;
-  challengeWeekIdentifier?: string; // ISO string of the week's start
+  challengeWeekIdentifier?: string; 
 }
 
 export default function WeeklyChallengePage() {
   const router = useRouter();
   const [questions, setQuestions] = useState<QuestionClient[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null); // For MCQ, or as general "answered" flag for UI
-  const [textAnswer, setTextAnswer] = useState(''); // For Open/Fill
-  const [multiPartAnswers, setMultiPartAnswers] = useState<Record<string, string>>({}); // For MultiPart
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null); 
+  const [textAnswer, setTextAnswer] = useState(''); 
+  const [multiPartAnswers, setMultiPartAnswers] = useState<Record<string, string>>({}); 
+  const [multiPartResults, setMultiPartResults] = useState<Record<string, boolean>>({});
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState<'initial' | 'questions' | 'submitting' | false>('initial');
@@ -77,16 +85,23 @@ export default function WeeklyChallengePage() {
       const response = await fetch('/api/student/weekly-challenge/start', { method: 'POST' });
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.error || 'Failed to start/resume challenge.');
+      if (!response.ok) {
+        if (response.status === 404 && data.error?.includes("Not enough hard questions")) {
+             setError("Weekly challenge isn't ready yet. Not enough hard questions in the database. Please check back later!");
+             setChallengeStatus('NOT_STARTED'); // Or some other appropriate status
+        } else {
+            throw new Error(data.error || 'Failed to start/resume challenge.');
+        }
+        setLoading(false);
+        return;
+      }
 
-      setSessionDetailsForSummary(data.sessionDetails); // Store for summary page
+
+      setSessionDetailsForSummary(data.sessionDetails); 
 
       if (data.status === 'COMPLETED') {
         setChallengeStatus('COMPLETED');
-        setPracticeSessionId(data.practiceSessionId); // Store session ID even if completed to show summary
-        // Load final results for summary display if it's already completed
-        // This part might need adjustment based on how you want to show summary for already completed.
-        // For now, it just shows the "completed" message.
+        setPracticeSessionId(data.practiceSessionId); 
         setLoading(false);
         return;
       }
@@ -97,7 +112,7 @@ export default function WeeklyChallengePage() {
       setCurrentChallengeWeekId(fetchedChallengeWeekId);
       
       const progressKey = `weeklyChallengeProgress_${userId}_${fetchedChallengeWeekId}`;
-      const savedProgressString = safeStorage.getItem(progressKey);
+      const savedProgressString = safeStorage.getItem(progressKey, 'local');
       let successfullyResumedFromStorage = false;
 
       if (data.status === 'RESUMED' && savedProgressString && fetchedChallengeWeekId) {
@@ -114,15 +129,15 @@ export default function WeeklyChallengePage() {
               setShowSummary(true); setSessionFinalized(true);
             }
             successfullyResumedFromStorage = true;
-          } else { safeStorage.removeItem(progressKey); }
-        } catch (e) { console.error("Error parsing saved progress", e); safeStorage.removeItem(progressKey); }
+          } else { safeStorage.removeItem(progressKey, 'local'); }
+        } catch (e) { console.error("Error parsing saved progress", e); safeStorage.removeItem(progressKey, 'local'); }
       }
       
       if (!successfullyResumedFromStorage) {
         setQuestions(fetchedQuestions);
         setCurrentQuestionIndex(0); setScore(0); setAnsweredQuestions({});
         setQuestionResults([]); setSessionFinalized(false);
-        if(fetchedChallengeWeekId) safeStorage.removeItem(`weeklyChallengeProgress_${userId}_${fetchedChallengeWeekId}`);
+        if(fetchedChallengeWeekId) safeStorage.removeItem(`weeklyChallengeProgress_${userId}_${fetchedChallengeWeekId}`, 'local');
       }
 
       setChallengeStatus('IN_PROGRESS');
@@ -147,7 +162,7 @@ export default function WeeklyChallengePage() {
       questions, currentQuestionIndex, score, answeredQuestions, questionResults,
       sessionFinalized, practiceSessionId, challengeWeekIdentifier: currentChallengeWeekId,
     };
-    safeStorage.setItem(progressKey, JSON.stringify(progress));
+    safeStorage.setItem(progressKey, JSON.stringify(progress), 'local');
   }, [questions, currentQuestionIndex, score, answeredQuestions, questionResults, sessionFinalized, loading, userId, practiceSessionId, showSummary, currentChallengeWeekId]);
 
  useEffect(() => {
@@ -158,26 +173,31 @@ export default function WeeklyChallengePage() {
       setIsAnswerCorrect(null); 
       setTextAnswer('');
       setMultiPartAnswers({});
+      setMultiPartResults({});
       setSelectedAnswer(null); 
 
       if (savedUserAnswerContent !== undefined) {
         const questionType = currentQuestion.questionType;
         let isCorrectForSaved = false;
         
-        if (questionType === PrismaQuestionType.OPEN_ENDED || questionType === PrismaQuestionType.FILL_IN_THE_BLANK) {
+        if (questionType === QuestionType.OPEN_ENDED || questionType === QuestionType.FILL_IN_THE_BLANK) {
           if(typeof savedUserAnswerContent === 'string') setTextAnswer(savedUserAnswerContent);
           const cAns = currentQuestion.correctAnswer;
           const cAnsArr = Array.isArray(cAns) ? cAns.map(cv => String(cv ?? '').trim().toLowerCase()) : [String(cAns ?? '').trim().toLowerCase()];
           isCorrectForSaved = cAnsArr.includes(String(savedUserAnswerContent).trim().toLowerCase());
           setSelectedAnswer(String(savedUserAnswerContent)); 
-        } else if (questionType === PrismaQuestionType.MULTI_PART && typeof currentQuestion.correctAnswer === 'object' && currentQuestion.correctAnswer && !Array.isArray(currentQuestion.correctAnswer)) {
-          if(typeof savedUserAnswerContent === 'object' && savedUserAnswerContent !== null) setMultiPartAnswers(savedUserAnswerContent as Record<string,string>);
+        } else if (questionType === QuestionType.MULTI_PART && typeof currentQuestion.correctAnswer === 'object' && currentQuestion.correctAnswer && !Array.isArray(currentQuestion.correctAnswer)) {
+          const userAnswers = typeof savedUserAnswerContent === 'object' && savedUserAnswerContent !== null ? savedUserAnswerContent as Record<string,string> : {};
+          setMultiPartAnswers(userAnswers);
           const correctAnswersMap = currentQuestion.correctAnswer as Record<string, string>;
           isCorrectForSaved = true; 
+          const currentPartResults: Record<string, boolean> = {};
           for (const part in correctAnswersMap) {
-            const isPartCorrect = ( (savedUserAnswerContent as Record<string,string>)[part] || '').trim().toLowerCase() === String(correctAnswersMap[part]).trim().toLowerCase();
+            const isPartCorrect = (userAnswers[part] || '').trim().toLowerCase() === String(correctAnswersMap[part]).trim().toLowerCase();
+            currentPartResults[part] = isPartCorrect;
             if (!isPartCorrect) isCorrectForSaved = false;
           }
+          setMultiPartResults(currentPartResults);
           setSelectedAnswer(JSON.stringify(savedUserAnswerContent)); 
         } else { // MCQ
           if(typeof savedUserAnswerContent === 'string') setSelectedAnswer(savedUserAnswerContent); 
@@ -200,20 +220,23 @@ export default function WeeklyChallengePage() {
   }, [practiceSessionId]);
   
   const awardXPAndStreak = useCallback(async (xpAmount: number) => {
-    if (!userId || xpAmount <= 0) return null;
+    if (!userId || xpAmount < 0) return null; // Allow 0 XP for streak update only
     let levelUpDetails = null;
     try {
-      const xpResponse = await fetch('/api/user/award-xp', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ xpAmount, activityType: 'weekly_challenge_completion' }),
-      });
-      if (xpResponse.ok) {
-        const xpData = await xpResponse.json();
-        toast.success(`+${xpData.awarded || xpAmount} XP earned!`);
-        if(xpData.leveledUp) {
-            levelUpDetails = { newLevel: xpData.level };
-        }
-      } else { toast.warn('Could not award XP.'); }
+       if (xpAmount > 0) {
+        const xpResponse = await fetch('/api/user/award-xp', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ xpAmount, activityType: 'weekly_challenge_completion' }),
+        });
+        if (xpResponse.ok) {
+          const xpData = await xpResponse.json();
+          toast.success(`+${xpData.awarded || xpAmount} XP earned!`);
+          if(xpData.leveledUp) {
+              levelUpDetails = { newLevel: xpData.level };
+          }
+        } else { toast.warn('Could not award XP.'); }
+      }
+      // Always try to update streak
       await fetch('/api/user/update-streak', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activityType: 'weekly_challenge_completion' }) });
     } catch (error) { console.error("Error awarding XP/Streak", error); }
     return levelUpDetails;
@@ -229,7 +252,7 @@ export default function WeeklyChallengePage() {
       });
       if (!response.ok) { const errData = await response.json(); throw new Error(errData.error || 'Failed to finalize session'); }
       
-      setSessionDetailsForSummary(await response.json()); // Store updated session for summary
+      setSessionDetailsForSummary(await response.json()); 
       setSessionFinalized(true); 
       setChallengeStatus('COMPLETED');
       
@@ -241,31 +264,55 @@ export default function WeeklyChallengePage() {
 
       if(userId && currentChallengeWeekId) {
           const progressKey = `weeklyChallengeProgress_${userId}_${currentChallengeWeekId}`;
-          safeStorage.removeItem(progressKey);
+          safeStorage.removeItem(progressKey, 'local');
       }
       toast.success("Weekly Challenge completed and results saved!");
     } catch (err: any) { toast.error(`Session finalization error: ${err.message}`);
     } finally { setLoading(false); }
   }, [practiceSessionId, userId, score, questionResults, awardXPAndStreak, sessionFinalized, currentChallengeWeekId]);
 
-  const handleSubmitAnswer = (userAns: string | Record<string,string>, isCorr: boolean) => {
+  const handleSubmitAnswer = useCallback((userAns: string | Record<string,string>, isCorr: boolean) => {
     if (!currentQuestion) return;
     setAnsweredQuestions(prev => ({ ...prev, [currentQuestion.id]: userAns }));
     setIsAnswerCorrect(isCorr);
-    const points = isCorr ? (currentQuestion.pointsAwarded || 20) : 0;
-    setQuestionResults(prev => [...prev, { id: currentQuestion.id, correct: isCorr, question: currentQuestion.text || '', userAnswer: userAns, correctAnswer: currentQuestion.correctAnswer }]);
-    if (isCorr) setScore(prevScore => prevScore + points);
-    saveStudentAnswerToDb(currentQuestion, userAns, isCorr, points);
-};
+    
+    const points = isCorr ? (currentQuestion.pointsAwarded || 20) : 0; // Challenge questions are harder, default 20 points
+    
+    setQuestionResults(prevResults => {
+        const newResult = { 
+            id: currentQuestion.id, 
+            correct: isCorr, 
+            question: currentQuestion.text || '', 
+            userAnswer: userAns, 
+            correctAnswer: currentQuestion.correctAnswer 
+        };
+        const existingResultIndex = prevResults.findIndex(r => r.id === currentQuestion.id);
+        if (existingResultIndex > -1) {
+            const updatedResults = [...prevResults];
+            updatedResults[existingResultIndex] = newResult;
+            return updatedResults;
+        }
+        return [...prevResults, newResult];
+    });
 
-const handleAnswerMCQ = (optionId: string) => {
+    if (isCorr) {
+        const alreadyCountedCorrect = questionResults.find(qr => qr.id === currentQuestion.id && qr.correct);
+        if (!alreadyCountedCorrect) {
+            setScore(prevScore => prevScore + points);
+        }
+    }
+    saveStudentAnswerToDb(currentQuestion, userAns, isCorr, points);
+  }, [currentQuestion, saveStudentAnswerToDb, questionResults]);
+
+
+const handleAnswerMCQ = useCallback((optionId: string) => {
     if (!currentQuestion || selectedAnswer !== null) return;
-    setSelectedAnswer(optionId);
+    setSelectedAnswer(optionId); 
     const isCorrect = String(currentQuestion.correctAnswer || '').toLowerCase() === optionId.toLowerCase();
     handleSubmitAnswer(optionId, isCorrect);
-};
-
-const handleTextAnswerSubmit = () => {
+}, [currentQuestion, selectedAnswer, handleSubmitAnswer]);
+  
+const handleTextAnswerSubmit = useCallback(() => {
     if (!textAnswer.trim() || !currentQuestion || selectedAnswer !== null) return;
     const userAnswer = textAnswer.trim();
     setSelectedAnswer(userAnswer); 
@@ -273,20 +320,27 @@ const handleTextAnswerSubmit = () => {
     const cAnsArr = Array.isArray(cAns) ? cAns.map(cv => String(cv ?? '').trim().toLowerCase()) : [String(cAns ?? '').trim().toLowerCase()];
     const isCorrect = cAnsArr.includes(userAnswer.toLowerCase());
     handleSubmitAnswer(userAnswer, isCorrect);
-};
+}, [textAnswer, currentQuestion, selectedAnswer, handleSubmitAnswer]);
 
-const handleMultiPartSubmit = () => {
+const handleMultiPartSubmit = useCallback(() => {
     if (!currentQuestion || typeof currentQuestion.correctAnswer !== 'object' || currentQuestion.correctAnswer === null || Array.isArray(currentQuestion.correctAnswer) || selectedAnswer !== null) return;
+    
     const correctAnswersMap = currentQuestion.correctAnswer as Record<string, string>;
     let allPartsCorrect = true;
+    const currentPartResults: Record<string, boolean> = {};
+
     for (const part in correctAnswersMap) {
         const userAnswerPart = (multiPartAnswers[part] || '').trim().toLowerCase();
         const correctAnswerTextPart = String(correctAnswersMap[part]).trim().toLowerCase();
-        if (userAnswerPart !== correctAnswerTextPart) allPartsCorrect = false;
+        const isPartCorrect = userAnswerPart === correctAnswerTextPart;
+        currentPartResults[part] = isPartCorrect;
+        if (!isPartCorrect) allPartsCorrect = false;
     }
+    setMultiPartResults(currentPartResults); 
     setSelectedAnswer(JSON.stringify(multiPartAnswers)); 
     handleSubmitAnswer(multiPartAnswers, allPartsCorrect);
-};
+}, [currentQuestion, selectedAnswer, multiPartAnswers, handleSubmitAnswer]);
+
 
   const handleNextQuestion = useCallback(async () => {
     if (currentQuestionIndex < questions.length - 1) {
@@ -298,17 +352,17 @@ const handleMultiPartSubmit = () => {
   }, [currentQuestionIndex, questions.length, finalizePracticeSessionInDb]);
 
   const isMultiPartComplete = () => {
-    if (!currentQuestion || currentQuestion.questionType !== PrismaQuestionType.MULTI_PART || typeof currentQuestion.correctAnswer !== 'object' || currentQuestion.correctAnswer === null || Array.isArray(currentQuestion.correctAnswer)) return false;
+    if (!currentQuestion || currentQuestion.questionType !== QuestionType.MULTI_PART || typeof currentQuestion.correctAnswer !== 'object' || currentQuestion.correctAnswer === null || Array.isArray(currentQuestion.correctAnswer)) return false;
     const parts = Object.keys(currentQuestion.correctAnswer);
     return parts.length > 0 && parts.every(p => multiPartAnswers[p]?.trim());
   };
 
   const renderQuestionContent = () => {
     if (!currentQuestion) return <p className="text-center text-gray-500">Loading question...</p>;
-    const questionTypeString = String(currentQuestion.questionType) as keyof typeof PrismaQuestionType | "UNKNOWN";
+    const questionTypeString = String(currentQuestion.questionType) as keyof typeof QuestionType | "UNKNOWN";
 
     switch(questionTypeString) {
-      case PrismaQuestionType.MULTIPLE_CHOICE:
+      case QuestionType.MULTIPLE_CHOICE:
         return (
           <div className="space-y-3">
             {(currentQuestion.options && Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0) ? (
@@ -324,7 +378,7 @@ const handleMultiPartSubmit = () => {
                   if (isThisSelected) { 
                     buttonClass = isAnswerCorrect ? "bg-green-100 border-green-500 text-green-800 ring-2 ring-green-500" : "bg-red-100 border-red-500 text-red-800 ring-2 ring-red-500";
                   } else if (isThisCorrectDB) { 
-                    buttonClass = "bg-green-100 border-green-500 text-green-800"; // Show correct if user picked wrong
+                    buttonClass = "bg-green-100 border-green-500 text-green-800"; 
                   }
                 }
                 return (
@@ -337,8 +391,8 @@ const handleMultiPartSubmit = () => {
             ) : ( <p>No options for this MCQ.</p> )}
           </div>
         );
-      case PrismaQuestionType.FILL_IN_THE_BLANK: 
-      case PrismaQuestionType.OPEN_ENDED:
+      case QuestionType.FILL_IN_THE_BLANK: 
+      case QuestionType.OPEN_ENDED:
         return (
           <div className="mt-6">
             <div className="flex">
@@ -352,7 +406,7 @@ const handleMultiPartSubmit = () => {
             {selectedAnswer !== null && (<div className={`mt-3 p-3 rounded-md text-sm ${ isAnswerCorrect ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}><p className="font-medium">{isAnswerCorrect ? "Correct!" : `Incorrect. Correct answer(s): "${ Array.isArray(currentQuestion.correctAnswer) ? currentQuestion.correctAnswer.join(' or ') : currentQuestion.correctAnswer }".`}</p>{!isAnswerCorrect && currentQuestion.explanation && <p className="mt-1">Explanation: {currentQuestion.explanation}</p>}</div>)}
           </div>
         );
-      case PrismaQuestionType.MULTI_PART:
+      case QuestionType.MULTI_PART:
          if (typeof currentQuestion.correctAnswer !== 'object' || currentQuestion.correctAnswer === null || Array.isArray(currentQuestion.correctAnswer)) {
             return <p className="text-red-500">Error: Multi-part question format invalid.</p>;
         }
@@ -395,7 +449,7 @@ const handleMultiPartSubmit = () => {
         <Button onClick={() => router.push('/student/practice')} className="bg-indigo-600 hover:bg-indigo-700 text-white mr-2">
           Explore Other Practice
         </Button>
-         <Button onClick={() => {setShowSummary(true); /* Fetch final score if needed */ }} variant="outline">
+         <Button onClick={() => {setShowSummary(true); }} variant="outline">
           View My Results
         </Button>
       </div>
@@ -408,7 +462,7 @@ const handleMultiPartSubmit = () => {
     const finalCorrectAnswers = sessionDetailsForSummary?.correctAnswers ?? questionResults.filter(r => r.correct).length;
     const finalXpEarned = sessionDetailsForSummary?.xpEarned ?? score;
 
-    const totalPossibleScore = finalTotalQuestions * 20; // Assuming 20 points per question for challenge
+    const totalPossibleScore = finalTotalQuestions * 20; 
     const percentageCorrect = totalPossibleScore > 0 ? Math.round((finalScore / totalPossibleScore) * 100) : 0;
     
     return (
@@ -435,7 +489,7 @@ const handleMultiPartSubmit = () => {
             </div>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <Button onClick={() => router.push('/student/practice')} variant="outline" className="border-indigo-600 text-indigo-600 hover:bg-indigo-50">Back to Practice</Button>
-                <Button onClick={() => { setChallengeStatus('LOADING'); setShowSummary(false);}} className="bg-indigo-600 hover:bg-indigo-700 text-white">Check for New Challenge</Button>
+                <Button onClick={() => { setChallengeStatus('LOADING'); setShowSummary(false); setSessionFinalized(false); startOrResumeChallenge();}} className="bg-indigo-600 hover:bg-indigo-700 text-white">Check for New Challenge</Button>
             </div>
         </div>
     );
@@ -450,6 +504,7 @@ const handleMultiPartSubmit = () => {
   
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-8 min-h-[calc(100vh-4rem)] flex flex-col">
+      {showLevelUp && <LevelUpNotification level={newLevel} onClose={() => setShowLevelUp(false)} />}
       <div className="bg-white shadow-xl rounded-lg p-6 md:p-8 flex-grow flex flex-col">
         <div className="mb-6">
           <div className="flex justify-between items-center mb-1">
@@ -479,7 +534,7 @@ const handleMultiPartSubmit = () => {
         <div className="mt-8 pt-6 border-t border-gray-200">
           <Button
             onClick={handleNextQuestion}
-            disabled={selectedAnswer === null || loading === 'submitting'} // selectedAnswer checks if current question has been answered
+            disabled={selectedAnswer === null || loading === 'submitting'}
             className="w-full py-3 text-base font-semibold rounded-lg shadow-md transition-all bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-gray-300 disabled:text-gray-500"
           >
             {loading === 'submitting' ? 'Submitting...' : (currentQuestionIndex < questions.length - 1 ? 'Next Question →' : '🏁 Finish Challenge')}
