@@ -11,7 +11,6 @@ interface OptionClient {
   text: string;
 }
 
-// Helper function from random/route.ts to format options
 function formatOptionsForClient(options: any): OptionClient[] {
   if (!options) return [];
   try {
@@ -28,7 +27,7 @@ function formatOptionsForClient(options: any): OptionClient[] {
         if (typeof opt === 'object' && opt !== null && opt.id && opt.text) {
           return { id: String(opt.id), text: String(opt.text) };
         }
-        return { id: String.fromCharCode(97 + index), text: String(opt) };
+        return { id: String.fromCharCode(65 + index), text: String(opt) };
       });
     }
     if (typeof parsedOptions === 'object' && parsedOptions !== null) {
@@ -84,14 +83,18 @@ export async function GET(
         basedOnQuestionGroup: { select: { name: true } },
         studentAnswers: {
           include: {
-            question: {
+            question: { 
               include: {
-                topic: { select: { name: true } }, // Topic of the question
+                topic: { select: { name: true } }, 
               },
             },
           },
           orderBy: {
-            attemptedAt: 'asc', // Or by question order if available
+            // It's often better to rely on an explicit question order if available,
+            // or ensure questions are returned in a way the client can sort them (e.g., by ID if that's the intended order).
+            // AttemptedAt might not always match the display order of questions.
+            // For now, keeping attemptedAt, but consider implications.
+            attemptedAt: 'asc', 
           },
         },
       },
@@ -101,12 +104,12 @@ export async function GET(
       return NextResponse.json({ error: 'Practice session not found' }, { status: 404 });
     }
 
-    // Authorization: Ensure the session belongs to the requesting student
     if (practiceSession.studentId !== studentId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
-    // Format student answers and questions for client
+    console.log(`API GET /student/practice-sessions: Fetched session ${sessionId}. TotalQuestions from DB: ${practiceSession.totalQuestions}, CorrectAnswers: ${practiceSession.correctAnswers}`);
+
     const formattedStudentAnswers = practiceSession.studentAnswers.map(sa => {
         let clientCorrectAnswer = sa.question.correctAnswer;
         if (typeof sa.question.correctAnswer === 'string') {
@@ -128,22 +131,22 @@ export async function GET(
             } catch (e) { /* Keep as string if not parsable JSON */ }
         }
 
-
         return {
             ...sa,
-            submittedAnswer: clientSubmittedAnswer, // Parsed submitted answer
+            submittedAnswer: clientSubmittedAnswer, 
             question: {
-                ...sa.question,
+                ...sa.question, 
                 options: formatOptionsForClient(sa.question.options),
-                correctAnswer: clientCorrectAnswer, // Parsed correct answer
+                correctAnswer: clientCorrectAnswer, 
                 topicName: sa.question.topic?.name || "Unknown Topic",
+                // marks is a scalar field on Question, so it will be included by default with ...sa.question
             }
         };
     });
 
 
     return NextResponse.json({
-        ...practiceSession,
+        ...practiceSession, // This will include totalQuestions, correctAnswers, score directly from the DB
         studentAnswers: formattedStudentAnswers,
         subjectName: practiceSession.subject?.name,
         topicName: practiceSession.topic?.name,

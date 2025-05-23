@@ -1,5 +1,6 @@
+// src/app/(dashboard)/student/mock-exam/page.tsx
 import { redirect } from "next/navigation";
-import MockExamLanding from "@/components/MockExam/MockExamLanding";
+import MockExamLanding from "@/components/MockExam/MockExamLanding"; 
 import { createClient } from "@/lib/supabase/server";
 
 export default async function MockExamPage() {

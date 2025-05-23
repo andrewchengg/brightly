@@ -58,6 +58,12 @@ const studentMenuItems = [
         visible: ["student"],
       },
       {
+        icon: FaLightbulb,
+        label: "Review",
+        href: "/student/review",
+        visible: ["student"],
+      },
+      {
         icon: FaChartBar,
         label: "Results",
         href: "/student/results",
@@ -166,6 +172,12 @@ const menuItems = [
         label: "Results",
         href: "/list/results",
         visible: ["admin", "teacher", "parent"],
+      },
+      {
+        icon: FaLightbulb,
+        label: "Review",
+        href: "/parent/review",
+        visible: ["parent"],
       },
       {
         icon: FaCheckSquare,

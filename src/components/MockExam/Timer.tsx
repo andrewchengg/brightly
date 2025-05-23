@@ -1,34 +1,58 @@
+// src/components/MockExam/Timer.tsx
+// This component can be used if you prefer a dedicated timer display, 
+// but for Phase 1, the timer logic is integrated into MockExamComponent.
+// If you decide to use this, pass timeRemaining and setTimeRemaining (or similar) from MockExamComponent.
+
 'use client';
 
 import { useState, useEffect } from 'react';
 
 interface TimerProps {
-  duration: number; // Duration in seconds
+  initialTime: number; // Duration in seconds
   onExpire: () => void;
+  isRunning: boolean;
+  onTick?: (timeLeft: number) => void; 
 }
 
-export default function Timer({ duration, onExpire }: TimerProps) {
-  const [timeLeft, setTimeLeft] = useState(duration);
+export default function Timer({ initialTime, onExpire, isRunning, onTick }: TimerProps) {
+  const [timeLeft, setTimeLeft] = useState(initialTime);
 
   useEffect(() => {
-    if (timeLeft <= 0) {
-      onExpire();
+    setTimeLeft(initialTime); 
+  }, [initialTime]);
+
+  useEffect(() => {
+    if (!isRunning || timeLeft <= 0) {
+      if (timeLeft <= 0 && isRunning) { 
+        onExpire();
+      }
       return;
     }
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
+    const timerId = setInterval(() => {
+      setTimeLeft(prev => {
+        const newTimeLeft = prev - 1;
+        if (onTick) onTick(newTimeLeft);
+        if (newTimeLeft <= 0) {
+          clearInterval(timerId);
+        }
+        return newTimeLeft;
+      });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [timeLeft, onExpire]);
+    return () => clearInterval(timerId);
+  }, [timeLeft, isRunning, onExpire, onTick]);
 
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    if (minutes < 0 || remainingSeconds < 0) return "00:00"; 
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   return (
-    <div className="text-lg font-mono">
-      Time Remaining: {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+    <div className="text-xl font-mono font-semibold">
+      {formatTime(timeLeft)}
     </div>
   );
-} 
+}

@@ -1,10 +1,15 @@
+// src/components/MockExam/MockExamComponent.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { useRouter } from 'next/navigation';
-import { PracticeSessionType } from '@prisma/client';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation'; // <--- ADD THIS IMPORT
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'; // Not used directly here, but good to keep if planned
+import { PracticeSessionType, QuestionType as PrismaQuestionType, PracticeSessionStatus } from '@/generated/prisma';
+import { toast } from 'react-toastify';
+import { FaArrowLeft, FaArrowRight, FaFlagCheckered, FaSpinner } from 'react-icons/fa'; 
+import { Button } from '@/components/ui/button'; 
 
+// ... (rest of the component code remains the same as previously provided)
 export const dynamic = 'force-dynamic';
 
 interface Option {
@@ -16,317 +21,378 @@ interface Question {
   id: number;
   text: string;
   options?: Option[];
-  correctAnswer: string | string[];
+  correctAnswer: string | string[] | Record<string, string> | null;
   topicName: string;
-  questionType: 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'LONG_ANSWER';
+  questionType: keyof typeof PrismaQuestionType;
   marks: number;
   topic: {
-    id: string;
+    id: number;
     name: string;
   };
   booklet?: 'A' | 'B';
 }
 
-interface Paper {
+interface PaperConfig {
   id: string;
   name: string;
-  duration: number;
+  duration: number; 
   totalMarks: number;
   description: string;
+  requirements: any; 
 }
 
-interface Subject {
+interface SubjectConfig {
   id: string;
   name: string;
-  papers: Paper[];
+  papers: PaperConfig[];
 }
 
-const subjects: Subject[] = [
+const subjectsConfig: SubjectConfig[] = [ 
   {
     id: 'mathematics',
     name: 'Mathematics',
     papers: [
       {
-        id: 'paper1',
-        name: 'Paper 1',
-        duration: 60,
-        totalMarks: 45,
-        description: 'Booklet A (MCQ) and Booklet B (Short Answer)'
+        id: 'paper1', name: 'Paper 1', duration: 60, totalMarks: 45, description: 'Booklet A & B',
+        requirements: { mcq1Mark: 10, mcq2Mark: 5, short1Mark: 5, short2Mark: 10 }
       },
       {
-        id: 'paper2',
-        name: 'Paper 2',
-        duration: 90,
-        totalMarks: 55,
-        description: 'Short Answer and Long Answer Questions'
+        id: 'paper2', name: 'Paper 2', duration: 90, totalMarks: 55, description: 'Short & Long Answer',
+        requirements: { short2Mark: 5, longAnswerTargetCount: 12, longAnswerTotalMarks: 45 }
       }
     ]
-  },
-  {
-    id: 'science',
-    name: 'Science',
-    papers: []
-  },
-  {
-    id: 'english',
-    name: 'English',
-    papers: []
-  },
-  {
-    id: 'chinese',
-    name: 'Chinese',
-    papers: []
   }
 ];
 
 interface MockExamComponentProps {
   userId: string;
-  examDurationMinutes: number;
+  examDurationMinutes: number; 
   subjectId: string;
-  paperId: string;
-  isBothPapers: boolean;
+  paperId: string; 
+  isBothPapers: boolean; 
 }
 
-interface DatabaseQuestion {
-  id: number;
-  text: string;
-  options: string | Option[];
-  correctAnswer: string;
-  questionType: string;
-  topic: {
-    id: string;
-    name: string;
-  };
-}
-
-interface ApiQuestion {
-  id: number;
-  text: string;
-  options: Option[];
-  correctAnswer: string | string[];
-  questionType: string;
-  hint?: string;
-  topic: {
-    id: string;
-    name: string;
-  };
-}
-
-interface Result {
-  score: number;
-  studentId: string;
-  type: string;
-  answers: Record<number, string>;
-  submittedAt: string;
-}
-
-interface PracticeSession {
-  id: string;
-  studentId: string;
-  title: string;
-  status: 'NOT_STARTED' | 'STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED';
-  startTime: Date;
-  endTime?: Date;
-  durationSeconds: number;
-  score?: number;
-  totalQuestions: number;
-  correctAnswers?: number;
-  xpEarned: number;
-}
 
 export default function MockExamComponent({ userId, examDurationMinutes, subjectId, paperId, isBothPapers }: MockExamComponentProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string | null>>({});
+  const [answers, setAnswers] = useState<Record<number, string | null>>({}); 
   const [isLoading, setIsLoading] = useState(true);
-  const [examStarted, setExamStarted] = useState(false);
+  const [examStarted, setExamStarted] = useState(false); 
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState(examDurationMinutes * 60);
+  const [timeRemaining, setTimeRemaining] = useState(0); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPracticeSessionId, setCurrentPracticeSessionId] = useState<string | null>(null);
-  const [totalMarks, setTotalMarks] = useState(0);
-  const [startTime, setStartTime] = useState<Date | null>(null);
-  const [currentPaper, setCurrentPaper] = useState<'paper1' | 'paper2'>(paperId as 'paper1' | 'paper2');
-  const [showPaperTransition, setShowPaperTransition] = useState(false);
-  const [paper1Answers, setPaper1Answers] = useState<Record<number, string | null>>({});
+  const [calculatedTotalMarks, setCalculatedTotalMarks] = useState(0);
   
-  const router = useRouter();
-  const supabase = createClientComponentClient();
+  const [currentPaper, setCurrentPaper] = useState<'paper1' | 'paper2'>(paperId as 'paper1' | 'paper2');
+  const [showPaperTransition, setShowPaperTransition] = useState(false); 
+  const [paper1Answers, setPaper1Answers] = useState<Record<number, string | null>>({});
+  const [paper1Score, setPaper1Score] = useState(0);
+  const [paper1QuestionCount, setPaper1QuestionCount] = useState(0); 
 
+  const [textAnswer, setTextAnswer] = useState(''); 
+  const [multiPartAnswers, setMultiPartAnswers] = useState<Record<string, string>>({}); 
+  
+  const router = useRouter(); // Now correctly defined due to import
+  
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
+  
+  const handleSubmit = useCallback(async () => {
+    if (examSubmitted || isSubmitting) return;
+    
+    const unansweredQuestions = questions.filter(q => answers[q.id] === null || answers[q.id] === undefined);
+    if (unansweredQuestions.length > 0 && !isSubmitting) { 
+        const confirmSubmit = window.confirm(`You have ${unansweredQuestions.length} unanswered question(s). Are you sure you want to submit? Unanswered questions will be marked as incorrect.`);
+        if (!confirmSubmit) return;
+    }
 
-  // Timer effect - only start when exam has started
-  useEffect(() => {
-    if (!examStarted || timeRemaining <= 0 || examSubmitted) return;
+    setIsSubmitting(true);
+    toast.info("Submitting your exam...");
+    
+    let currentPaperScore = 0;
+    let correctAnswersForThisPaperCount = 0;
 
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleSubmit();
-          return 0;
+    const studentAnswersPayload = questions.map(q => {
+        const submittedAnswerRaw = answers[q.id];
+        let isCorrect = false;
+        let pointsEarnedThisQuestion = 0;
+
+        if (submittedAnswerRaw !== null && submittedAnswerRaw !== undefined) {
+            if (q.questionType === PrismaQuestionType.MULTIPLE_CHOICE) {
+                isCorrect = String(q.correctAnswer).toLowerCase() === String(submittedAnswerRaw).toLowerCase();
+            } else if (q.questionType === PrismaQuestionType.OPEN_ENDED || q.questionType === PrismaQuestionType.FILL_IN_THE_BLANK) {
+                const cAns = q.correctAnswer;
+                const cAnsArr = Array.isArray(cAns) ? cAns.map(cv => String(cv ?? '').trim().toLowerCase()) : [String(cAns ?? '').trim().toLowerCase()];
+                isCorrect = cAnsArr.includes(String(submittedAnswerRaw).trim().toLowerCase());
+            } else if (q.questionType === PrismaQuestionType.MULTI_PART && typeof q.correctAnswer === 'object' && q.correctAnswer && !Array.isArray(q.correctAnswer)) {
+                try {
+                    const userAnswersMap = JSON.parse(submittedAnswerRaw); 
+                    const correctAnswersMap = q.correctAnswer as Record<string, string>;
+                    isCorrect = true;
+                    for (const part in correctAnswersMap) {
+                        if ((userAnswersMap[part] || '').trim().toLowerCase() !== String(correctAnswersMap[part]).trim().toLowerCase()) {
+                            isCorrect = false; break;
+                        }
+                    }
+                } catch (e) { isCorrect = false; }
+            }
+        } 
+        if (isCorrect) {
+            pointsEarnedThisQuestion = q.marks;
+            currentPaperScore += q.marks;
+            correctAnswersForThisPaperCount++;
         }
-        return prev - 1;
-      });
-    }, 1000);
 
-    return () => clearInterval(timer);
-  }, [examStarted, timeRemaining, examSubmitted]);
-
-  // Initial data fetching effect - runs immediately
-  useEffect(() => {
-    initializeExam();
-  }, []);
-
-  const initializeExam = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+        return {
+            practiceSessionId: currentPracticeSessionId,
+            questionId: q.id,
+            submittedAnswer: submittedAnswerRaw, 
+            isCorrect, 
+            pointsEarned: pointsEarnedThisQuestion,
+            attemptedAt: new Date().toISOString(), 
+        };
+    }).filter(ans => ans.practiceSessionId !== null); 
+    
+    if (currentPracticeSessionId && studentAnswersPayload.length > 0) {
+        try {
+            await fetch('/api/student-answers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(studentAnswersPayload), 
+            });
+        } catch (e) {
+            console.error("Error saving student answers:", e);
+            toast.error("Could not save all answers.");
+        }
+    }
+    
+    if (isBothPapers && currentPaper === 'paper1') {
+      setPaper1Answers(answers); 
+      setPaper1Score(currentPaperScore);
+      setPaper1QuestionCount(questions.length); 
+      console.log("Paper 1 submitted. Score:", currentPaperScore, "Questions in P1:", questions.length);
       
-      console.log("Initializing mock exam for user:", userId);
-      
-      if (!userId) {
-        setError("User ID is missing. Please try logging in again.");
-        setIsLoading(false);
-        return;
+      setShowPaperTransition(true);
+      setTimeout(async () => {
+        setShowPaperTransition(false);
+        setCurrentPaper('paper2');
+        const paper2Config = subjectsConfig.find(s => s.id === subjectId)?.papers.find(p => p.id === 'paper2');
+        setTimeRemaining((paper2Config?.duration || 90) * 60); 
+        await fetchQuestionsForPaper('paper2'); 
+        setIsSubmitting(false);  
+      }, 3000); 
+    } else {
+      let finalScore = currentPaperScore;
+      let finalCorrectAnswersCount = correctAnswersForThisPaperCount;
+      let finalTotalQuestions = questions.length; 
+
+      if (isBothPapers && currentPaper === 'paper2') {
+        finalScore += paper1Score; 
+        finalTotalQuestions += paper1QuestionCount; 
+        console.log("Paper 2 submitted. P2 Score:", currentPaperScore, "Total Score:", finalScore, "Total Questions for Both:", finalTotalQuestions);
+      } else {
+        console.log("Single paper submitted. Score:", finalScore, "Total Questions:", finalTotalQuestions);
       }
+
+      if (currentPracticeSessionId) {
+        try {
+            await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                status: PracticeSessionStatus.COMPLETED,
+                endTime: new Date().toISOString(),
+                score: finalScore, 
+                correctAnswers: finalCorrectAnswersCount, 
+                totalQuestions: finalTotalQuestions,     
+                xpEarned: finalScore, 
+              }),
+            });
+        } catch(e){
+            console.error("Error finalizing session:", e);
+            toast.error("Could not finalize session details.");
+        }
+      }
+      setExamSubmitted(true);
+      toast.success(`Exam Submitted! Your Score: ${finalScore}`);
+      router.push(`/student/results/${currentPracticeSessionId || 'summary'}`); 
+    }
+  }, [examSubmitted, isSubmitting, questions, answers, currentPracticeSessionId, router, isBothPapers, currentPaper, paper1Score, subjectId, paper1QuestionCount]);
+
+  useEffect(() => { 
+    if (!examStarted || timeRemaining <= 0 || examSubmitted) {
+        if (timeRemaining <=0 && examStarted && !examSubmitted && !isSubmitting) { 
+            handleSubmit();
+        }
+        return;
+    }
+    const timer = setInterval(() => {
+      setTimeRemaining((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [examStarted, timeRemaining, examSubmitted, isSubmitting, handleSubmit]);
+
+  const fetchQuestionsForPaper = async (paperToFetch: string) => {
+    setIsLoading(true);
+    try {
+      const subjectConfigFound = subjectsConfig.find(s => s.id === subjectId);
+      const paperConfig = subjectConfigFound?.papers.find(p => p.id === paperToFetch);
+      if (!subjectConfigFound || !paperConfig) throw new Error(`Configuration for ${subjectId} - ${paperToFetch} not found.`);
+
+      const response = await fetch(`/api/questions/${subjectId}/${paperToFetch}`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paper: paperToFetch, requirements: paperConfig.requirements }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `API error: ${response.status}`);
+      }
+      const fetchedQuestions: Question[] = await response.json();
       
-      await fetchQuestions();
+      if (!fetchedQuestions || fetchedQuestions.length === 0) throw new Error('No questions returned from API for this paper.');
+      
+      setQuestions(fetchedQuestions);
+      setCalculatedTotalMarks(fetchedQuestions.reduce((sum, q) => sum + (q.marks || 0), 0));
+      setCurrentQuestionIndex(0); 
+      if (!isBothPapers || (isBothPapers && paperToFetch === 'paper1')) {
+        setAnswers({}); 
+      }
+      setTextAnswer('');
+      setMultiPartAnswers({});
+
+      if (currentPracticeSessionId) {
+        let sessionTotalQuestions = fetchedQuestions.length;
+        if (isBothPapers && paperToFetch === 'paper2') {
+            sessionTotalQuestions += paper1QuestionCount; 
+        }
+        if (!isBothPapers || (isBothPapers && paperToFetch === 'paper2')) {
+            try {
+                const updateTotalQuestionsResponse = await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ totalQuestions: sessionTotalQuestions }),
+                });
+                if (!updateTotalQuestionsResponse.ok) {
+                    console.error("Failed to update totalQuestions for session:", await updateTotalQuestionsResponse.text());
+                } else {
+                    console.log(`MockExam: Updated totalQuestions for session ${currentPracticeSessionId} to ${sessionTotalQuestions}`);
+                }
+            } catch (e) { console.error("Error updating totalQuestions for session:", e); }
+        } else if (isBothPapers && paperToFetch === 'paper1') {
+            // paper1QuestionCount is set in handleSubmit if this logic path is taken
+            // Or if starting "Both", it's set after first fetch
+            setPaper1QuestionCount(fetchedQuestions.length); 
+             try {
+                await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ totalQuestions: fetchedQuestions.length }),
+                });
+            } catch(e) { console.error("Error initially setting totalQuestions for P1 of Both:", e)}
+        }
+      }
     } catch (error: any) {
-      console.error("Error initializing exam:", error);
-      setError("Failed to initialize exam: " + (error.message || "Unknown error"));
+      setError('Failed to fetch questions: ' + (error.message || 'Unknown error'));
+      toast.error('Failed to load questions: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const initializeExam = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const initialPaperConfig = subjectsConfig.find(s => s.id === subjectId)?.papers.find(p => p.id === paperId); 
+      if (!initialPaperConfig) throw new Error ("Initial paper configuration not found for mock exam.");
+      setTimeRemaining(initialPaperConfig.duration * 60);
+
+      let sessionTitle = `${subjectId.charAt(0).toUpperCase() + subjectId.slice(1)} - ${isBothPapers ? 'Full Mock Exam' : (initialPaperConfig.name)}`;
+      
+      const newSessionResponse = await fetch('/api/practice-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: userId,
+          title: `${sessionTitle} - Mock Exam - ${new Date().toLocaleDateString()}`,
+          type: PracticeSessionType.MOCK_EXAM,
+          status: PracticeSessionStatus.IN_PROGRESS,
+          examDurationMinutes: examDurationMinutes, 
+          totalQuestions: 0, 
+        }),
+      });
+
+      if (!newSessionResponse.ok) {
+          const errorData = await newSessionResponse.json();
+          throw new Error(errorData.error?.message || 'Failed to create practice session');
+      }
+      const sessionData = await newSessionResponse.json();
+      setCurrentPracticeSessionId(sessionData.id);
+
+      await fetchQuestionsForPaper(paperId); 
+      setExamStarted(true);
+
+    } catch (error: any) {
+      setError("Failed to start exam: " + (error.message || "Unknown error"));
+      toast.error("Failed to start exam: " + (error.message || "Unknown error"));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  const fetchQuestions = async () => {
-    try {
-      console.log('Fetching questions for user:', userId);
-      
-      if (!userId) {
-        console.error('No user ID provided');
-        setError('User ID is missing. Please try logging in again.');
-        setIsLoading(false);
-        return;
-      }
-      
-      // Use existing practice session if available, or create a new one
-      let practiceSessionId = currentPracticeSessionId;
-      
-      if (!currentPracticeSessionId) {
-        try {
-          const newSession = await fetch('/api/practice-session', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              studentId: userId,
-              title: `${subjectId.toUpperCase()} ${paperId.toUpperCase()} - ${new Date().toLocaleDateString()}`,
-              type: 'MOCK_EXAM',
-              status: 'STARTED',
-              examDurationMinutes: examDurationMinutes
-            }),
-          });
-
-          if (!newSession.ok) {
-            throw new Error('Failed to create practice session');
-          }
-
-          const sessionData = await newSession.json() as { id: string };
-          practiceSessionId = sessionData.id;
-          setCurrentPracticeSessionId(sessionData.id);
-        } catch (error) {
-          console.error('Error creating practice session:', error);
-          practiceSessionId = 'mock-session-' + Date.now();
-          setCurrentPracticeSessionId(practiceSessionId);
-        }
-      }
-      
-      // Fetch questions based on subject and paper type
-      let questions: Question[] = [];
-      
-      if (isBothPapers && currentPaper === 'paper2') {
-        // When fetching Paper 2 questions after Paper 1, ensure no duplicates
-        const paper1Questions = await fetchQuestionsByType(subjectId, 'paper1');
-        const paper2Questions = await fetchQuestionsByType(subjectId, 'paper2');
+  useEffect(() => {
+    initializeExam();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
+  
+  useEffect(() => {
+    if (questions.length > 0 && currentQuestionIndex < questions.length) {
+        const currentQ = questions[currentQuestionIndex];
+        const savedAnswerString = answers[currentQ.id];
         
-        // Filter out any questions from Paper 2 that have the same text as Paper 1 questions
-        const paper1Texts = new Set(paper1Questions.map(q => q.text));
-        questions = paper2Questions.filter(q => !paper1Texts.has(q.text));
-        
-        if (questions.length === 0) {
-          throw new Error('No unique questions available for Paper 2');
+        setTextAnswer(''); 
+        setMultiPartAnswers({});
+
+        if(savedAnswerString !== null && savedAnswerString !== undefined) {
+            if (currentQ.questionType === PrismaQuestionType.OPEN_ENDED || currentQ.questionType === PrismaQuestionType.FILL_IN_THE_BLANK) {
+                setTextAnswer(savedAnswerString);
+            } else if (currentQ.questionType === PrismaQuestionType.MULTI_PART) {
+                try { setMultiPartAnswers(JSON.parse(savedAnswerString)); } catch { setMultiPartAnswers({}); }
+            }
         }
-      } else {
-        // Normal case - fetch questions for single paper
-        questions = await fetchQuestionsByType(subjectId, currentPaper);
-      }
-      
-      if (!questions || questions.length === 0) {
-        throw new Error('No questions returned from API');
-      }
-      
-      console.log(`Loaded ${questions.length} questions`);
-      
-      // Calculate total marks
-      const total = questions.reduce((sum: number, q: Question) => sum + (q.marks || 0), 0);
-      setTotalMarks(total);
-      
-      setQuestions(questions);
-      setIsLoading(false);
-    } catch (error: any) {
-      console.error('Error fetching questions:', error);
-      setError('Failed to fetch questions: ' + (error.message || 'Unknown error'));
-      setIsLoading(false);
     }
-  };
+  }, [currentQuestionIndex, questions, answers]);
 
-  const fetchQuestionsByType = async (subject: string, paper: string): Promise<Question[]> => {
-    const response = await fetch(`/api/questions/${subject}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        paper,
-        requirements: paper === 'paper1' ? {
-          mcq1Mark: 10,
-          mcq2Mark: 5,
-          short1Mark: 5,
-          short2Mark: 10
-        } : {
-          short2Mark: 5,
-          longAnswer: 12,
-          longAnswerTotalMarks: 45
-        }
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data as Question[];
-  };
-
-  const handleAnswerChange = (questionId: number, optionId: string) => {
+  const handleAnswerChange = (questionId: number, answer: string | Record<string, string>) => {
     if (timeRemaining <= 0 || examSubmitted) return;
-    
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: optionId
-    }));
+    setAnswers(prev => ({ ...prev, [questionId]: typeof answer === 'string' ? answer : JSON.stringify(answer) }));
+  };
+  
+  const handleTextAnswerInput = (value: string) => { // Renamed from handleTextAnswerChange to avoid confusion
+    setTextAnswer(value);
+    if (currentQuestionData) { 
+        handleAnswerChange(currentQuestionData.id, value);
+    }
+  };
+
+  const handleMultiPartAnswerInput = (partKey: string, value: string) => { // Renamed
+    const newMultiPartAns = {...multiPartAnswers, [partKey]: value};
+    setMultiPartAnswers(newMultiPartAns);
+     if (currentQuestionData) {
+        handleAnswerChange(currentQuestionData.id, newMultiPartAns);
+    }
+  };
+  
+  const handleNavigateToQuestion = (index: number) => {
+    if (index >= 0 && index < questions.length) {
+        setCurrentQuestionIndex(index);
+    }
   };
 
   const handleNext = () => {
@@ -340,467 +406,188 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
       setCurrentQuestionIndex(prev => prev - 1);
     }
   };
-
-  const handleStartExam = async () => {
-    const examStartTime = new Date();
-    setStartTime(examStartTime);
-    setExamStarted(true);
-
-    try {
-      // Create a new practice session when exam starts
-      const response = await fetch('/api/practice-sessions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          studentId: userId,
-          title: `Mock Exam - ${new Date().toLocaleDateString()}`,
-          status: 'STARTED',
-          startTime: examStartTime.toISOString(),
-          durationSeconds: examDurationMinutes * 60,
-          totalQuestions: questions.length,
-          xpEarned: 0
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create practice session');
-      }
-
-      const session = await response.json() as { id: string };
-      setCurrentPracticeSessionId(session.id);
-    } catch (error) {
-      console.error('Error creating practice session:', error);
-      // Continue with exam even if session creation fails
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (examSubmitted || isSubmitting) return;
-    
-    setIsSubmitting(true);
-    const endTime = new Date();
-    
-    try {
-      // Calculate correct answers and score
-      let correctAnswersCount = 0;
-      let totalScore = 0;
-      
-      questions.forEach(q => {
-        const selectedOptionId = answers[q.id];
-        
-        if (q.questionType === 'MULTIPLE_CHOICE' && selectedOptionId) {
-          if (typeof q.correctAnswer === 'string' && selectedOptionId === q.correctAnswer) {
-            correctAnswersCount++;
-            totalScore += q.marks;
-          } else if (Array.isArray(q.correctAnswer) && q.correctAnswer.includes(selectedOptionId)) {
-            correctAnswersCount++;
-            totalScore += q.marks;
-          }
-        }
-      });
-
-      // Calculate XP earned (example: 10 XP per correct answer)
-      const xpEarned = correctAnswersCount * 10;
-
-      if (currentPracticeSessionId) {
-        try {
-          // Update the practice session
-          const response = await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              status: isBothPapers && currentPaper === 'paper1' ? 'IN_PROGRESS' : 'COMPLETED',
-              endTime: endTime.toISOString(),
-              score: totalScore,
-              correctAnswers: correctAnswersCount,
-              xpEarned
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to update practice session');
-          }
-
-          if (isBothPapers && currentPaper === 'paper1') {
-            // Save Paper 1 answers and prepare for Paper 2
-            setPaper1Answers(answers);
-            setShowPaperTransition(true);
-            setTimeout(() => {
-              setCurrentPaper('paper2');
-              setShowPaperTransition(false);
-              setAnswers({});
-              setCurrentQuestionIndex(0);
-              setTimeRemaining(90 * 60); // 1 hour 30 minutes for Paper 2
-              fetchQuestions(); // Fetch Paper 2 questions
-            }, 5000); // Show transition screen for 5 seconds
-          } else {
-            setExamSubmitted(true);
-            router.push('/student/results');
-          }
-        } catch (error) {
-          console.error('Error updating practice session:', error);
-          // Store results locally as backup
-          if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem(`mockExamResult_${currentPracticeSessionId}`, JSON.stringify({
-              studentId: userId,
-              endTime: endTime.toISOString(),
-              score: totalScore,
-              correctAnswers: correctAnswersCount,
-              answers,
-              xpEarned,
-              paper: currentPaper
-            }));
-          }
-        }
-      }
-
-      // Create student answers records
-      try {
-        const studentAnswers = Object.entries(answers).map(([questionId, answerId]) => ({
-          practiceSessionId: currentPracticeSessionId,
-          questionId: parseInt(questionId),
-          submittedAnswer: answerId,
-          isCorrect: questions.find(q => q.id === parseInt(questionId))?.correctAnswer === answerId,
-          pointsEarned: questions.find(q => q.id === parseInt(questionId))?.marks || 0,
-          attemptedAt: new Date().toISOString(),
-          paper: currentPaper
-        }));
-
-        await fetch('/api/student-answers', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(studentAnswers),
-        });
-      } catch (error) {
-        console.error('Error saving student answers:', error);
-      }
-    } catch (error: any) {
-      console.error('Error submitting exam:', error.message || error);
-      setError('Failed to submit exam. Please try again.');
-      setExamSubmitted(false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+  
   const handleCancel = async () => {
-    if (examSubmitted) return;
-    
-    try {
-      if (currentPracticeSessionId) {
-        // Update practice session status to CANCELLED
+    const confirmExit = window.confirm("Are you sure you want to cancel this exam? Your progress will be paused but not submitted.");
+    if (!confirmExit) return;
+
+    if (currentPracticeSessionId) {
+      try {
         await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: 'PAUSED',
-            endTime: new Date().toISOString()
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: PracticeSessionStatus.PAUSED, endTime: new Date().toISOString() }),
         });
+        toast.info("Exam paused.");
+      } catch(e) {
+        toast.error("Could not pause session.");
       }
-      
-      router.push('/student/mock-exam');
-    } catch (error: any) {
-      console.error('Error canceling exam:', error);
-      router.push('/student/mock-exam');
     }
+    router.push('/student/mock-exam');
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg">
-          <h2 className="text-2xl font-bold mb-4">Preparing Your Mock Exam</h2>
-          <p className="text-gray-600 mb-4">Loading questions...</p>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        </div>
-      </div>
-    );
-  }
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 0 || seconds < 0) return "00:00";
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-lg">
-          <h2 className="text-xl font-bold mb-4 text-red-600">{error}</h2>
-          <button
-            onClick={() => router.push('/student')}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Return to Dashboard
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (questions.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg">
-          <p className="text-lg mb-4">No questions available.</p>
-          <p className="text-gray-600 mb-4">Please contact your teacher to add some questions to the question bank.</p>
-          <button
-            onClick={() => router.push('/student')}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Return to Dashboard
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show landing page if exam hasn't started
-  if (!examStarted) {
-    const currentSubject = subjects.find(s => s.id === subjectId);
-    const currentPaper = currentSubject?.papers.find(p => p.id === paperId);
-
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-2xl w-full">
-          <h1 className="text-3xl font-bold mb-6">{currentSubject?.name} {currentPaper?.name}</h1>
-          <div className="mb-8 text-left">
-            <div className="bg-blue-50 p-6 rounded-lg mb-6">
-              <h2 className="text-xl font-semibold mb-4">Exam Details</h2>
-              <ul className="space-y-3">
-                <li className="flex justify-between">
-                  <span className="text-gray-600">Duration:</span>
-                  <span className="font-medium">{examDurationMinutes} minutes</span>
-                </li>
-                <li className="flex justify-between">
-                  <span className="text-gray-600">Total Marks:</span>
-                  <span className="font-medium">{currentPaper?.totalMarks}</span>
-                </li>
-                <li className="flex justify-between">
-                  <span className="text-gray-600">Paper Type:</span>
-                  <span className="font-medium">{currentPaper?.description}</span>
-                </li>
-              </ul>
-            </div>
-            
-            <div className="bg-yellow-50 p-6 rounded-lg">
-              <h2 className="text-xl font-semibold mb-4">Instructions</h2>
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
-                <li>Read each question carefully before answering</li>
-                {paperId === 'paper1' && (
-                  <>
-                    <li>Booklet A contains Multiple Choice Questions</li>
-                    <li>Booklet B contains Short Answer Questions</li>
-                    <li>Do not use a calculator for this paper</li>
-                  </>
-                )}
-                {paperId === 'paper2' && (
-                  <>
-                    <li>This paper contains Short Answer and Long Answer Questions</li>
-                    <li>Show all your working clearly</li>
-                    <li>You may use a calculator for this paper</li>
-                  </>
-                )}
-                <li>The examination will auto-submit when time expires</li>
-                <li>Click "Start Exam" when you're ready to begin</li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="flex justify-center gap-4">
-            <button
-              onClick={() => router.push('/student/mock-exam')}
-              className="px-8 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleStartExam}
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Start Exam
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading && !examStarted) return <div className="flex justify-center items-center h-screen"><FaSpinner className="animate-spin text-4xl text-indigo-600" /><p className="ml-3">Preparing mock exam...</p></div>;
+  if (isLoading && examStarted && questions.length === 0 && !error) return <div className="flex justify-center items-center h-screen"><FaSpinner className="animate-spin text-4xl text-indigo-600" /><p className="ml-3">Loading questions...</p></div>;
+  if (error) return <div className="text-center p-8 text-red-500">Error: {error} <Button onClick={initializeExam}>Try Again</Button></div>;
 
   if (showPaperTransition) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-2xl">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg">
           <h2 className="text-2xl font-bold mb-4">Paper 1 Completed</h2>
-          <p className="text-gray-600 mb-4">Your time for Paper 1 is up. We will now proceed to Paper 2.</p>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600 mb-4">Preparing Paper 2...</p>
+          <FaSpinner className="animate-spin text-3xl text-blue-600 mx-auto"/>
         </div>
       </div>
     );
   }
 
-  const currentQuestion = questions[currentQuestionIndex];
-
-  // Check if the current question is open-ended
-  const isOpenEndedQuestion = 
-    currentQuestion?.questionType === 'SHORT_ANSWER' || 
-    currentQuestion?.questionType === 'LONG_ANSWER' || 
-    !currentQuestion?.options ||
-    !Array.isArray(currentQuestion?.options) || 
-    currentQuestion?.options.length === 0;
+  if (questions.length === 0 && examStarted && !isLoading) return <div className="text-center p-8">No questions available for this paper. Please contact support.</div>;
+  const currentQuestionData = questions[currentQuestionIndex];
+  if (!currentQuestionData) return <div className="text-center p-8">Loading question data...</div>;
+  
+  const questionType = currentQuestionData.questionType as keyof typeof PrismaQuestionType | undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="flex-1 w-full max-w-4xl mx-auto px-4 py-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-xl font-semibold">Mock Exam</h2>
-            <p className="text-sm text-gray-600">
-              Question {currentQuestionIndex + 1} of {questions.length} | Total Marks: {totalMarks}
-            </p>
+    <div className="min-h-screen bg-gray-100 flex flex-col p-4">
+      <div className="max-w-4xl mx-auto w-full bg-white shadow-xl rounded-lg p-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b pb-4">
+          <div className="mb-3 sm:mb-0">
+            <h1 className="text-xl md:text-2xl font-bold text-indigo-700">
+                {subjectId.charAt(0).toUpperCase() + subjectId.slice(1)} Mock Exam - {currentPaper === 'paper1' ? "Paper 1" : "Paper 2"}
+            </h1>
+            <p className="text-xs md:text-sm text-gray-500">Question {currentQuestionIndex + 1} of {questions.length} | Marks: {currentQuestionData.marks}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="animate-spin-counterclockwise">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
-              </svg>
-            </div>
-            <div className={`text-lg font-mono ${timeRemaining <= 60 ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
-              Time Remaining: {formatTime(timeRemaining)}
-            </div>
+          <div className={`text-lg md:text-xl font-mono font-semibold px-3 py-1 rounded-md ${timeRemaining <= 60 && timeRemaining > 0 ? 'text-red-600 bg-red-100 animate-pulse' : timeRemaining <= 0 ? 'text-red-700 bg-red-200' : 'text-gray-700 bg-gray-100'}`}>
+            {formatTime(timeRemaining)}
           </div>
         </div>
 
-        <div className="bg-white shadow-lg rounded-lg mb-6 flex-1">
-          <div className="p-6">
-            <div className="mb-6">
-              <h3 className="text-xl font-medium mb-4">
-                {currentQuestion.text}
-              </h3>
-              <div className="flex justify-between items-center mb-6">
-                <p className="text-sm text-gray-600">
-                  Topic: {currentQuestion.topicName || currentQuestion.topic?.name || 'General'}
-                </p>
-                <p className="text-sm font-medium text-blue-600">
-                  [{currentQuestion.marks} Marks]
-                </p>
-              </div>
-            </div>
+        {/* Question Navigation Bubbles */}
+        <div className="mb-6 flex flex-wrap gap-1.5 justify-center max-w-full overflow-x-auto pb-2">
+            {questions.map((q, index) => (
+                <button
+                    key={q.id}
+                    onClick={() => handleNavigateToQuestion(index)}
+                    className={`w-7 h-7 md:w-8 md:h-8 rounded-full text-xs font-medium flex items-center justify-center border-2 transition-all shrink-0
+                        ${index === currentQuestionIndex ? 'bg-indigo-600 text-white border-indigo-700 scale-110 ring-2 ring-indigo-300' :
+                         (answers[q.id] !== null && answers[q.id] !== undefined) ? 'bg-green-500 text-white border-green-600' :
+                         'bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300'}`}
+                    title={`Go to Question ${index + 1}`}
+                >
+                    {index + 1}
+                </button>
+            ))}
+        </div>
 
-            {isOpenEndedQuestion ? (
-              // Open-ended question input
-              <div className="mb-6">
-                <label htmlFor="open-answer" className="block text-gray-700 text-sm font-medium mb-2">
-                  Your Answer:
-                </label>
-                <textarea 
-                  id="open-answer"
-                  rows={4}
-                  className="w-full p-4 text-lg rounded-lg border border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200"
-                  placeholder="Type your answer here..."
-                  disabled={timeRemaining <= 0 || examSubmitted}
-                  value={answers[currentQuestion.id] || ''}
-                  onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                ></textarea>
-              </div>
-            ) : (
-              // Multiple choice options
-              <div className="grid grid-cols-2 gap-6">
-                {currentQuestion.options?.map((option) => (
-                  <button 
-                    key={option.id}
-                    onClick={() => handleAnswerChange(currentQuestion.id, option.id)}
-                    disabled={timeRemaining <= 0 || examSubmitted}
-                    className={`
-                      relative p-6 text-left rounded-lg transition-all duration-200
-                      ${answers[currentQuestion.id] === option.id 
-                        ? 'bg-blue-600 text-white shadow-inner transform translate-y-0.5' 
-                        : 'bg-white hover:bg-blue-600 hover:text-white hover:transform hover:translate-y-0.5 shadow-lg hover:shadow-md'}
-                      ${timeRemaining <= 0 || examSubmitted ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                      border border-gray-200 hover:border-transparent
-                      min-h-[100px] flex items-center
-                    `}
-                  >
-                    <span className="text-lg">{option.text}</span>
-                  </button>
-                ))}
-              </div>
+        {/* Current Question Display */}
+        <div className="mb-8 p-4 border rounded-md bg-indigo-50 min-h-[150px]">
+          <h3 className="text-md md:text-lg font-semibold text-gray-800 mb-3 leading-relaxed whitespace-pre-wrap">{currentQuestionData.text}</h3>
+           {currentQuestionData.imageUrl && <img src={currentQuestionData.imageUrl} alt="Question Visual" className="my-3 rounded-md border max-h-60 mx-auto object-contain"/>}
+            <p className="text-xs text-gray-600 mt-1">Topic: {currentQuestionData.topicName}</p>
+        </div>
+
+        {/* Answer Input Area */}
+        <div className="min-h-[150px] mb-6"> 
+            {questionType === PrismaQuestionType.MULTIPLE_CHOICE && currentQuestionData.options && (
+                <div className="space-y-2">
+                    {currentQuestionData.options.map((option, index) => {
+                        const optionId = option.id;
+                        const optionText = option.text;
+                        const optionLetter = String.fromCharCode(65 + index);
+                        const isSelected = answers[currentQuestionData.id] === optionId;
+                        return (
+                            <button key={option.id || index}
+                                onClick={() => handleOptionSelect(currentQuestionData.id, optionId)}
+                                disabled={timeRemaining <= 0 || examSubmitted}
+                                className={`w-full text-left p-3 rounded-md transition-all duration-150 text-sm border
+                                    ${isSelected ? "bg-indigo-100 border-indigo-500 ring-2 ring-indigo-500" : "bg-white hover:bg-gray-100 border-gray-300"}
+                                    ${(timeRemaining <= 0 || examSubmitted) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            >
+                                <span className="font-semibold mr-2">{optionLetter}.</span> {optionText}
+                            </button>
+                        );
+                    })}
+                </div>
             )}
-          </div>
+
+            {(questionType === PrismaQuestionType.OPEN_ENDED || questionType === PrismaQuestionType.FILL_IN_THE_BLANK) && (
+                <div className="mt-2">
+                    <label htmlFor={`text-answer-${currentQuestionData.id}`} className="block text-sm font-medium text-gray-700 mb-1">Your Answer:</label>
+                    <textarea id={`text-answer-${currentQuestionData.id}`} value={textAnswer}
+                        onChange={(e) => handleTextAnswerInput(e.target.value)} 
+                        placeholder="Type your answer here..." disabled={timeRemaining <= 0 || examSubmitted}
+                        rows={questionType === PrismaQuestionType.OPEN_ENDED ? 5 : 3}
+                        className={`w-full p-3 text-sm rounded-md border ${timeRemaining <= 0 || examSubmitted ? "border-gray-300 bg-gray-100" :"border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"}`} 
+                    />
+                </div>
+            )}
+
+            {questionType === PrismaQuestionType.MULTI_PART && typeof currentQuestionData.correctAnswer === 'object' && currentQuestionData.correctAnswer && !Array.isArray(currentQuestionData.correctAnswer) && (
+                <div className="mt-2 space-y-3">
+                    {Object.keys(currentQuestionData.correctAnswer).map((partKey) => (
+                        <div key={partKey}>
+                            <label htmlFor={`mp-${currentQuestionData.id}-${partKey}`} className="block text-sm font-medium text-gray-700 mb-1">Part {partKey.toUpperCase()}:</label>
+                            <input type="text" id={`mp-${currentQuestionData.id}-${partKey}`} value={multiPartAnswers[partKey] || ''}
+                                onChange={(e) => handleMultiPartAnswerInput(partKey, e.target.value)} 
+                                placeholder={`Answer for part ${partKey.toUpperCase()}`} disabled={timeRemaining <= 0 || examSubmitted}
+                                className={`w-full p-3 text-sm rounded-md border ${timeRemaining <= 0 || examSubmitted ? "border-gray-300 bg-gray-100" : "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"}`} />
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
 
-        <div className="flex justify-between items-center mt-6 pb-6">
-          <button
+        <div className="mt-8 pt-6 border-t flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center">
+          <Button
             onClick={handlePrevious}
-            disabled={isFirstQuestion || timeRemaining <= 0}
-            className={`px-8 py-3 rounded-lg transition-all duration-200 ${
-              isFirstQuestion || timeRemaining <= 0
-                ? 'bg-gray-300 cursor-not-allowed' 
-                : 'bg-blue-600 text-white hover:bg-white hover:text-blue-600 hover:border-blue-600 border-2 border-transparent'
-            }`}
+            disabled={isFirstQuestion || examSubmitted || isSubmitting}
+            variant="outline"
+            className="w-full sm:w-auto"
           >
-            Previous
-          </button>
+            <FaArrowLeft className="mr-2"/> Previous
+          </Button>
+          
+          <Button
+            onClick={handleCancel}
+            disabled={examSubmitted || isSubmitting}
+            variant="destructive"
+            className="w-full sm:w-auto"
+          >
+            Cancel Exam
+          </Button>
 
-          <div className="flex gap-4">
-            <button
-              onClick={handleCancel}
-              disabled={examSubmitted}
-              className="px-8 py-3 rounded-lg transition-all duration-200 bg-red-600 text-white hover:bg-white hover:text-red-600 hover:border-red-600 border-2 border-transparent"
+          {isLastQuestion ? (
+            <Button
+              onClick={handleSubmit}
+              disabled={examSubmitted || isSubmitting || (timeRemaining <=0 && !isSubmitting)}
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
             >
-              Cancel Exam
-            </button>
-            
-            {isLastQuestion ? (
-              <button
-                onClick={handleSubmit}
-                disabled={examSubmitted || timeRemaining <= 0 || isSubmitting}
-                className={`px-8 py-3 rounded-lg transition-all duration-200 ${
-                  isSubmitting || examSubmitted || timeRemaining <= 0
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-white hover:text-green-600 hover:border-green-600 border-2 border-transparent'
-                }`}
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Exam'}
-              </button>
-            ) : (
-              <button
-                onClick={handleNext}
-                disabled={timeRemaining <= 0}
-                className={`px-8 py-3 rounded-lg transition-all duration-200 ${
-                  timeRemaining <= 0
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-white hover:text-blue-600 hover:border-blue-600 border-2 border-transparent'
-                }`}
-              >
-                Next
-              </button>
-            )}
-          </div>
+              {isSubmitting ? <FaSpinner className="animate-spin mr-2"/> : null} 
+              {isBothPapers && currentPaper === 'paper1' ? 'Submit Paper 1 & Start Paper 2' : <>Submit Exam <FaFlagCheckered className="ml-2"/></>}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleNext}
+              disabled={examSubmitted || isSubmitting}
+              className="w-full sm:w-auto"
+            >
+              Next <FaArrowRight className="ml-2"/>
+            </Button>
+          )}
         </div>
 
-        {examSubmitted && (
-          <div className="mt-4 text-center text-green-600 bg-green-50 p-4 rounded-lg">
-            Exam submitted successfully. Redirecting to results...
-          </div>
-        )}
-
-        {timeRemaining <= 0 && !examSubmitted && (
-          <div className="mt-4 text-center text-red-600 bg-red-50 p-4 rounded-lg">
-            Time's up! Your exam is being submitted...
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-4 text-center text-red-600 bg-red-50 p-4 rounded-lg">
-            {error}
-          </div>
-        )}
+        {examSubmitted && <div className="mt-4 text-center text-green-600">Exam submitted successfully! Redirecting to results...</div>}
+        {timeRemaining <= 0 && !examSubmitted && !isSubmitting && <div className="mt-4 text-center text-red-600">Time's up! Your exam is being submitted...</div>}
       </div>
     </div>
   );
-} 
+}

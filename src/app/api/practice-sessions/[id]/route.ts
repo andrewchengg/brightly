@@ -1,12 +1,11 @@
 // src/app/api/practice-sessions/[id]/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
-import { PrismaClient } from '@/generated/prisma';
-import { createServerClient, type CookieOptions } from '@supabase/ssr'; // Import for API routes
-import { cookies } from 'next/headers'; // Import cookies
+import { PrismaClient, PracticeSessionStatus } from '@/generated/prisma'; 
+import { createServerClient, type CookieOptions } from '@supabase/ssr'; 
+import { cookies } from 'next/headers'; 
 
 const prisma = new PrismaClient();
 
-// --- Your existing PATCH function here (ensure it also uses createServerClient correctly if needed) ---
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
@@ -23,31 +22,41 @@ export async function PATCH(
       },
     }
   );
-  // ... (rest of your PATCH logic, ensuring you use this supabase instance for auth checks if any) ...
   try {
     const { id: practiceSessionId } = params;
     const body = await request.json();
-    const { status, endTime, score, correctAnswers, xpEarned } = body;
+    // Ensure totalQuestions is destructured if sent for update
+    const { status, endTime, score, correctAnswers, xpEarned, totalQuestions } = body; 
 
-    // Optional: Authenticate user before allowing update
     const { data: { user: authUser }, error: authErr } = await supabase.auth.getUser();
     if (authErr || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    // Optional: Check if this session belongs to the authenticated user
-    // const sessionToUpdate = await prisma.practiceSession.findUnique({where: {id: practiceSessionId}});
-    // if (sessionToUpdate?.studentId !== authUser.id) {
-    //   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    // }
-
+    
+    const sessionToUpdate = await prisma.practiceSession.findUnique({where: {id: practiceSessionId}});
+    if (!sessionToUpdate) {
+        return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+    if (sessionToUpdate?.studentId !== authUser.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const updateData: any = { updatedAt: new Date() };
-    if (status) updateData.status = status;
+    if (status && PracticeSessionStatus[status as keyof typeof PracticeSessionStatus]) {
+      updateData.status = status;
+      console.log(`API PATCH /practice-sessions: Updating status to ${status} for session ${practiceSessionId}`);
+    }
     if (endTime) updateData.endTime = new Date(endTime);
     if (score !== undefined) updateData.score = Number(score);
     if (correctAnswers !== undefined) updateData.correctAnswers = Number(correctAnswers);
     if (xpEarned !== undefined) updateData.xpEarned = Number(xpEarned);
-
+    
+    // Crucially, handle totalQuestions if it's part of the PATCH payload
+    // This is typically set when questions are first loaded for a session, or when finalizing a "both papers" exam.
+    if (totalQuestions !== undefined) {
+      updateData.totalQuestions = Number(totalQuestions);
+      console.log(`API PATCH /practice-sessions: Updating totalQuestions to ${updateData.totalQuestions} for session ${practiceSessionId}`);
+    }
 
     const updatedPracticeSession = await prisma.practiceSession.update({
       where: { id: practiceSessionId },
@@ -55,8 +64,9 @@ export async function PATCH(
       include: { student: true } 
     });
 
-    if (updatedPracticeSession.status === 'COMPLETED' && updatedPracticeSession.studentId) {
-      await prisma.result.upsert({ // Use upsert to avoid duplicate errors if re-finalizing
+    // Create/Update Result record when session is COMPLETED
+    if (updatedPracticeSession.status === PracticeSessionStatus.COMPLETED && updatedPracticeSession.studentId) {
+      await prisma.result.upsert({ 
         where: { practiceSessionId: updatedPracticeSession.id },
         update: {
           score: updatedPracticeSession.score || 0,
@@ -69,12 +79,14 @@ export async function PATCH(
           submittedAt: updatedPracticeSession.endTime || new Date(),
         }
       });
+      console.log(`API PATCH /practice-sessions: Upserted Result for session ${practiceSessionId}`);
     }
     
+    console.log(`API PATCH /practice-sessions: Successfully updated session ${practiceSessionId}. Status: ${updatedPracticeSession.status}, Score: ${updatedPracticeSession.score}, Correct: ${updatedPracticeSession.correctAnswers}, TotalQ: ${updatedPracticeSession.totalQuestions}`);
     return NextResponse.json(updatedPracticeSession);
 
   } catch (error: any) {
-    console.error('API PATCH Error:', error);
+    console.error('API PATCH Error for /practice-sessions/[id]:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to update practice session', details: error.stack },
       { status: 500 }
@@ -85,14 +97,12 @@ export async function PATCH(
 }
 
 
-// Corrected DELETE function
 export async function DELETE(
-  request: NextRequest, // Use NextRequest for cookies()
+  request: NextRequest, 
   { params }: { params: { id: string } }
 ) {
-  const cookieStore = cookies(); // Get cookie store from next/headers
+  const cookieStore = cookies(); 
 
-  // Initialize Supabase client correctly for Route Handlers
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -101,9 +111,6 @@ export async function DELETE(
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        // set and remove are not strictly necessary for a DELETE operation
-        // that only reads auth state, but it's good practice to include them
-        // if you were to perform operations that might refresh the session.
         set(name: string, value: string, options: CookieOptions) {
           try { cookieStore.set({ name, value, ...options }); } catch (e) { /* empty */ }
         },
@@ -121,7 +128,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'Practice Session ID is required' }, { status: 400 });
     }
 
-    // --- IMPORTANT: Authentication and Authorization Check ---
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
@@ -129,10 +135,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if the session to be deleted actually belongs to the authenticated user
     const sessionToDelete = await prisma.practiceSession.findUnique({
       where: { id: practiceSessionId },
-      select: { studentId: true } // Only fetch necessary field
+      select: { studentId: true } 
     });
 
     if (!sessionToDelete) {
@@ -143,21 +148,15 @@ export async function DELETE(
       console.warn(`API DELETE /practice-sessions/[id]: Forbidden. User ${user.id} tried to delete session ${practiceSessionId} owned by ${sessionToDelete.studentId}.`);
       return NextResponse.json({ error: 'Forbidden: You can only delete your own practice sessions' }, { status: 403 });
     }
-    // --- End Auth Check ---
-
-
-    // Delete related StudentAnswers first (Prisma handles cascade if set, but explicit is safer)
+    
     await prisma.studentAnswer.deleteMany({
       where: { practiceSessionId: practiceSessionId },
     });
 
-    // Delete related Result record
-     await prisma.result.deleteMany({ // Use deleteMany in case there could somehow be more than one, though it's unique
+     await prisma.result.deleteMany({ 
       where: { practiceSessionId: practiceSessionId },
     });
 
-
-    // Then delete the PracticeSession
     await prisma.practiceSession.delete({
       where: { id: practiceSessionId },
     });
@@ -165,9 +164,10 @@ export async function DELETE(
     console.log("API: PracticeSession deleted:", practiceSessionId);
     return NextResponse.json({ message: 'Practice session discarded successfully' }, { status: 200 });
 
-  } catch (error: any) {
+  } catch (error: any)
+{
     console.error('API: Error deleting practice session:', error);
-    if (error.code === 'P2025') { // Prisma error code for record not found
+    if (error.code === 'P2025') { 
         return NextResponse.json({ message: 'Practice session already deleted or not found' }, { status: 404 });
     }
     return NextResponse.json(

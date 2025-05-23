@@ -7,13 +7,13 @@ const prisma = new PrismaClient();
 interface PracticeSessionCreateRequest {
   studentId: string;
   title: string;
-  type: keyof typeof PracticeSessionType; // Expecting enum key as string
-  status: keyof typeof PracticeSessionStatus; // Expecting enum key as string
-  examDurationMinutes?: number; // Optional for random practice
+  type: keyof typeof PracticeSessionType; 
+  status: keyof typeof PracticeSessionStatus; 
+  examDurationMinutes?: number; 
   subjectId?: number;
   topicId?: number;
-  basedOnQuestionGroupId?: number; // If practice is based on a specific question group
-  totalQuestions: number; // Number of questions in this session
+  basedOnQuestionGroupId?: number; 
+  totalQuestions: number; 
 }
 
 export async function POST(request: Request) {
@@ -38,7 +38,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate enum values
     const sessionTypeEnumValue = PracticeSessionType[type];
     const sessionStatusEnumValue = PracticeSessionStatus[status];
 
@@ -55,23 +54,23 @@ export async function POST(request: Request) {
         title,
         type: sessionTypeEnumValue,
         status: sessionStatusEnumValue,
-        startTime: new Date(), // Set start time on creation
-        durationSeconds: examDurationMinutes ? examDurationMinutes * 60 : undefined,
+        startTime: new Date(), 
+        examDurationMinutes: examDurationMinutes ? Number(examDurationMinutes) : undefined,
+        durationSeconds: examDurationMinutes ? Number(examDurationMinutes) * 60 : undefined,
         subjectId: subjectId ? Number(subjectId) : undefined,
         topicId: topicId ? Number(topicId) : undefined,
         basedOnQuestionGroupId: basedOnQuestionGroupId ? Number(basedOnQuestionGroupId) : undefined,
         totalQuestions: Number(totalQuestions),
-        xpEarned: 0, // XP is typically awarded at the end
-        // score and correctAnswers will be updated upon completion
+        xpEarned: 0, 
       }
     });
-    console.log("API: PracticeSession created:", practiceSession.id);
+    console.log("API: PracticeSession created (or MOCK_EXAM initialized):", practiceSession.id);
     return NextResponse.json(practiceSession, { status: 201 });
 
   } catch (error: any) {
-    console.error('API: Error creating practice session:', error);
+    console.error('API: Error creating/initializing practice/mock session:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create practice session', details: error.stack },
+      { error: error.message || 'Failed to create/initialize session', details: error.stack },
       { status: 500 }
     );
   } finally {
