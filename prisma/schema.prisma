@@ -45,6 +45,7 @@ model Student {
   attendance       Attendance[]
   practiceSessions PracticeSession[]
   results          Result[]
+  events           Event[]           // Add student events relation
   class            Class?            @relation(fields: [classId], references: [id], onDelete: SetNull) // If class deleted, student unassigned
   grade            Grade?            @relation(fields: [gradeId], references: [id], onDelete: SetNull) // If grade deleted, student unassigned
   parent           Parent?           @relation(fields: [parentId], references: [id], onDelete: SetNull) // If parent deleted, student unlinked
@@ -222,6 +223,8 @@ model Question {
   
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
+  productionReady         Boolean?        @default(false)
+
 
   subject                 Subject         @relation("SubjectQuestions", fields: [subjectId], references: [id], onDelete: Cascade)
   topic                   Topic           @relation(fields: [topicId], references: [id], onDelete: Cascade)
@@ -335,11 +338,13 @@ model Event {
   endTime     DateTime
   description String   @db.Text
   classId     Int?
+  studentId   String?  // Add support for student-specific events
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   class       Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
+  student     Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model Announcement {

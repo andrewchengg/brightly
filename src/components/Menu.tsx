@@ -25,7 +25,8 @@ import {
   FaEnvelope,
   FaBullhorn,
   FaTrophy,
-  FaLightbulb
+  FaLightbulb,
+  FaEdit,
 } from "react-icons/fa";
 
 const studentMenuItems = [
@@ -106,6 +107,12 @@ const menuItems = [
         href: "/",
         visible: ["admin", "teacher", "parent"],
       },
+      { // Add this new item
+        icon: FaEdit,
+        label: "Question Review",
+        href: "/admin/question-review",
+        visible: ["admin"],
+      },
       {
         icon: FaChalkboardTeacher,
         label: "Teachers",
@@ -176,6 +183,12 @@ const menuItems = [
         icon: FaEnvelope,
         label: "Messages",
         href: "/list/messages",
+        visible: ["admin", "teacher", "parent"],
+      },
+      {
+        icon: FaBullhorn,
+        label: "Announcements",
+        href: "/list/announcements",
         visible: ["admin", "teacher", "parent"],
       },
       {

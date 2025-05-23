@@ -1,20 +1,12 @@
 import { useState } from "react";
 import Announcements from "@/components/Announcements";
 import StudentSetupCheck from "@/components/StudentSetupCheck";
+import StudentCalendar from "@/components/StudentCalendar";
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import Image from "next/image";
 import Link from "next/link";
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { FaCalendarPlus, FaChartLine, FaCheckCircle, FaFire, FaMedal, FaRegCalendarCheck, FaTrophy } from "react-icons/fa";
-
-// Create a custom calendar component that allows adding events
-const EnhancedCalendar = ({ events }) => {
-  // Client-side component logic will be implemented in a separate component
-  return null;
-};
+import { FaChartLine, FaCheckCircle, FaFire, FaMedal, FaRegCalendarCheck, FaTrophy } from "react-icons/fa";
 
 const StudentPage = async () => {
   const supabase = await createClient();
@@ -288,56 +280,7 @@ const StudentPage = async () => {
           
           {/* Enhanced Calendar */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Your Schedule {classItem.length > 0 ? `(${classItem[0].name})` : ""}
-              </h2>
-              <button className="flex items-center gap-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-medium transition">
-                <FaCalendarPlus size={14} />
-                <span>Add Event</span>
-              </button>
-            </div>
-            
-            <div className="h-[500px]">
-              {/* Calendar component will be replaced with client component */}
-              <div className="border rounded-lg p-4 h-full">
-                <div className="grid grid-cols-7 gap-1 h-full">
-                  {/* Calendar Header */}
-                  <div className="text-center font-medium text-gray-800 pb-2">Sun</div>
-                  <div className="text-center font-medium text-gray-800 pb-2">Mon</div>
-                  <div className="text-center font-medium text-gray-800 pb-2">Tue</div>
-                  <div className="text-center font-medium text-gray-800 pb-2">Wed</div>
-                  <div className="text-center font-medium text-gray-800 pb-2">Thu</div>
-                  <div className="text-center font-medium text-gray-800 pb-2">Fri</div>
-                  <div className="text-center font-medium text-gray-800 pb-2">Sat</div>
-                  
-                  {/* Calendar days - placeholder for client component */}
-                  {Array(35).fill(0).map((_, index) => {
-                    const day = (index % 7) + 1;
-                    const isToday = day === new Date().getDate() % 7;
-                    return (
-                      <div 
-                        key={index} 
-                        className={`border rounded-lg p-1 h-16 overflow-hidden transition hover:bg-gray-50 cursor-pointer
-                          ${isToday ? 'bg-indigo-50 border-indigo-200' : ''}`}
-                      >
-                        <div className="text-xs font-medium mb-1 ml-1">{day}</div>
-                        {index === 10 && (
-                          <div className="text-xs bg-blue-100 text-blue-700 p-1 rounded mb-1 truncate">
-                            Math Quiz
-                          </div>
-                        )}
-                        {index === 15 && (
-                          <div className="text-xs bg-green-100 text-green-700 p-1 rounded mb-1 truncate">
-                            Study Group
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+            <StudentCalendar />
           </div>
           
           {/* Bottom grid for smaller widgets */}
@@ -364,7 +307,7 @@ const StudentPage = async () => {
             
             {/* Announcements Preview */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <Announcements limit={2} showViewAll={true} />
+              <Announcements />
             </div>
           </div>
         </div>

@@ -27,12 +27,12 @@
   }
   
   body {
-    font-family: "Teachers", sans-serif;
+    font-family: "Atkinson Hyperlegible", sans-serif;
   }
 }
 
-.teachers-font {
-  font-family: "Teachers", sans-serif;
+.atkinson-font {
+  font-family: "Atkinson Hyperlegible", sans-serif;
   font-optical-sizing: auto;
   font-weight: 400;
   font-style: normal;
@@ -41,7 +41,7 @@
 .react-calendar {
   width: 100% !important;
   border: none !important;
-  font-family: "Teachers", sans-serif !important;
+  font-family: "Atkinson Hyperlegible", sans-serif !important;
 }
 
 .react-calendar__navigation__label__labelText {

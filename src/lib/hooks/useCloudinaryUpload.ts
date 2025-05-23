@@ -1,53 +1,57 @@
+// src/lib/hooks/useCloudinaryUpload.ts
 import { useState } from 'react';
-import { uploadImageToCloudinary } from '../cloudinary';
+// Assuming you have a helper function to get signature and upload
+// This is a simplified example. Your actual implementation might differ.
+async function getCloudinarySignature() {
+  const response = await fetch('/api/cloudinary-signature'); // You need this API route
+  if (!response.ok) throw new Error("Failed to get Cloudinary signature");
+  return response.json();
+}
+
+async function uploadToCloudinary(file: File, signatureData: any) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('api_key', signatureData.apiKey);
+  formData.append('timestamp', signatureData.timestamp);
+  formData.append('signature', signatureData.signature);
+  formData.append('upload_preset', signatureData.uploadPreset); // Make sure this preset exists
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${signatureData.cloudName}/image/upload`,
+    { method: 'POST', body: formData }
+  );
+  if (!response.ok) throw new Error("Cloudinary upload failed");
+  return response.json();
+}
+
 
 interface UseCloudinaryUploadReturn {
   uploading: boolean;
   error: string | null;
-  imageUrl: string | null;
   uploadImage: (file: File) => Promise<string | null>;
 }
 
-/**
- * Custom hook for handling Cloudinary signed uploads
- */
 export function useCloudinaryUpload(): UseCloudinaryUploadReturn {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  /**
-   * Uploads an image to Cloudinary with a signed upload
-   * @param file The file to upload
-   * @returns The secure URL of the uploaded image, or null on error
-   */
   const uploadImage = async (file: File): Promise<string | null> => {
     setUploading(true);
     setError(null);
-
     try {
-      const result = await uploadImageToCloudinary(file);
-      
+      const signatureData = await getCloudinarySignature();
+      const result = await uploadToCloudinary(file, signatureData);
       if (result && result.secure_url) {
-        setImageUrl(result.secure_url);
         return result.secure_url;
-      } else {
-        throw new Error('Upload successful but secure_url is missing');
       }
+      throw new Error('Upload successful but secure_url is missing');
     } catch (err: any) {
-      const errorMessage = err?.message || 'Failed to upload image';
-      setError(errorMessage);
-      console.error('Upload error:', errorMessage);
+      setError(err.message || 'Failed to upload image');
       return null;
     } finally {
       setUploading(false);
     }
   };
 
-  return {
-    uploading,
-    error,
-    imageUrl,
-    uploadImage,
-  };
-} 
+  return { uploading, error, uploadImage };
+}

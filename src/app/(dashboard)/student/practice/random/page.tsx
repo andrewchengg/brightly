@@ -714,7 +714,7 @@ const handleMultiPartSubmit = useCallback(() => {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3">
-                    <Button onClick={clearProgressAndExit} variant="outline" className="flex-1">
+                    <Button onClick={() => router.push('/student/practice')} variant="outline" className="flex-1">
                         <FaArrowLeft className="mr-2"/> Practice Menu
                     </Button>
                     <Button onClick={completeSessionAndStartNew} className="flex-1 bg-indigo-600 hover:bg-indigo-700">
