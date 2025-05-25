@@ -12,9 +12,10 @@ import Image from 'next/image';
 const MOCK_EXAM_PAPER_CONFIG = {
     mathematics: {
         paper1: { totalMarks: 45, expectedQuestionCount: 30 },
-        paper2: { totalMarks: 55, expectedQuestionCount: 17 }, 
+        paper2: { totalMarks: 55, expectedQuestionCount: 17 }, // 5 SA (2m) + 12 LA (avg 3.75) = 10 + 45 = 55
         both: { totalMarks: 100, expectedQuestionCount: 47 }
     }
+    // Add other subjects if they have mock exams
 };
 
 interface OptionClient {
@@ -81,8 +82,7 @@ export default function SessionReviewPage() {
           throw new Error(errData.error?.message || errData.error || 'Failed to fetch session details');
         }
         const data: SessionDetails = await response.json();
-        console.log('SessionReviewPage: API Response Data (raw):', JSON.stringify(data, null, 2)); 
-
+        
         let calculatedTotalPossibleMarksFromAnswers = 0;
         if (data.studentAnswers && data.studentAnswers.length > 0) {
           data.studentAnswers.forEach(sa => {
@@ -170,38 +170,43 @@ export default function SessionReviewPage() {
   if (error) { return ( <div className="p-6 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center"> <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 max-w-md"> <h3 className="text-sm font-medium text-red-800">Error Loading Review</h3> <div className="mt-2 text-sm text-red-700"><p>{error}</p></div> </div> <Button onClick={() => router.push("/student/results")} className="bg-indigo-600 hover:bg-indigo-700 text-white"> Back to Results </Button> </div> );}
   if (!sessionDetails) { return <div className="p-6 text-center text-gray-500">Session details not found.</div>;}
   
-  let displayDenominatorMarks: number | string = 'N/A'; // Default to N/A
+  let displayDenominatorMarks: number | string = 'N/A'; 
   let scorePercentage: number | null = null;
 
   const totalPossibleMarksFromAnswers = sessionDetails.totalPossibleMarksCalculated;
 
-  if (sessionDetails.type === PrismaPracticeSessionType.MOCK_EXAM && sessionDetails.subjectName?.toLowerCase() === 'mathematics') {
-      const subjectMath = MOCK_EXAM_PAPER_CONFIG.mathematics;
-      if (sessionDetails.title?.toLowerCase().includes('paper 1')) {
-          displayDenominatorMarks = subjectMath.paper1.totalMarks;
-      } else if (sessionDetails.title?.toLowerCase().includes('paper 2')) {
-          displayDenominatorMarks = subjectMath.paper2.totalMarks;
-      } else if (sessionDetails.title?.toLowerCase().includes('full mock exam')) { 
-           displayDenominatorMarks = subjectMath.both.totalMarks;
-      } else if (totalPossibleMarksFromAnswers !== undefined && totalPossibleMarksFromAnswers > 0) {
-          displayDenominatorMarks = totalPossibleMarksFromAnswers;
-           console.warn("SessionReviewPage: Using sum of marks from studentAnswers for MOCK_EXAM as paper type couldn't be inferred from title for specific total marks config.");
-      } else if (sessionDetails.totalQuestions && sessionDetails.totalQuestions > 0) {
-          // Fallback for mock exam if title doesn't match and answers don't give total marks
-          displayDenominatorMarks = sessionDetails.totalQuestions * 2; // Very rough estimate, assuming avg 2 marks
-           console.warn("SessionReviewPage: Estimating total possible marks for MOCK_EXAM based on question count. This may be inaccurate.");
-      }
-  } else if (totalPossibleMarksFromAnswers !== undefined && totalPossibleMarksFromAnswers > 0) {
-      displayDenominatorMarks = totalPossibleMarksFromAnswers;
-  } else if (sessionDetails.totalQuestions && sessionDetails.totalQuestions > 0) {
-      displayDenominatorMarks = sessionDetails.totalQuestions; // Assume 1 mark per q for non-mock if marks unknown
+  if (sessionDetails) {
+    if (sessionDetails.type === PrismaPracticeSessionType.MOCK_EXAM && sessionDetails.subjectName?.toLowerCase() === 'mathematics') {
+        const subjectMath = MOCK_EXAM_PAPER_CONFIG.mathematics;
+        if (sessionDetails.title?.toLowerCase().includes('paper 1')) {
+            displayDenominatorMarks = subjectMath.paper1.totalMarks;
+        } else if (sessionDetails.title?.toLowerCase().includes('paper 2')) {
+            displayDenominatorMarks = subjectMath.paper2.totalMarks;
+        } else if (sessionDetails.title?.toLowerCase().includes('full mock exam')) { 
+             displayDenominatorMarks = subjectMath.both.totalMarks;
+        } else if (totalPossibleMarksFromAnswers !== undefined && totalPossibleMarksFromAnswers > 0) {
+            displayDenominatorMarks = totalPossibleMarksFromAnswers;
+        } else if (sessionDetails.totalQuestions && sessionDetails.totalQuestions > 0) {
+            // Fallback for mock exam if title doesn't help and no student answers to sum marks
+            // Infer based on expected question count if possible
+            if(sessionDetails.totalQuestions === subjectMath.paper1.expectedQuestionCount) displayDenominatorMarks = subjectMath.paper1.totalMarks;
+            else if(sessionDetails.totalQuestions === subjectMath.paper2.expectedQuestionCount) displayDenominatorMarks = subjectMath.paper2.totalMarks;
+            else if(sessionDetails.totalQuestions === subjectMath.both.expectedQuestionCount) displayDenominatorMarks = subjectMath.both.totalMarks;
+            else {
+                displayDenominatorMarks = sessionDetails.totalQuestions * 2; // Very rough estimate
+                console.warn("SessionReviewPage: Estimating total possible marks for MOCK_EXAM. This may be inaccurate.");
+            }
+        }
+    } else if (totalPossibleMarksFromAnswers !== undefined && totalPossibleMarksFromAnswers > 0) {
+        displayDenominatorMarks = totalPossibleMarksFromAnswers;
+    } else if (sessionDetails.totalQuestions && sessionDetails.totalQuestions > 0) {
+        displayDenominatorMarks = sessionDetails.totalQuestions; 
+    }
+
+    if (typeof displayDenominatorMarks === 'number' && displayDenominatorMarks > 0 && sessionDetails.score !== null && sessionDetails.score !== undefined) {
+      scorePercentage = Math.round((sessionDetails.score / displayDenominatorMarks) * 100);
+    }
   }
-
-
-  if (typeof displayDenominatorMarks === 'number' && displayDenominatorMarks > 0 && sessionDetails.score !== null && sessionDetails.score !== undefined) {
-    scorePercentage = Math.round((sessionDetails.score / displayDenominatorMarks) * 100);
-  }
-
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8">
