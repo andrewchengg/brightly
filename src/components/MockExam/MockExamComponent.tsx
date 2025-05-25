@@ -2,14 +2,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation'; // <--- ADD THIS IMPORT
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'; // Not used directly here, but good to keep if planned
+import { useRouter } from 'next/navigation'; 
 import { PracticeSessionType, QuestionType as PrismaQuestionType, PracticeSessionStatus } from '@/generated/prisma';
 import { toast } from 'react-toastify';
 import { FaArrowLeft, FaArrowRight, FaFlagCheckered, FaSpinner } from 'react-icons/fa'; 
 import { Button } from '@/components/ui/button'; 
 
-// ... (rest of the component code remains the same as previously provided)
 export const dynamic = 'force-dynamic';
 
 interface Option {
@@ -84,7 +82,6 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
   const [timeRemaining, setTimeRemaining] = useState(0); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPracticeSessionId, setCurrentPracticeSessionId] = useState<string | null>(null);
-  const [calculatedTotalMarks, setCalculatedTotalMarks] = useState(0);
   
   const [currentPaper, setCurrentPaper] = useState<'paper1' | 'paper2'>(paperId as 'paper1' | 'paper2');
   const [showPaperTransition, setShowPaperTransition] = useState(false); 
@@ -95,17 +92,23 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
   const [textAnswer, setTextAnswer] = useState(''); 
   const [multiPartAnswers, setMultiPartAnswers] = useState<Record<string, string>>({}); 
   
-  const router = useRouter(); // Now correctly defined due to import
+  const router = useRouter(); 
   
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
+
+  // Core function to update the answers state
+  const handleAnswerChange = (questionId: number, answer: string | Record<string, string> | null) => {
+    if (timeRemaining <= 0 || examSubmitted) return;
+    setAnswers(prev => ({ ...prev, [questionId]: typeof answer === 'string' ? answer : (answer === null ? null : JSON.stringify(answer)) }));
+  };
   
   const handleSubmit = useCallback(async () => {
     if (examSubmitted || isSubmitting) return;
     
-    const unansweredQuestions = questions.filter(q => answers[q.id] === null || answers[q.id] === undefined);
-    if (unansweredQuestions.length > 0 && !isSubmitting) { 
-        const confirmSubmit = window.confirm(`You have ${unansweredQuestions.length} unanswered question(s). Are you sure you want to submit? Unanswered questions will be marked as incorrect.`);
+    const unansweredQuestionCount = questions.filter(q => answers[q.id] === null || answers[q.id] === undefined).length;
+    if (unansweredQuestionCount > 0 && !isSubmitting) { 
+        const confirmSubmit = window.confirm(`You have ${unansweredQuestionCount} unanswered question(s). Are you sure you want to submit? Unanswered questions will be marked as incorrect.`);
         if (!confirmSubmit) return;
     }
 
@@ -116,11 +119,11 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
     let correctAnswersForThisPaperCount = 0;
 
     const studentAnswersPayload = questions.map(q => {
-        const submittedAnswerRaw = answers[q.id];
+        const submittedAnswerRaw = answers[q.id] ?? null; 
         let isCorrect = false;
         let pointsEarnedThisQuestion = 0;
 
-        if (submittedAnswerRaw !== null && submittedAnswerRaw !== undefined) {
+        if (submittedAnswerRaw !== null) { 
             if (q.questionType === PrismaQuestionType.MULTIPLE_CHOICE) {
                 isCorrect = String(q.correctAnswer).toLowerCase() === String(submittedAnswerRaw).toLowerCase();
             } else if (q.questionType === PrismaQuestionType.OPEN_ENDED || q.questionType === PrismaQuestionType.FILL_IN_THE_BLANK) {
@@ -192,7 +195,10 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
       if (isBothPapers && currentPaper === 'paper2') {
         finalScore += paper1Score; 
         finalTotalQuestions += paper1QuestionCount; 
-        console.log("Paper 2 submitted. P2 Score:", currentPaperScore, "Total Score:", finalScore, "Total Questions for Both:", finalTotalQuestions);
+        // Note: finalCorrectAnswersCount for "both" would ideally sum P1 correct count too.
+        // This requires storing P1's correct count or re-evaluating paper1Answers if P1 questions are available.
+        // For Phase 1 simplicity, this might reflect P2 correct count if P1 correct count isn't explicitly added here.
+        console.log("Paper 2 submitted. P2 Score:", currentPaperScore, "Total Score for Both:", finalScore, "Total Questions for Both:", finalTotalQuestions);
       } else {
         console.log("Single paper submitted. Score:", finalScore, "Total Questions:", finalTotalQuestions);
       }
@@ -257,7 +263,6 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
       if (!fetchedQuestions || fetchedQuestions.length === 0) throw new Error('No questions returned from API for this paper.');
       
       setQuestions(fetchedQuestions);
-      setCalculatedTotalMarks(fetchedQuestions.reduce((sum, q) => sum + (q.marks || 0), 0));
       setCurrentQuestionIndex(0); 
       if (!isBothPapers || (isBothPapers && paperToFetch === 'paper1')) {
         setAnswers({}); 
@@ -267,11 +272,29 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
 
       if (currentPracticeSessionId) {
         let sessionTotalQuestions = fetchedQuestions.length;
-        if (isBothPapers && paperToFetch === 'paper2') {
+        if (isBothPapers && paperToFetch === 'paper1') {
+            setPaper1QuestionCount(fetchedQuestions.length); 
+             try { 
+                await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ totalQuestions: fetchedQuestions.length }),
+                });
+            } catch(e) { console.error("Error initially setting totalQuestions for P1 of Both:", e)}
+        } 
+        else if (isBothPapers && paperToFetch === 'paper2') {
             sessionTotalQuestions += paper1QuestionCount; 
-        }
-        if (!isBothPapers || (isBothPapers && paperToFetch === 'paper2')) {
-            try {
+             try {
+                await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ totalQuestions: sessionTotalQuestions }),
+                });
+                console.log(`MockExam: BothPapers - Updated totalQuestions for session ${currentPracticeSessionId} to ${sessionTotalQuestions} after P2 load.`);
+            } catch(e) { console.error("Error updating totalQuestions for P2 of Both:", e)}
+        } 
+        else if (!isBothPapers) { 
+             try {
                 const updateTotalQuestionsResponse = await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -283,17 +306,6 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
                     console.log(`MockExam: Updated totalQuestions for session ${currentPracticeSessionId} to ${sessionTotalQuestions}`);
                 }
             } catch (e) { console.error("Error updating totalQuestions for session:", e); }
-        } else if (isBothPapers && paperToFetch === 'paper1') {
-            // paper1QuestionCount is set in handleSubmit if this logic path is taken
-            // Or if starting "Both", it's set after first fetch
-            setPaper1QuestionCount(fetchedQuestions.length); 
-             try {
-                await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ totalQuestions: fetchedQuestions.length }),
-                });
-            } catch(e) { console.error("Error initially setting totalQuestions for P1 of Both:", e)}
         }
       }
     } catch (error: any) {
@@ -351,6 +363,7 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
   
+  // Effect to load current question's answer into local state for text/multipart inputs
   useEffect(() => {
     if (questions.length > 0 && currentQuestionIndex < questions.length) {
         const currentQ = questions[currentQuestionIndex];
@@ -369,23 +382,27 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
     }
   }, [currentQuestionIndex, questions, answers]);
 
-  const handleAnswerChange = (questionId: number, answer: string | Record<string, string>) => {
-    if (timeRemaining <= 0 || examSubmitted) return;
-    setAnswers(prev => ({ ...prev, [questionId]: typeof answer === 'string' ? answer : JSON.stringify(answer) }));
+  const currentQuestionData = questions[currentQuestionIndex]; // Define here for use in input handlers
+
+  // Specific handler for MCQ selection
+  const handleOptionSelect = (questionId: number, optionId: string) => {
+    handleAnswerChange(questionId, optionId);
   };
   
-  const handleTextAnswerInput = (value: string) => { // Renamed from handleTextAnswerChange to avoid confusion
-    setTextAnswer(value);
+  // Handler for text-based inputs (OPEN_ENDED, FILL_IN_THE_BLANK)
+  const handleTextAnswerInput = (value: string) => { 
+    setTextAnswer(value); // Update local state for the input field
     if (currentQuestionData) { 
-        handleAnswerChange(currentQuestionData.id, value);
+        handleAnswerChange(currentQuestionData.id, value); // Update the main answers state
     }
   };
 
-  const handleMultiPartAnswerInput = (partKey: string, value: string) => { // Renamed
+  // Handler for multi-part inputs
+  const handleMultiPartAnswerInput = (partKey: string, value: string) => { 
     const newMultiPartAns = {...multiPartAnswers, [partKey]: value};
-    setMultiPartAnswers(newMultiPartAns);
+    setMultiPartAnswers(newMultiPartAns); // Update local state for multi-part inputs
      if (currentQuestionData) {
-        handleAnswerChange(currentQuestionData.id, newMultiPartAns);
+        handleAnswerChange(currentQuestionData.id, newMultiPartAns); // Update the main answers state
     }
   };
   
@@ -433,6 +450,7 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // Render logic
   if (isLoading && !examStarted) return <div className="flex justify-center items-center h-screen"><FaSpinner className="animate-spin text-4xl text-indigo-600" /><p className="ml-3">Preparing mock exam...</p></div>;
   if (isLoading && examStarted && questions.length === 0 && !error) return <div className="flex justify-center items-center h-screen"><FaSpinner className="animate-spin text-4xl text-indigo-600" /><p className="ml-3">Loading questions...</p></div>;
   if (error) return <div className="text-center p-8 text-red-500">Error: {error} <Button onClick={initializeExam}>Try Again</Button></div>;
@@ -450,7 +468,7 @@ export default function MockExamComponent({ userId, examDurationMinutes, subject
   }
 
   if (questions.length === 0 && examStarted && !isLoading) return <div className="text-center p-8">No questions available for this paper. Please contact support.</div>;
-  const currentQuestionData = questions[currentQuestionIndex];
+  // const currentQuestionData = questions[currentQuestionIndex]; // Already defined
   if (!currentQuestionData) return <div className="text-center p-8">Loading question data...</div>;
   
   const questionType = currentQuestionData.questionType as keyof typeof PrismaQuestionType | undefined;

@@ -9,6 +9,14 @@ import { PracticeSessionType as PrismaPracticeSessionType, QuestionType as Prism
 import { toast } from 'react-toastify';
 import Image from 'next/image'; 
 
+const MOCK_EXAM_PAPER_CONFIG = {
+    mathematics: {
+        paper1: { totalMarks: 45, expectedQuestionCount: 30 },
+        paper2: { totalMarks: 55, expectedQuestionCount: 17 }, 
+        both: { totalMarks: 100, expectedQuestionCount: 47 }
+    }
+};
+
 interface OptionClient {
   id: string;
   text: string;
@@ -41,14 +49,14 @@ interface SessionDetails {
   type: keyof typeof PrismaPracticeSessionType;
   endTime?: string | null; 
   score?: number | null; 
-  totalQuestions?: number | null; // This should come directly from the PracticeSession record
-  correctAnswers?: number | null; // This should come directly from the PracticeSession record
+  totalQuestions?: number | null; 
+  correctAnswers?: number | null;
   xpEarned: number;
   subjectName?: string | null;
   topicName?: string | null; 
   questionGroupName?: string | null;
   studentAnswers: StudentAnswerForReview[];
-  totalPossibleMarks?: number; 
+  totalPossibleMarksCalculated?: number; 
 }
 
 export default function SessionReviewPage() {
@@ -75,34 +83,21 @@ export default function SessionReviewPage() {
         const data: SessionDetails = await response.json();
         console.log('SessionReviewPage: API Response Data (raw):', JSON.stringify(data, null, 2)); 
 
-        // Calculate totalPossibleMarks from the questions *actually served* in the session
-        // This is still useful for displaying "Score / Total Possible Marks"
-        let calculatedTotalPossibleMarks = 0;
+        let calculatedTotalPossibleMarksFromAnswers = 0;
         if (data.studentAnswers && data.studentAnswers.length > 0) {
           data.studentAnswers.forEach(sa => {
             if (sa.question && typeof sa.question.marks === 'number') {
-              calculatedTotalPossibleMarks += sa.question.marks;
+              calculatedTotalPossibleMarksFromAnswers += sa.question.marks;
             } else {
-              // If a question somehow has no marks, we might default it to 1 or log a warning.
-              // For mock exams, marks are crucial.
-              console.warn(`SessionReviewPage: Question ID ${sa.question?.id} in studentAnswers is missing marks. Assuming 0 for totalPossibleMarks calculation for this question.`);
+              console.warn(`SessionReviewPage: Question ID ${sa.question?.id} in studentAnswers is missing marks. Assuming 0 for this question's contribution.`);
             }
           });
-        } else if (data.totalQuestions && data.totalQuestions > 0) {
-            // Fallback: if studentAnswers are empty but totalQuestions is set,
-            // we can't accurately get totalPossibleMarks without knowing marks per question.
-            // This scenario should ideally not happen for a completed session review.
-            console.warn("SessionReviewPage: studentAnswers array is empty, but totalQuestions is set. totalPossibleMarks will be based on an assumption or might be inaccurate.");
-            // We could try to estimate if we knew the average marks, but it's better to rely on actual question data.
-            // For now, if studentAnswers are missing, totalPossibleMarks might not be accurate.
-            // The primary display of "Correct / Total Questions" will use data.correctAnswers and data.totalQuestions directly.
         }
-         console.log('SessionReviewPage: Calculated totalPossibleMarks from studentAnswers:', calculatedTotalPossibleMarks);
-
+         console.log('SessionReviewPage: Calculated totalPossibleMarks from studentAnswers:', calculatedTotalPossibleMarksFromAnswers);
 
         setSessionDetails({
-          ...data, // This data from API should already have totalQuestions and correctAnswers populated from the PracticeSession table
-          totalPossibleMarks: calculatedTotalPossibleMarks,
+          ...data, 
+          totalPossibleMarksCalculated: calculatedTotalPossibleMarksFromAnswers,
         });
 
       } catch (err: any) {
@@ -117,7 +112,6 @@ export default function SessionReviewPage() {
     fetchSessionDetails();
   }, [sessionId]);
 
-  // Helper functions (getOptionText, renderAnswer, renderCorrectAnswerForDisplay) remain the same
   const getOptionText = (options: OptionClient[], optionId: string | number): string => {
     const opt = options.find(o => String(o.id).toLowerCase() === String(optionId).toLowerCase());
     return opt?.text || String(optionId);
@@ -129,43 +123,28 @@ export default function SessionReviewPage() {
     options?: OptionClient[]
   ) => {
     if (answer === null || answer === undefined) return <span className="italic text-gray-500">Not answered</span>;
-
     switch (questionType) {
       case PrismaQuestionType.MULTIPLE_CHOICE:
         return options ? getOptionText(options, String(answer)) : String(answer);
       case PrismaQuestionType.MULTI_PART:
         if (typeof answer === 'object' && answer !== null) {
-          return (
-            <ul className="list-disc list-inside pl-4">
-              {Object.entries(answer).map(([part, ans]) => (
-                <li key={part}><strong>Part {part}:</strong> {String(ans)}</li>
-              ))}
-            </ul>
-          );
+          return ( <ul className="list-disc list-inside pl-4 text-sm"> {Object.entries(answer).map(([part, ans]) => ( <li key={part}><strong>Part {part}:</strong> {String(ans)}</li> ))} </ul> );
         }
         if (typeof answer === 'string') {
             try {
                 const parsed = JSON.parse(answer);
                  if (typeof parsed === 'object' && parsed !== null) {
-                    return (
-                        <ul className="list-disc list-inside pl-4">
-                        {Object.entries(parsed).map(([part, ans]) => (
-                            <li key={part}><strong>Part {part}:</strong> {String(ans)}</li>
-                        ))}
-                        </ul>
-                    );
+                    return ( <ul className="list-disc list-inside pl-4 text-sm"> {Object.entries(parsed).map(([part, ans]) => ( <li key={part}><strong>Part {part}:</strong> {String(ans)}</li> ))} </ul> );
                 }
-            } catch (e) { /* Fall through if not parsable */ }
+            } catch (e) { /* Fall through */ }
         }
         return String(answer); 
-      default: 
-        return String(answer);
+      default: return String(answer);
     }
   };
   
   const renderCorrectAnswerForDisplay = (question: QuestionForReview): string | JSX.Element => {
     if (question.correctAnswer === null || question.correctAnswer === undefined) return "N/A";
-  
     switch (question.questionType) {
       case PrismaQuestionType.MULTIPLE_CHOICE:
         if (typeof question.correctAnswer === 'object' && !Array.isArray(question.correctAnswer) && (question.correctAnswer as any).id && (question.correctAnswer as any).text) {
@@ -174,65 +153,54 @@ export default function SessionReviewPage() {
         const correctAnswerId = String(question.correctAnswer);
         const correctOption = question.options.find(opt => String(opt.id).toLowerCase() === correctAnswerId.toLowerCase());
         return correctOption ? `${correctOption.id}. ${correctOption.text}` : correctAnswerId;
-      
       case PrismaQuestionType.MULTI_PART:
         if (typeof question.correctAnswer === 'object' && question.correctAnswer !== null && !Array.isArray(question.correctAnswer)) {
-          return (
-            <ul className="list-disc list-inside pl-4">
-              {Object.entries(question.correctAnswer).map(([part, ans]) => (
-                <li key={part}><strong>Part {part}:</strong> {String(ans)}</li>
-              ))}
-            </ul>
-          );
+          return ( <ul className="list-disc list-inside pl-4 text-sm"> {Object.entries(question.correctAnswer).map(([part, ans]) => ( <li key={part}><strong>Part {part}:</strong> {String(ans)}</li> ))} </ul> );
         }
         return JSON.stringify(question.correctAnswer); 
-      
       case PrismaQuestionType.FILL_IN_THE_BLANK:
       case PrismaQuestionType.OPEN_ENDED:
-        if (Array.isArray(question.correctAnswer)) {
-          return question.correctAnswer.join(' or ');
-        }
+        if (Array.isArray(question.correctAnswer)) return question.correctAnswer.join(' or ');
         return String(question.correctAnswer);
-      default:
-        return String(question.correctAnswer);
+      default: return String(question.correctAnswer);
     }
   };
 
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-8rem)]">
-        <div className="w-16 h-16 border-4 border-t-indigo-600 border-indigo-200 rounded-full animate-spin"></div>
-        <p className="ml-4 text-lg text-gray-600">Loading Session Review...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center">
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 max-w-md">
-          <h3 className="text-sm font-medium text-red-800">Error Loading Review</h3>
-          <div className="mt-2 text-sm text-red-700"><p>{error}</p></div>
-        </div>
-        <Button onClick={() => router.push("/student/results")} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-          Back to Results
-        </Button>
-      </div>
-    );
-  }
-
-  if (!sessionDetails) {
-    return <div className="p-6 text-center text-gray-500">Session details not found.</div>;
-  }
+  if (loading) {return <div className="flex justify-center items-center min-h-[calc(100vh-8rem)]"><div className="w-16 h-16 border-4 border-t-indigo-600 border-indigo-200 rounded-full animate-spin"></div><p className="ml-4 text-lg text-gray-600">Loading Session Review...</p></div>;}
+  if (error) { return ( <div className="p-6 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center"> <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 max-w-md"> <h3 className="text-sm font-medium text-red-800">Error Loading Review</h3> <div className="mt-2 text-sm text-red-700"><p>{error}</p></div> </div> <Button onClick={() => router.push("/student/results")} className="bg-indigo-600 hover:bg-indigo-700 text-white"> Back to Results </Button> </div> );}
+  if (!sessionDetails) { return <div className="p-6 text-center text-gray-500">Session details not found.</div>;}
   
-  // Use totalPossibleMarks for percentage if available and valid, otherwise don't show percentage for score.
-  const scoreDenominator = sessionDetails.totalPossibleMarks && sessionDetails.totalPossibleMarks > 0 
-                           ? sessionDetails.totalPossibleMarks 
-                           : (sessionDetails.totalQuestions ?? 'N/A');
-  const scorePercentage = sessionDetails.totalPossibleMarks && sessionDetails.totalPossibleMarks > 0 
-    ? Math.round(((sessionDetails.score || 0) / sessionDetails.totalPossibleMarks) * 100) 
-    : null; // Set to null if we can't calculate it accurately.
+  let displayDenominatorMarks: number | string = 'N/A'; // Default to N/A
+  let scorePercentage: number | null = null;
+
+  const totalPossibleMarksFromAnswers = sessionDetails.totalPossibleMarksCalculated;
+
+  if (sessionDetails.type === PrismaPracticeSessionType.MOCK_EXAM && sessionDetails.subjectName?.toLowerCase() === 'mathematics') {
+      const subjectMath = MOCK_EXAM_PAPER_CONFIG.mathematics;
+      if (sessionDetails.title?.toLowerCase().includes('paper 1')) {
+          displayDenominatorMarks = subjectMath.paper1.totalMarks;
+      } else if (sessionDetails.title?.toLowerCase().includes('paper 2')) {
+          displayDenominatorMarks = subjectMath.paper2.totalMarks;
+      } else if (sessionDetails.title?.toLowerCase().includes('full mock exam')) { 
+           displayDenominatorMarks = subjectMath.both.totalMarks;
+      } else if (totalPossibleMarksFromAnswers !== undefined && totalPossibleMarksFromAnswers > 0) {
+          displayDenominatorMarks = totalPossibleMarksFromAnswers;
+           console.warn("SessionReviewPage: Using sum of marks from studentAnswers for MOCK_EXAM as paper type couldn't be inferred from title for specific total marks config.");
+      } else if (sessionDetails.totalQuestions && sessionDetails.totalQuestions > 0) {
+          // Fallback for mock exam if title doesn't match and answers don't give total marks
+          displayDenominatorMarks = sessionDetails.totalQuestions * 2; // Very rough estimate, assuming avg 2 marks
+           console.warn("SessionReviewPage: Estimating total possible marks for MOCK_EXAM based on question count. This may be inaccurate.");
+      }
+  } else if (totalPossibleMarksFromAnswers !== undefined && totalPossibleMarksFromAnswers > 0) {
+      displayDenominatorMarks = totalPossibleMarksFromAnswers;
+  } else if (sessionDetails.totalQuestions && sessionDetails.totalQuestions > 0) {
+      displayDenominatorMarks = sessionDetails.totalQuestions; // Assume 1 mark per q for non-mock if marks unknown
+  }
+
+
+  if (typeof displayDenominatorMarks === 'number' && displayDenominatorMarks > 0 && sessionDetails.score !== null && sessionDetails.score !== undefined) {
+    scorePercentage = Math.round((sessionDetails.score / displayDenominatorMarks) * 100);
+  }
 
 
   return (
@@ -254,7 +222,7 @@ export default function SessionReviewPage() {
           <div>
             <p className="text-xs text-gray-500 uppercase">Score (Marks)</p>
             <p className="text-2xl font-bold text-indigo-600">
-              {sessionDetails.score ?? 0} / {scoreDenominator}
+              {sessionDetails.score ?? 0} / {displayDenominatorMarks}
               {scorePercentage !== null && ` (${scorePercentage}%)`}
             </p>
           </div>
@@ -311,7 +279,6 @@ export default function SessionReviewPage() {
                       `}>
                       <strong>{opt.id}.</strong> {opt.text}
                        {String(sa.submittedAnswer).toLowerCase() === String(opt.id).toLowerCase() && <span className="text-xs font-semibold ml-2"> (Your Answer)</span>}
-                       {/* Simplified correct answer indication for MCQ options */}
                        {String(sa.question.correctAnswer).toLowerCase() === String(opt.id).toLowerCase() && <span className="text-xs font-semibold ml-2 text-green-700"> (Correct)</span>}
                     </div>
                   ))}
