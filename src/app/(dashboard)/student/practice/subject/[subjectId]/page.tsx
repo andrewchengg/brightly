@@ -87,7 +87,7 @@ const chinesePracticeComponents: PracticeComponent[] = [
     description: "Practice reading aloud and picture/video conversation.", icon: FaMicrophoneAlt,
     subComponents: [
         { id: "oral-reading", name: "Part A: Passage Reading (朗读短文)", description: "Practice reading passages aloud.", icon: FaBookOpen, path: "/student/practice/chinese/oral/reading", disabled: true, },
-        { id: "oral-conversation", name: "Part B: Picture/Video Conversation (看图/录像说话)", description: "Practice describing visuals and conversing.", icon: FaMicrophoneAlt, path: "/student/practice/chinese/oral/conversation", disabled: true, }
+        { id: "oral-conversation", name: "Part B: Picture/Video Conversation (看图/录像说话)", description: "Practice describing visuals and conversing.", icon: FaMicrophoneAlt, path: "/student/practice/chinese/oral/conversation", disabled: false, }
     ]
   },
 ];
