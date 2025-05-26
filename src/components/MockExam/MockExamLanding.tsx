@@ -3,11 +3,12 @@
 
 import { useState } from 'react';
 import MockExamComponent from './MockExamComponent';
+// import { useRouter } from 'next/navigation'; // Not currently used
 
 interface PaperConfig {
   id: string;
   name: string;
-  duration: number; 
+  duration: number; // Duration in minutes
   totalMarks: number;
   description: string;
 }
@@ -39,18 +40,26 @@ const subjectsConfig: SubjectConfig[] = [
       }
     ]
   },
+  // Add other subjects here if needed
 ];
 
 interface MockExamLandingProps {
   userId: string;
 }
 
-type PaperSelection = 'paper1' | 'paper2' | 'both';
+// PaperSelection will now only be 'paper1' or 'paper2'
+type PaperSelection = 'paper1' | 'paper2'; 
 
 export default function MockExamLanding({ userId }: MockExamLandingProps) {
   const [examStarted, setExamStarted] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<string | null>('mathematics'); 
   const [selectedPaperOption, setSelectedPaperOption] = useState<PaperSelection | null>(null); 
+  // const router = useRouter(); 
+
+  const handleSubjectSelect = (subjectId: string) => {
+    setSelectedSubject(subjectId);
+    setSelectedPaperOption(null); 
+  };
 
   const handlePaperOptionSelect = (paperOption: PaperSelection) => {
     setSelectedPaperOption(paperOption);
@@ -60,7 +69,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
     if (selectedSubject && selectedPaperOption) {
         setExamStarted(true);
     } else {
-        alert("Please select a paper option to start the exam.");
+        alert("Please select a subject and a paper to start the exam.");
     }
   };
 
@@ -69,23 +78,19 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
   };
   
   let examDurationMinutes = 0;
-  let initialPaperIdForComponent = '';
+  let initialPaperIdForComponent = ''; // Will be 'paper1' or 'paper2'
   const currentSubjectData = getCurrentSubjectConfig();
 
   if (currentSubjectData && selectedPaperOption) {
-    if (selectedPaperOption === 'both') { 
-      const paper1Config = currentSubjectData.papers.find(p => p.id === 'paper1');
-      examDurationMinutes = paper1Config?.duration || 60; 
-      initialPaperIdForComponent = 'paper1'; 
-    } else { 
-      const paperConfig = currentSubjectData.papers.find(p => p.id === selectedPaperOption);
-      examDurationMinutes = paperConfig?.duration || 0; 
-      initialPaperIdForComponent = selectedPaperOption;
-    }
+    // No 'both' case anymore for duration calculation here
+    const paperConfig = currentSubjectData.papers.find(p => p.id === selectedPaperOption);
+    examDurationMinutes = paperConfig?.duration || 0; 
+    initialPaperIdForComponent = selectedPaperOption;
   }
 
+
   if (examStarted && selectedSubject && selectedPaperOption && initialPaperIdForComponent) {
-    if (!currentSubjectData || (selectedPaperOption !== 'both' && !currentSubjectData.papers.find(p => p.id === initialPaperIdForComponent))) {
+    if (!currentSubjectData || !currentSubjectData.papers.find(p => p.id === initialPaperIdForComponent)) {
         return <div className="p-8 text-center text-red-500">Error: Invalid exam configuration. Please re-select.</div>;
     }
     return (
@@ -94,7 +99,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
         examDurationMinutes={examDurationMinutes} 
         subjectId={selectedSubject}
         paperId={initialPaperIdForComponent} 
-        isBothPapers={selectedPaperOption === 'both'}
+        isBothPapers={false} // Always false now
       />
     );
   }
@@ -122,22 +127,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
                     <p className="text-xs text-gray-400 mt-1">Duration: {paper.duration} mins | Marks: {paper.totalMarks}</p>
                 </button>
             ))}
-            <button 
-                onClick={() => handlePaperOptionSelect('both')}
-                disabled // Keep disabled until full "Both Papers" sequential logic is implemented
-                className={`w-full p-4 rounded-lg border-2 text-left transition-all 
-                            ${selectedPaperOption === 'both' 
-                                ? 'border-indigo-500 bg-indigo-50 shadow-lg scale-105 ring-2 ring-indigo-300' 
-                                : 'border-gray-300 hover:border-indigo-400 bg-white hover:shadow-md'} 
-                            ${true ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-                <h3 className="font-semibold text-gray-800">Attempt Both Papers (Sequential - Logic In Progress)</h3>
-                <p className="text-sm text-gray-500">Complete Paper 1 followed by Paper 2.</p>
-                <p className="text-xs text-gray-400 mt-1">
-                    Total Duration: {getCurrentSubjectConfig()?.papers.reduce((sum, p) => sum + p.duration, 0)} mins | 
-                    Total Marks: {getCurrentSubjectConfig()?.papers.reduce((sum, p) => sum + p.totalMarks, 0)}
-                </p>
-            </button>
+            {/* "Both Papers" button is now removed */}
         </div>
 
         {selectedPaperOption && (
@@ -146,9 +136,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
                     onClick={handleStartExam}
                     className="px-8 py-3 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-colors text-lg md:px-10 md:text-xl"
                 >
-                    Start Exam: {selectedPaperOption === 'both' 
-                        ? 'Paper 1 (of Both)' 
-                        : getCurrentSubjectConfig()?.papers.find(p => p.id === selectedPaperOption)?.name}
+                    Start Exam: {getCurrentSubjectConfig()?.papers.find(p => p.id === selectedPaperOption)?.name}
                 </button>
             </div>
         )}
@@ -161,8 +149,8 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
                 <li>The exam will auto-submit when the time expires.</li>
                 {selectedSubject === 'mathematics' && (
                     <>
-                        {(selectedPaperOption === 'paper1' || selectedPaperOption === 'both') && <li>Paper 1: Calculators are NOT allowed.</li>}
-                        {(selectedPaperOption === 'paper2' || selectedPaperOption === 'both') && <li>Paper 2: Calculators ARE allowed.</li>}
+                        {selectedPaperOption === 'paper1' && <li>Paper 1: Calculators are NOT allowed.</li>}
+                        {selectedPaperOption === 'paper2' && <li>Paper 2: Calculators ARE allowed.</li>}
                     </>
                 )}
             </ul>
