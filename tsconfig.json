@@ -1,28 +1,25 @@
+// tsconfig.json
 {
   "compilerOptions": {
-    "target": "es2020", // Or "es5" for broader compatibility, es2020 is fine for modern Node/browsers
-    "lib": ["dom", "dom.iterable", "esnext"], // Ensure DOM and ESNext libs are included
+    "target": "es2020",
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
-    "noEmit": true,
+    "noEmit": true, // noEmit is fine for Next.js app, ts-node compiles in memory
     "esModuleInterop": true,
-    "module": "esnext", // Changed from CommonJS
-    "moduleResolution": "bundler", // Changed from node, or use "nodenext"
+    "module": "commonjs", // <<<< TRY THIS FOR SCRIPTS
+    "moduleResolution": "node", // <<<< TRY THIS
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "plugins": [{ "name": "next" }],
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", ".next/types/**/*.ts"], // Simplified include
-  "exclude": ["node_modules", "dist"] // Added dist
+  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts", ".next/types/**/*.ts"], // Added scripts
+  "exclude": ["node_modules", "dist"]
 }

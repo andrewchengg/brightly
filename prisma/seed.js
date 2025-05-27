@@ -1,239 +1,79 @@
-const { PrismaClient, QuestionType, DifficultyLevel } = require('@prisma/client');
+// prisma/seed.js
+const { PrismaClient } = require('../src/generated/prisma'); // Path from prisma folder to generated client
+// Or, if run from project root (e.g. `node prisma/seed.js`):
+// const { PrismaClient } = require('./src/generated/prisma'); 
+
 const prisma = new PrismaClient();
 
+// IMPORTANT: Define the ID of your "Mathematics" subject.
+// Query your database if unsure: SELECT id FROM "Subject" WHERE name = 'Mathematics';
+// If your Math subject was created by a previous seed, its ID might be 1 or similar.
+// If you are creating it here for the first time, this ID will be used.
+const MATHEMATICS_SUBJECT_ID = 1; // <--- ADJUST THIS IF YOUR MATH SUBJECT ID IS DIFFERENT OR IF CREATING IT HERE
+
 async function main() {
-  // Clear existing questions
-  await prisma.question.deleteMany({});
+  console.log(`Starting seed process...`);
 
-  // Create Mathematics subject if it doesn't exist
+  // Upsert Mathematics subject to ensure it exists
   const mathSubject = await prisma.subject.upsert({
-    where: { name: 'Mathematics' },
-    update: {},
+    where: { id: MATHEMATICS_SUBJECT_ID }, // Or use where: { name: "Mathematics" } if ID is auto-gen and you want to ensure name uniqueness
+    update: { name: "Mathematics" },
     create: {
-      name: 'Mathematics',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
+      id: MATHEMATICS_SUBJECT_ID, // Only if you are manually setting IDs for subjects
+      name: "Mathematics",
+    },
   });
+  console.log(`Ensured Mathematics subject exists with ID: ${mathSubject.id}`);
+  
+  // Use the actual ID from the upserted/found mathSubject
+  const actualMathSubjectId = mathSubject.id;
 
-  // Create topics if they don't exist
-  const topics = await Promise.all([
-    prisma.topic.upsert({
-      where: {
-        name_subjectId: {
-          name: 'Numbers and Operations',
-          subjectId: mathSubject.id
-        }
-      },
-      update: {},
-      create: {
-        name: 'Numbers and Operations',
-        subjectId: mathSubject.id,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    }),
-    prisma.topic.upsert({
-      where: {
-        name_subjectId: {
-          name: 'Algebra',
-          subjectId: mathSubject.id
-        }
-      },
-      update: {},
-      create: {
-        name: 'Algebra',
-        subjectId: mathSubject.id,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    }),
-    prisma.topic.upsert({
-      where: {
-        name_subjectId: {
-          name: 'Geometry',
-          subjectId: mathSubject.id
-        }
-      },
-      update: {},
-      create: {
-        name: 'Geometry',
-        subjectId: mathSubject.id,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    })
-  ]);
 
-  // Paper 1 Questions
-  const paper1Questions = [
-    // 10 MCQ questions worth 1 mark each
-    ...Array(10).fill().map((_, i) => ({
-      text: `MCQ 1 Mark Question ${i + 1}`,
-      questionType: QuestionType.MULTIPLE_CHOICE,
-      options: [
-        { id: 'a', text: 'Option A' },
-        { id: 'b', text: 'Option B' },
-        { id: 'c', text: 'Option C' },
-        { id: 'd', text: 'Option D' }
-      ],
-      correctAnswer: { id: 'a', text: 'Option A' },
-      explanation: `Explanation for MCQ 1 Mark Question ${i + 1}`,
-      difficulty: DifficultyLevel.MEDIUM,
-      topicId: topics[i % 3].id,
-      subjectId: mathSubject.id,
-      marks: 1,
-      pointsAwarded: 10,
-      hint: `Hint for MCQ 1 Mark Question ${i + 1}`,
-      pdfPageNumber: 1,
-      questionNumberOnPage: `${i + 1}`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })),
+  // 1. Delete all existing topics for the Mathematics subject
+  console.log(`Deleting existing topics for Mathematics (Subject ID: ${actualMathSubjectId})...`);
+  const deletedTopics = await prisma.topic.deleteMany({
+    where: {
+      subjectId: actualMathSubjectId,
+    },
+  });
+  console.log(`Deleted ${deletedTopics.count} existing Mathematics topics.`);
 
-    // 5 MCQ questions worth 2 marks each
-    ...Array(5).fill().map((_, i) => ({
-      text: `MCQ 2 Mark Question ${i + 1}`,
-      questionType: QuestionType.MULTIPLE_CHOICE,
-      options: [
-        { id: 'a', text: 'Option A' },
-        { id: 'b', text: 'Option B' },
-        { id: 'c', text: 'Option C' },
-        { id: 'd', text: 'Option D' }
-      ],
-      correctAnswer: { id: 'a', text: 'Option A' },
-      explanation: `Explanation for MCQ 2 Mark Question ${i + 1}`,
-      difficulty: DifficultyLevel.MEDIUM,
-      topicId: topics[i % 3].id,
-      subjectId: mathSubject.id,
-      marks: 2,
-      pointsAwarded: 20,
-      hint: `Hint for MCQ 2 Mark Question ${i + 1}`,
-      pdfPageNumber: 1,
-      questionNumberOnPage: `${i + 11}`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })),
-
-    // 5 Short answer questions worth 1 mark each
-    ...Array(5).fill().map((_, i) => ({
-      text: `Short Answer 1 Mark Question ${i + 1}`,
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: 'Answer',
-      explanation: `Explanation for Short Answer 1 Mark Question ${i + 1}`,
-      difficulty: DifficultyLevel.MEDIUM,
-      topicId: topics[i % 3].id,
-      subjectId: mathSubject.id,
-      marks: 1,
-      pointsAwarded: 10,
-      hint: `Hint for Short Answer 1 Mark Question ${i + 1}`,
-      pdfPageNumber: 2,
-      questionNumberOnPage: `${i + 1}`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })),
-
-    // 10 Short answer questions worth 2 marks each
-    ...Array(10).fill().map((_, i) => ({
-      text: `Short Answer 2 Mark Question ${i + 1}`,
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: 'Answer',
-      explanation: `Explanation for Short Answer 2 Mark Question ${i + 1}`,
-      difficulty: DifficultyLevel.MEDIUM,
-      topicId: topics[i % 3].id,
-      subjectId: mathSubject.id,
-      marks: 2,
-      pointsAwarded: 20,
-      hint: `Hint for Short Answer 2 Mark Question ${i + 1}`,
-      pdfPageNumber: 2,
-      questionNumberOnPage: `${i + 6}`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }))
+  // 2. Create the 7 new standard Mathematics topics
+  console.log("Creating new standardized Mathematics Topics...");
+  const standardizedMathTopicsData = [
+    { name: "Numbers", description: "Concepts of whole numbers, fractions, decimals, number theory, and their operations." },
+    { name: "Measurement", description: "Units and calculations for length, mass, volume, time, money, area, and perimeter." },
+    { name: "Statistics", description: "Data representation (graphs, charts) and interpretation, including average." },
+    { name: "Geometry", description: "Properties of shapes, angles, symmetry, circles, and spatial reasoning." },
+    { name: "Ratio and Percentage", description: "Understanding and applying ratios, proportions, and percentages." },
+    { name: "Rate and Speed", description: "Solving problems involving rate, speed, distance, and time." },
+    { name: "Algebra", description: "Basic algebraic expressions, manipulations, and solving simple equations." },
   ];
 
-  // Paper 2 Questions
-  const paper2Questions = [
-    // 5 Short answer questions worth 2 marks each
-    ...Array(5).fill().map((_, i) => ({
-      text: `Paper 2 Short Answer 2 Mark Question ${i + 1}`,
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: 'Answer',
-      explanation: `Explanation for Paper 2 Short Answer 2 Mark Question ${i + 1}`,
-      difficulty: DifficultyLevel.MEDIUM,
-      topicId: topics[i % 3].id,
-      subjectId: mathSubject.id,
-      marks: 2,
-      pointsAwarded: 20,
-      hint: `Hint for Paper 2 Short Answer 2 Mark Question ${i + 1}`,
-      pdfPageNumber: 3,
-      questionNumberOnPage: `${i + 1}`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })),
+  const newStandardTopics = [];
+  for (const topicData of standardizedMathTopicsData) {
+    const newTopic = await prisma.topic.create({
+      data: {
+        name: topicData.name,
+        description: topicData.description,
+        subjectId: actualMathSubjectId, // Use the actual ID
+      },
+    });
+    newStandardTopics.push({ name: newTopic.name, id: newTopic.id });
+    console.log(`Created topic: ${newTopic.name} (ID: ${newTopic.id})`);
+  }
 
-    // 12 Long answer questions (mix of 3, 4, and 5 marks)
-    ...Array(4).fill().map((_, i) => ({
-      text: `Long Answer 3 Mark Question ${i + 1}`,
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: 'Answer',
-      explanation: `Explanation for Long Answer 3 Mark Question ${i + 1}`,
-      difficulty: DifficultyLevel.HARD,
-      topicId: topics[i % 3].id,
-      subjectId: mathSubject.id,
-      marks: 3,
-      pointsAwarded: 30,
-      hint: `Hint for Long Answer 3 Mark Question ${i + 1}`,
-      pdfPageNumber: 3,
-      questionNumberOnPage: `${i + 6}`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })),
-    ...Array(4).fill().map((_, i) => ({
-      text: `Long Answer 4 Mark Question ${i + 1}`,
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: 'Answer',
-      explanation: `Explanation for Long Answer 4 Mark Question ${i + 1}`,
-      difficulty: DifficultyLevel.HARD,
-      topicId: topics[i % 3].id,
-      subjectId: mathSubject.id,
-      marks: 4,
-      pointsAwarded: 40,
-      hint: `Hint for Long Answer 4 Mark Question ${i + 1}`,
-      pdfPageNumber: 3,
-      questionNumberOnPage: `${i + 10}`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })),
-    ...Array(4).fill().map((_, i) => ({
-      text: `Long Answer 5 Mark Question ${i + 1}`,
-      questionType: QuestionType.OPEN_ENDED,
-      correctAnswer: 'Answer',
-      explanation: `Explanation for Long Answer 5 Mark Question ${i + 1}`,
-      difficulty: DifficultyLevel.HARD,
-      topicId: topics[i % 3].id,
-      subjectId: mathSubject.id,
-      marks: 5,
-      pointsAwarded: 50,
-      hint: `Hint for Long Answer 5 Mark Question ${i + 1}`,
-      pdfPageNumber: 3,
-      questionNumberOnPage: `${i + 14}`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }))
-  ];
+  console.log("\nNew Standard Mathematics Topics Created:");
+  newStandardTopics.forEach(t => console.log(`- Name: ${t.name}, ID: ${t.id}`));
+  console.log("\nIMPORTANT: Note these new Topic IDs for remapping your questions in the next step!");
 
-  // Create all questions
-  await prisma.question.createMany({
-    data: [...paper1Questions, ...paper2Questions]
-  });
-
-  console.log('Successfully seeded questions for Mathematics mock exam');
+  console.log("Seeding of standard Mathematics topics completed.");
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
+  .catch(async (e) => {
+    console.error("Error during seeding:", e);
+    await prisma.$disconnect();
     process.exit(1);
   })
   .finally(async () => {
