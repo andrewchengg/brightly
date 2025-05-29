@@ -39,7 +39,6 @@ const studentMenuItems = [
       { icon: FaFileAlt, label: "Mock Exams", href: "/student/mock-exam", visible: ["student"] },
       { icon: FaLightbulb, label: "Review Mistakes", href: "/student/review", visible: ["student"] },
       { icon: FaChartBar, label: "My Results", href: "/student/results", visible: ["student"] },
-      { icon: FaGift, label: "Rewards", href: "/student/rewards", visible: ["student"] },
     ],
   },
   {

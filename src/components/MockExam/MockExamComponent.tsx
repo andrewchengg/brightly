@@ -23,6 +23,7 @@ interface Question {
   topicName: string;
   questionType: keyof typeof PrismaQuestionType;
   marks: number;
+  imageUrl?: string;
   topic: {
     id: number;
     name: string;

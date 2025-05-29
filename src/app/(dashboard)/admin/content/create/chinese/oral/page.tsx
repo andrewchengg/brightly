@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { useForm, Controller, useFieldArray, FieldErrors } from 'react-hook-form'; // Import FieldErrors
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -11,24 +11,23 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox'; 
+import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { FaArrowLeft, FaPlusCircle, FaTrashAlt, FaImage, FaVideo, FaBookReader, FaSpinner } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { DifficultyLevel, OralPromptType, Topic } from '@/generated/prisma'; 
-import { useCloudinaryUpload } from '@/lib/hooks/useCloudinaryUpload'; 
-import Image from 'next/image';
 
 const oralPromptSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   subjectId: z.coerce.number().int().positive("Subject is required"),
-  topicId: z.coerce.number().int().positive("Topic is required").optional().nullable(),
-  promptType: z.nativeEnum(OralPromptType, { errorMap: () => ({ message: "Please select a prompt type" }) }),
-  description: z.string().optional(),
-  studentInstructions: z.string().optional(),
+  topicId: z.coerce.number().int().positive().optional().nullable(),
+  promptType: z.nativeEnum(OralPromptType, { required_error: "Please select a prompt type" }), // Made required_error explicit
+  description: z.string().optional().nullable(), 
+  studentInstructions: z.string().optional().nullable(), 
   imageUrl: z.string().url("Must be a valid URL or leave empty.").optional().or(z.literal("").transform(() => null)),
   videoUrl: z.string().url("Must be a valid URL or leave empty.").optional().or(z.literal("").transform(() => null)),
-  guidingQuestions: z.array(z.object({ text: z.string().min(1, "Question text cannot be empty") })).optional(),
-  passageText: z.string().optional(),
+  guidingQuestions: z.array(z.object({ text: z.string().min(1, "Guiding question text cannot be empty if the field is present.") })).optional().nullable(),
+  passageText: z.string().optional().nullable(), 
   difficulty: z.nativeEnum(DifficultyLevel).default(DifficultyLevel.MEDIUM),
   keywords: z.string().optional().transform(val => val ? val.split(',').map(k => k.trim()).filter(k => k) : []),
   estimatedTimeSeconds: z.coerce.number().int().positive("Must be a positive number").optional().nullable(),
@@ -37,31 +36,47 @@ const oralPromptSchema = z.object({
 
 type OralPromptFormData = z.infer<typeof oralPromptSchema>;
 
-const CHINESE_SUBJECT_ID = 4;
-const NO_TOPIC_VALUE = "_NO_TOPIC_"; // Special value for "No Specific Topic"
+const CHINESE_SUBJECT_ID = 4; 
+const NO_TOPIC_VALUE = "_NO_TOPIC_"; 
 
 export default function CreateOralPromptPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null); 
+  const [pageError, setPageError] = useState<string | null>(null); 
 
-  const { control, handleSubmit, register, watch, setValue, formState: { errors } } = useForm<OralPromptFormData>({
+  const [showNewTopicModal, setShowNewTopicModal] = useState(false);
+  const [newTopicName, setNewTopicName] = useState("");
+  const [newTopicDescription, setNewTopicDescription] = useState("");
+  const [isCreatingTopic, setIsCreatingTopic] = useState(false);
+  const [newTopicError, setNewTopicError] = useState<string | null>(null);
+
+  const { control, handleSubmit, register, watch, setValue, formState: { errors, isDirty, isValid } } = useForm<OralPromptFormData>({
     resolver: zodResolver(oralPromptSchema),
+    mode: "onChange", 
     defaultValues: {
       title: "",
       subjectId: CHINESE_SUBJECT_ID, 
-      promptType: undefined, 
+      // promptType: undefined, // Let it be undefined initially, user MUST select
       difficulty: DifficultyLevel.MEDIUM,
       productionReady: false,
-      keywords: [],
-      guidingQuestions: [{ text: "" }],
+      keywords: [], 
+      guidingQuestions: [], // Default to an empty array
       imageUrl: "", 
       videoUrl: "", 
-      topicId: null, // Initialize topicId as null
+      topicId: null,
+      description: null,
+      studentInstructions: null,
+      passageText: null,
+      estimatedTimeSeconds: null,
     },
   });
+
+  useEffect(() => {
+    // This log is helpful for seeing validation state in real-time
+    console.log("Form State Update - Errors:", errors, "IsDirty:", isDirty, "IsValid:", isValid);
+  }, [errors, isDirty, isValid]);
+
 
   const watchedPromptType = watch("promptType");
 
@@ -85,51 +100,114 @@ export default function CreateOralPromptPage() {
     fetchChineseTopics();
   }, []);
   
-  const onSubmit = async (data: OralPromptFormData) => {
+  const handleCreateNewTopic = async () => {
+    if (!newTopicName.trim()) {
+        setNewTopicError("Topic name is required.");
+        return;
+    }
+    setIsCreatingTopic(true);
+    setNewTopicError(null);
+    try {
+        const response = await fetch('/api/topics', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: newTopicName,
+                description: newTopicDescription || null,
+                subjectId: CHINESE_SUBJECT_ID,
+            }),
+        });
+        const createdTopic = await response.json();
+        if (!response.ok) {
+            throw new Error(createdTopic.error || "Failed to create topic");
+        }
+        setTopics(prevTopics => [...prevTopics, createdTopic]);
+        setValue("topicId", createdTopic.id, { shouldValidate: true });
+        toast.success(`Topic "${createdTopic.name}" created and selected!`);
+        setShowNewTopicModal(false);
+        setNewTopicName("");
+        setNewTopicDescription("");
+    } catch (err: any) {
+        setNewTopicError(err.message);
+        toast.error(`Failed to create topic: ${err.message}`);
+    } finally {
+        setIsCreatingTopic(false);
+    }
+  };
+
+  const onValidSubmit = async (data: OralPromptFormData) => {
+    console.log("onValidSubmit triggered. Data received:", data); 
     setIsSubmitting(true);
-    setError(null); 
+    setPageError(null); 
 
-    const submittedData = { ...data }; // Create a mutable copy
+    const payload: any = { ...data };
 
-    if (submittedData.promptType !== OralPromptType.PICTURE_CONVERSATION) {
-      submittedData.imageUrl = null;
+    if (payload.promptType !== OralPromptType.PICTURE_CONVERSATION) {
+      payload.imageUrl = null;
     }
-    if (submittedData.promptType !== OralPromptType.VIDEO_CONVERSATION) {
-      submittedData.videoUrl = null;
+    if (payload.promptType !== OralPromptType.VIDEO_CONVERSATION) {
+      payload.videoUrl = null;
     }
-    if (submittedData.promptType !== OralPromptType.PASSAGE_READING) {
-      submittedData.passageText = undefined; 
+    if (payload.promptType !== OralPromptType.PASSAGE_READING) {
+      payload.passageText = null; 
     }
-    if (submittedData.promptType === OralPromptType.PASSAGE_READING) {
-        submittedData.guidingQuestions = undefined; 
+    
+    if (payload.promptType === OralPromptType.PASSAGE_READING) {
+        payload.guidingQuestions = null; 
+    } else if (payload.guidingQuestions && Array.isArray(payload.guidingQuestions)) {
+        const validGuidingQuestions = payload.guidingQuestions.filter((q: {text: string}) => q.text && q.text.trim() !== "");
+        payload.guidingQuestions = validGuidingQuestions.length > 0 ? validGuidingQuestions.map((q: {text: string}) => q.text.trim()) : null;
+    } else {
+        payload.guidingQuestions = null; 
     }
-    if (submittedData.guidingQuestions && submittedData.guidingQuestions.length === 1 && submittedData.guidingQuestions[0].text === "") {
-        submittedData.guidingQuestions = undefined; 
-    }
-    // Ensure topicId is null if "No Specific Topic" was conceptually chosen (already handled by onValueChange)
-    // The data.topicId will already be null if NO_TOPIC_VALUE was selected.
 
-    console.log("Submitting Oral Prompt Data:", submittedData);
+    console.log("Submitting Oral Prompt Payload to API:", payload);
 
     try {
       const response = await fetch('/api/oral-prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submittedData),
+        body: JSON.stringify(payload),
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create oral prompt");
+        console.error("API Error Response:", responseData);
+        const errorMessage = responseData.error || (responseData.details ? JSON.stringify(responseData.details) : "Failed to create oral prompt");
+        throw new Error(errorMessage);
       }
       toast.success("Oral prompt created successfully!");
       router.push('/admin/content/create/chinese'); 
     } catch (err: any) {
-      console.error("Error creating oral prompt:", err);
-      setError(err.message);
+      console.error("Error creating oral prompt (onSubmit catch block):", err);
+      setPageError(err.message);
       toast.error(`Error: ${err.message}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const onInvalidSubmit = (errors: FieldErrors<OralPromptFormData>) => {
+    console.error("Form validation failed. Errors:", errors);
+    toast.error("Please correct the errors in the form.");
+    // Log specific errors
+    for (const field in errors) {
+        // @ts-ignore
+        if (errors[field]?.message) {
+             // @ts-ignore
+            console.error(`Field: ${field}, Error: ${errors[field].message}`);
+        }
+        // For array fields like guidingQuestions
+         // @ts-ignore
+        if (Array.isArray(errors[field])) {
+             // @ts-ignore
+            errors[field].forEach((itemError, index) => {
+                if (itemError?.text?.message) {
+                    console.error(`Field: ${field}[${index}].text, Error: ${itemError.text.message}`);
+                }
+            });
+        }
     }
   };
 
@@ -145,45 +223,52 @@ export default function CreateOralPromptPage() {
           <CardDescription className="text-red-600">Fill in the details for the oral practice.</CardDescription>
         </CardHeader>
         <CardContent className="p-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Pass onInvalidSubmit to handleSubmit */}
+          <form onSubmit={handleSubmit(onValidSubmit, onInvalidSubmit)} className="space-y-6">
             {/* Core Info */}
             <div className="space-y-4 border-b pb-6">
-              <InputField control={control} name="title" label="Prompt Title (e.g., 公园的一天)" error={errors.title} />
+              <InputField control={control} name="title" label="Prompt Title (e.g., 公园的一天) *" error={errors.title} />
               
               <div>
-                <label htmlFor="topicId" className="block text-sm font-medium text-gray-700 mb-1">Topic (Optional)</label>
-                <Controller
-                  name="topicId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select 
-                        onValueChange={(value) => {
-                            if (value === NO_TOPIC_VALUE) {
-                                field.onChange(null); // Set actual form value to null
-                            } else {
-                                field.onChange(value ? parseInt(value) : null);
-                            }
-                        }} 
-                        // Determine current value for Select: if field.value is null, use NO_TOPIC_VALUE for display, else stringify the number
-                        value={field.value === null || field.value === undefined ? NO_TOPIC_VALUE : field.value.toString()} 
-                    >
-                      <SelectTrigger className={errors.topicId ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Select a topic" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NO_TOPIC_VALUE}>No Specific Topic</SelectItem> 
-                        {topics.map(topic => (
-                          <SelectItem key={topic.id} value={topic.id.toString()}>{topic.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
+                <Label htmlFor="topicId" className="block text-sm font-medium text-gray-700 mb-1">Topic (Optional)</Label>
+                <div className="flex items-center gap-2">
+                  <Controller
+                    name="topicId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select 
+                          onValueChange={(value) => {
+                              if (value === NO_TOPIC_VALUE) {
+                                  field.onChange(null); 
+                              } else {
+                                  field.onChange(value ? parseInt(value) : null);
+                              }
+                          }} 
+                          value={field.value === null || field.value === undefined ? NO_TOPIC_VALUE : field.value.toString()} 
+                          // @ts-ignore
+                          defaultValue={field.value === null || field.value === undefined ? NO_TOPIC_VALUE : field.value.toString()}
+                      >
+                        <SelectTrigger className={`flex-grow ${errors.topicId ? 'border-red-500' : ''}`}>
+                          <SelectValue placeholder="Select a topic" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_TOPIC_VALUE}>No Specific Topic</SelectItem> 
+                          {topics.map(topic => (
+                            <SelectItem key={topic.id} value={topic.id.toString()}>{topic.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={() => setShowNewTopicModal(true)}>
+                    <FaPlusCircle className="mr-1.5"/> New Topic
+                  </Button>
+                </div>
                 {errors.topicId && <p className="text-xs text-red-500 mt-1">{errors.topicId.message}</p>}
               </div>
 
               <div>
-                <label htmlFor="promptType" className="block text-sm font-medium text-gray-700 mb-1">Prompt Type *</label>
+                <Label htmlFor="promptType" className="block text-sm font-medium text-gray-700 mb-1">Prompt Type *</Label>
                 <Controller
                   name="promptType"
                   control={control}
@@ -204,7 +289,7 @@ export default function CreateOralPromptPage() {
               </div>
             </div>
 
-            {/* Type-Specific Fields (Rest of the form remains the same as previously provided) */}
+            {/* Type-Specific Fields */}
             <div className="space-y-4 border-b pb-6">
               {watchedPromptType === OralPromptType.PICTURE_CONVERSATION && (
                 <InputField control={control} name="imageUrl" label="Image URL (for Picture Conversation)" error={errors.imageUrl} placeholder="https://example.com/image.jpg"/>
@@ -217,7 +302,7 @@ export default function CreateOralPromptPage() {
               )}
               {(watchedPromptType === OralPromptType.PICTURE_CONVERSATION || watchedPromptType === OralPromptType.VIDEO_CONVERSATION) && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Guiding Questions (Optional)</label>
+                  <Label className="block text-sm font-medium text-gray-700 mb-2">Guiding Questions (Optional)</Label>
                   {fields.map((field, index) => (
                     <div key={field.id} className="flex items-center gap-2 mb-2">
                       <Input
@@ -230,7 +315,14 @@ export default function CreateOralPromptPage() {
                       </Button>
                     </div>
                   ))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => append({ text: "" })} className="text-sm">
+                  {/* Display errors for guidingQuestions array itself or individual items */}
+                  {errors.guidingQuestions && !Array.isArray(errors.guidingQuestions) && errors.guidingQuestions.message && (
+                     <p className="text-xs text-red-500 mt-1">{errors.guidingQuestions.message}</p>
+                  )}
+                  {errors.guidingQuestions && Array.isArray(errors.guidingQuestions) && errors.guidingQuestions.map((err, index) => (
+                    err?.text && <p key={index} className="text-xs text-red-500 mt-1">{err.text.message}</p>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => append({ text: "" })} className="text-sm mt-1">
                     <FaPlusCircle className="mr-2" /> Add Guiding Question
                   </Button>
                 </div>
@@ -245,7 +337,7 @@ export default function CreateOralPromptPage() {
             <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+                        <Label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-1">Difficulty</Label>
                         <Controller
                         name="difficulty"
                         control={control}
@@ -272,21 +364,67 @@ export default function CreateOralPromptPage() {
                         control={control}
                         render={({ field }) => ( <Checkbox id="productionReady" checked={field.value} onCheckedChange={field.onChange} /> )}
                     />
-                    <label htmlFor="productionReady" className="text-sm font-medium text-gray-700"> Mark as Production Ready </label>
+                    <Label htmlFor="productionReady" className="text-sm font-medium text-gray-700 cursor-pointer"> Mark as Production Ready </Label>
                 </div>
             </div>
             
-            {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
+            {pageError && <p className="text-red-500 text-sm mt-4">{pageError}</p>}
 
-            <CardFooter className="pt-6 px-0"> {/* Adjusted padding for footer */}
+            <div className="pt-6">
               <Button type="submit" disabled={isSubmitting} className="w-full md:w-auto">
                 {isSubmitting ? <FaSpinner className="animate-spin mr-2" /> : null}
                 {isSubmitting ? "Creating..." : "Create Oral Prompt"}
               </Button>
-            </CardFooter>
+            </div>
           </form>
         </CardContent>
+        <CardFooter className="bg-gray-50 text-center text-sm text-gray-500">
+          Make sure all required fields are filled out correctly before submitting.
+        </CardFooter>
       </Card>
+
+      {/* New Topic Modal */}
+      {showNewTopicModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="bg-white w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Create New Topic for Chinese</CardTitle>
+              <CardDescription>This topic will be added under the Chinese subject.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="newTopicName">Topic Name *</Label>
+                <Input 
+                  id="newTopicName" 
+                  value={newTopicName} 
+                  onChange={(e) => setNewTopicName(e.target.value)} 
+                  placeholder="e.g., 日常对话 (Daily Conversation)"
+                  className={newTopicError && !newTopicName.trim() ? "border-red-500" : ""}
+                />
+                {newTopicError && !newTopicName.trim() && <p className="text-xs text-red-500 mt-1">{newTopicError}</p>}
+              </div>
+              <div>
+                <Label htmlFor="newTopicDescription">Topic Description (Optional)</Label>
+                <Textarea 
+                  id="newTopicDescription" 
+                  value={newTopicDescription} 
+                  onChange={(e) => setNewTopicDescription(e.target.value)} 
+                  rows={3}
+                  placeholder="Briefly describe this topic"
+                />
+              </div>
+              {newTopicError && newTopicName.trim() && <p className="text-xs text-red-500 mt-1">{newTopicError}</p>}
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowNewTopicModal(false)} disabled={isCreatingTopic}>Cancel</Button>
+              <Button onClick={handleCreateNewTopic} disabled={isCreatingTopic}>
+                {isCreatingTopic ? <FaSpinner className="animate-spin mr-2"/> : null}
+                {isCreatingTopic ? "Creating..." : "Create Topic"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
@@ -300,7 +438,7 @@ interface ControlledInputFieldProps extends React.InputHTMLAttributes<HTMLInputE
 }
 const InputField: React.FC<ControlledInputFieldProps> = ({ control, name, label, error, ...inputProps }) => (
     <div>
-        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        <Label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</Label>
         <Controller
             name={name}
             control={control}
@@ -318,7 +456,7 @@ interface ControlledTextareaFieldProps extends React.TextareaHTMLAttributes<HTML
 }
 const TextareaField: React.FC<ControlledTextareaFieldProps> = ({ control, name, label, error, ...textareaProps }) => (
     <div>
-        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        <Label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</Label>
         <Controller
             name={name}
             control={control}
