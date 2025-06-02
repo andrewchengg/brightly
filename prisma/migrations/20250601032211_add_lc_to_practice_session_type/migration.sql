@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PracticeSessionType" ADD VALUE 'LISTENING_COMPREHENSION';

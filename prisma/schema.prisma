@@ -13,14 +13,14 @@ datasource db {
 
 // --- User and Admin Models ---
 model Admin {
-  id        String   @id 
+  id        String   @id
   username  String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Student {
-  id                   String    @id 
+  id                   String    @id
   username             String    @unique
   name                 String
   email                String?   @unique
@@ -29,124 +29,128 @@ model Student {
   parentId             String?
   classId              Int?
   gradeId              Int?
-  schoolLevel          Int 
+  schoolLevel          Int
   schoolName           String?
   initialSetupComplete Boolean   @default(false)
   currentStreak        Int       @default(0)
   lastActivityDate     DateTime?
-  level                Int       @default(1) 
+  level                Int       @default(1)
   longestStreak        Int       @default(0)
   xpPoints             Int       @default(0)
-  
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
 
-  attendance            Attendance[]
-  practiceSessions      PracticeSession[]
-  results               Result[]
-  events                Event[]           
-  class                 Class?            @relation(fields: [classId], references: [id], onDelete: SetNull) 
-  grade                 Grade?            @relation(fields: [gradeId], references: [id], onDelete: SetNull) 
-  parent                Parent?           @relation(fields: [parentId], references: [id], onDelete: SetNull) 
-  studentBadges         StudentBadge[]    
-  oralPracticeAttempts  OralPracticeAttempt[] // Relation from Student to their OralPracticeAttempts
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendance           Attendance[]
+  practiceSessions     PracticeSession[]
+  results              Result[]
+  events               Event[]
+  class                Class?                @relation(fields: [classId], references: [id], onDelete: SetNull)
+  grade                Grade?                @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  parent               Parent?               @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  studentBadges        StudentBadge[]
+  oralPracticeAttempts OralPracticeAttempt[]
 }
 
 model Teacher {
-  id                       String    @id 
-  username                 String    @unique
-  name                     String
-  email                    String?   @unique
-  phone                    String?   @unique
-  address                  String?   
-  img                      String?
-  bloodType                String?
-  sex                      UserSex?
-  
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+  id        String   @id
+  username  String   @unique
+  name      String
+  email     String?  @unique
+  phone     String?  @unique
+  address   String?
+  img       String?
+  bloodType String?
+  sex       UserSex?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   classesSupervised        Class[]           @relation("ClassSupervisor")
   lessons                  Lesson[]
   assignedPracticeSessions PracticeSession[] @relation("AssignedSessionsByTeacher")
-  subjectTeachers          SubjectTeacher[]  
-  // createdOralPrompts       OralPrompt[]      @relation("OralPromptsByTeacher") // Add this if you want to link prompts to a creating teacher
+  subjectTeachers          SubjectTeacher[]
+  // reviewedQuestions        Question[]        @relation("ReviewedByTeacher") // Optional: if a teacher reviews questions
 }
 
 model Parent {
-  id                       String    @id 
-  username                 String    @unique
-  name                     String
-  phone                    String?   @unique
-  email                    String?   @unique
-  address                  String?
-  
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+  id       String  @id
+  username String  @unique
+  name     String
+  phone    String? @unique
+  email    String? @unique
+  address  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   assignedPracticeSessions PracticeSession[] @relation("AssignedSessionsByParent")
   students                 Student[]
 }
 
 model Grade {
-  id        Int     @id @default(autoincrement())
-  level     Int     @unique 
-  name      String? 
-  
+  id    Int     @id @default(autoincrement())
+  level Int     @unique
+  name  String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  classes   Class[]
-  students  Student[]
+  classes  Class[]
+  students Student[]
 }
 
 model Class {
-  id            Int     @id @default(autoincrement())
-  name          String  
-  capacity      Int?    
-  gradeId       Int
-  supervisorId  String  
+  id           Int    @id @default(autoincrement())
+  name         String
+  capacity     Int?
+  gradeId      Int
+  supervisorId String
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   announcements Announcement[]
-  grade         Grade          @relation(fields: [gradeId], references: [id], onDelete: Cascade) 
-  supervisor    Teacher        @relation("ClassSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull) 
+  grade         Grade          @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  supervisor    Teacher        @relation("ClassSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
   events        Event[]
   lessons       Lesson[]
   students      Student[]
 
-  @@unique([name, gradeId]) 
+  @@unique([name, gradeId])
 }
 
 model Subject {
-  id               Int               @id @default(autoincrement())
-  name             String            @unique
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  lessons          Lesson[]
-  practiceSessions PracticeSession[] @relation("SubjectPracticeSessions")
-  questions        Question[]        @relation("SubjectQuestions")
-  topics           Topic[]
-  subjectTeachers  SubjectTeacher[]
-  oralPrompts      OralPrompt[]      // Back-relation from Subject to OralPrompt
+  id                  Int                  @id @default(autoincrement())
+  name                String               @unique
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  lessons             Lesson[]
+  practiceSessions    PracticeSession[]    @relation("SubjectPracticeSessions")
+  topics              Topic[]
+  subjectTeachers     SubjectTeacher[]
+  oralPrompts         OralPrompt[]
+  
+  questions           Question[]                 @relation("SubjectQuestions") // Live questions
+  archivedQuestions   ArchivedOriginalQuestion[] @relation("ArchivedSubjectQuestions") // Archived questions
 }
 
 model Topic {
-  id          Int     @id @default(autoincrement())
-  name        String
-  description String? @db.Text
-  subjectId   Int
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  Int                  @id @default(autoincrement())
+  name                String
+  description         String?              @db.Text
+  subjectId           Int
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
-  practiceSessions PracticeSession[]
-  questions        Question[]
-  subject          Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade) 
-  oralPrompts      OralPrompt[]      // Back-relation from Topic to OralPrompt
+  practiceSessions    PracticeSession[]
+  subject             Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  oralPrompts         OralPrompt[]
   
+  questions           Question[]                 @relation("TopicQuestions") // Live questions
+  archivedQuestions   ArchivedOriginalQuestion[] @relation("ArchivedTopicQuestions") // Archived questions
+
   @@unique([name, subjectId])
 }
 
@@ -154,12 +158,12 @@ model Lesson {
   id        Int      @id @default(autoincrement())
   name      String
   day       Day?
-  startTime DateTime 
-  endTime   DateTime 
+  startTime DateTime
+  endTime   DateTime
   subjectId Int
   classId   Int?
   teacherId String
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -170,75 +174,133 @@ model Lesson {
 }
 
 model QuestionGroup {
-  id                   Int        @id @default(autoincrement())
-  name                 String     @unique 
-  description          String?    @db.Text
+  id                   Int                  @id @default(autoincrement())
+  name                 String               @unique
+  description          String?              @db.Text
   sourceYear           Int?
   sourceLevel          String?
   sourceSchool         String?
   sourceAssessmentType String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  audioUrl             String?          
+
+
+  practiceSessions     PracticeSession[]    @relation("BasedOnQuestionGroup")
   
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
-  
-  questions            Question[]
-  practiceSessions     PracticeSession[] @relation("BasedOnQuestionGroup")
+  questions            Question[]                 @relation("QuestionGroupQuestions") // Live questions
+  archivedQuestions    ArchivedOriginalQuestion[] @relation("ArchivedQuestionGroupQuestions") // Archived questions
 }
 
 model Tag {
   id        Int      @id @default(autoincrement())
   name      String   @unique
-  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  questions QuestionTag[]
+  questions QuestionTag[] // Tags apply to live/refactored questions
 }
 
+// Live questions, subject to refactoring, used by the application
 model Question {
-  id                      Int             @id @default(autoincrement())
-  pdfPageNumber           Int
-  questionNumberOnPage    String
-  text                    String          @db.Text
-  questionType            QuestionType    @default(MULTIPLE_CHOICE)
-  options                 Json?
-  correctAnswer           Json?
-  answerKeyRawText        String?         @db.Text
-  explanation             String?         @db.Text
-  hint                    String?         @db.Text
-  marks                   Int?
-  difficulty              DifficultyLevel @default(MEDIUM)
-  pointsAwarded           Int             @default(10)
-  subjectId               Int
-  topicId                 Int
-  questionGroupId         Int?
-  imageUrl                String?
-  fullPageImageUrl        String?
-  audioUrl                String?
-  
-  sourceYear              Int?
-  sourceLevel             String?
-  sourceSchool            String?
-  sourceAssessmentType    String?
-  
-  createdAt               DateTime        @default(now())
-  updatedAt               DateTime        @updatedAt
-  productionReady         Boolean?        @default(false)
+  id                   Int             @id @default(autoincrement())
+  pdfPageNumber        Int
+  questionNumberOnPage String
+  text                 String          @db.Text // This field will be refactored
+  questionType         QuestionType    @default(MULTIPLE_CHOICE)
+  options              Json?           // This field will be refactored
+  correctAnswer        Json?           // This field will be refactored
+  answerKeyRawText     String?         @db.Text // This might be refactored or just kept
+  explanation          String?         @db.Text // This field will be refactored
+  hint                 String?         @db.Text // This field will be refactored
+  marks                Int?
+  difficulty           DifficultyLevel @default(MEDIUM)
+  pointsAwarded        Int             @default(10)
+  subjectId            Int
+  topicId              Int
+  questionGroupId      Int?
+  imageUrl             String?         // This might be updated if a new diagram is used
+  fullPageImageUrl     String?         // This might be updated
+  audioUrl             String?         // This might be updated
 
-  subject                 Subject         @relation("SubjectQuestions", fields: [subjectId], references: [id], onDelete: Cascade)
-  topic                   Topic           @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  questionGroup           QuestionGroup?  @relation(fields: [questionGroupId], references: [id], onDelete: SetNull)
-  studentAnswers          StudentAnswer[]
-  tags                    QuestionTag[]   
+  sourceYear           Int?            // Usually remains the same
+  sourceLevel          String?         // Usually remains the same
+  sourceSchool         String?         // Usually remains the same
+  sourceAssessmentType String?         // Usually remains the same
 
-  @@unique([questionGroupId, pdfPageNumber, questionNumberOnPage], name: "unique_question_in_group_page_num")
+  productionReady      Boolean         @default(false) // Key flag
+  reviewedAt           DateTime?
+  // reviewerId        String?         // Optional: Link to Teacher/Admin who reviewed
+  // reviewer          Teacher?        @relation("ReviewedByTeacher", fields: [reviewerId], references: [id], onDelete:SetNull)
+
+  createdAt            DateTime        @default(now()) // When the original was created, or when this record was first made
+  updatedAt            DateTime        @updatedAt      // When this live/refactored version was last updated
+
+  subject              Subject         @relation("SubjectQuestions", fields: [subjectId], references: [id], onDelete: Cascade)
+  topic                Topic           @relation("TopicQuestions", fields: [topicId], references: [id], onDelete: Cascade)
+  questionGroup        QuestionGroup?  @relation("QuestionGroupQuestions", fields: [questionGroupId], references: [id], onDelete: SetNull)
+  
+  studentAnswers       StudentAnswer[]
+  tags                 QuestionTag[]   
+
+  archivedVersion      ArchivedOriginalQuestion? // One-to-one link TO its archived original version
+
+  @@unique([questionGroupId, pdfPageNumber, questionNumberOnPage], name: "unique_live_question_in_group_page_num")
 }
 
-model QuestionTag { 
-  questionId Int
+// Archived original questions, untouched, for AI training
+model ArchivedOriginalQuestion {
+  id                   Int             @id @default(autoincrement()) // Its own ID
+  
+  liveQuestionId       Int             @unique // Foreign key to the live Question table it was archived from
+  liveQuestion         Question        @relation(fields: [liveQuestionId], references: [id], onDelete:Cascade) // If live Q is deleted, archive is too.
+
+  // Fields copied from the original Question record at the time of archival
+  pdfPageNumber        Int
+  questionNumberOnPage String
+  text                 String          @db.Text
+  questionType         QuestionType
+  options              Json?
+  correctAnswer        Json?
+  answerKeyRawText     String?         @db.Text
+  explanation          String?         @db.Text
+  hint                 String?         @db.Text
+  marks                Int?
+  difficulty           DifficultyLevel
+  pointsAwarded        Int
+  subjectId            Int
+  topicId              Int
+  questionGroupId      Int?
+  imageUrl             String?
+  fullPageImageUrl     String?
+  audioUrl             String?
+
+  sourceYear           Int?
+  sourceLevel          String?
+  sourceSchool         String?
+  sourceAssessmentType String?
+
+  archivedAt           DateTime        @default(now()) // When this archive record was created
+
+  // Relations to Subject, Topic, QuestionGroup for context at time of archival
+  // These ensure that even if a Subject/Topic/Group is deleted from the live system,
+  // the archived question still knows what it was originally associated with.
+  // onDelete: SetNull means if the related Subject/Topic/Group is deleted, the foreign key here becomes null,
+  // but the archived question itself remains. Choose Cascade if you want archives deleted when their subject/topic/group is.
+  subject              Subject         @relation("ArchivedSubjectQuestions", fields: [subjectId], references: [id], onDelete:SetNull) 
+  topic                Topic           @relation("ArchivedTopicQuestions", fields: [topicId], references: [id], onDelete:SetNull)   
+  questionGroup        QuestionGroup?  @relation("ArchivedQuestionGroupQuestions", fields: [questionGroupId], references: [id], onDelete:SetNull)
+
+  // No studentAnswers or tags on archived questions
+  // @@unique([questionGroupId, pdfPageNumber, questionNumberOnPage], name: "unique_archived_question_in_group_page_num") // Optional
+}
+
+
+model QuestionTag {
+  questionId Int // Points to Question.id (the live/refactored one)
   tagId      Int
   assignedAt DateTime @default(now())
-  
+
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
@@ -246,54 +308,54 @@ model QuestionTag {
 }
 
 model PracticeSession {
-  id                     String                @id @default(uuid())
-  studentId              String
-  title                  String?
-  type                   PracticeSessionType   @default(PRACTICE)
-  status                 PracticeSessionStatus @default(NOT_STARTED)
-  examDurationMinutes    Int?
-  subjectId              Int?
-  topicId                Int?
-  basedOnQuestionGroupId Int?
-  assignedByParentId     String?
-  assignedByTeacherId    String?
-  startTime              DateTime              @default(now())
-  endTime                DateTime?
-  durationSeconds        Int?
-  score                  Int?
-  totalQuestions         Int?
-  correctAnswers         Int?
-  xpEarned               Int                   @default(0)
+  id                      String                @id @default(uuid())
+  studentId               String
+  title                   String?
+  type                    PracticeSessionType   @default(PRACTICE)
+  status                  PracticeSessionStatus @default(NOT_STARTED)
+  examDurationMinutes     Int?
+  subjectId               Int?
+  topicId                 Int?
+  basedOnQuestionGroupId  Int?
+  assignedByParentId      String?
+  assignedByTeacherId     String?
+  startTime               DateTime              @default(now())
+  endTime                 DateTime?
+  durationSeconds         Int?
+  score                   Int?
+  totalQuestions          Int?
+  correctAnswers          Int?
+  xpEarned                Int                   @default(0)
   challengeWeekIdentifier DateTime?
-  
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
 
-  student                Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject                Subject?              @relation("SubjectPracticeSessions", fields: [subjectId], references: [id], onDelete: SetNull)
-  topic                  Topic?                @relation(fields: [topicId], references: [id], onDelete: SetNull)
-  basedOnQuestionGroup   QuestionGroup?        @relation("BasedOnQuestionGroup", fields: [basedOnQuestionGroupId], references: [id], onDelete: SetNull)
-  assignedByParent       Parent?               @relation("AssignedSessionsByParent", fields: [assignedByParentId], references: [id], onDelete: SetNull)
-  assignedByTeacher      Teacher?              @relation("AssignedSessionsByTeacher", fields: [assignedByTeacherId], references: [id], onDelete: SetNull)
-  studentAnswers         StudentAnswer[]
-  result                 Result?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student              Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject              Subject?        @relation("SubjectPracticeSessions", fields: [subjectId], references: [id], onDelete: SetNull)
+  topic                Topic?          @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  basedOnQuestionGroup QuestionGroup?  @relation("BasedOnQuestionGroup", fields: [basedOnQuestionGroupId], references: [id], onDelete: SetNull)
+  assignedByParent     Parent?         @relation("AssignedSessionsByParent", fields: [assignedByParentId], references: [id], onDelete: SetNull)
+  assignedByTeacher    Teacher?        @relation("AssignedSessionsByTeacher", fields: [assignedByTeacherId], references: [id], onDelete: SetNull)
+  studentAnswers       StudentAnswer[]
+  result               Result?
 }
 
 model StudentAnswer {
   id                String   @id @default(uuid())
   practiceSessionId String
-  questionId        Int
+  questionId        Int      // Points to Question.id (the live/refactored one)
   submittedAnswer   Json?
   isCorrect         Boolean?
   pointsEarned      Int      @default(0)
   attemptedAt       DateTime @default(now())
   feedback          String?  @db.Text
-  
-  createdAt         DateTime @default(now()) 
-  updatedAt         DateTime @updatedAt   
 
-  practiceSession   PracticeSession @relation(fields: [practiceSessionId], references: [id], onDelete: Cascade)
-  question          Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  practiceSession PracticeSession @relation(fields: [practiceSessionId], references: [id], onDelete: Cascade)
+  question        Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([practiceSessionId, questionId])
 }
@@ -304,26 +366,26 @@ model Result {
   practiceSessionId String   @unique
   studentId         String
   submittedAt       DateTime @default(now())
-  
-  createdAt         DateTime @default(now()) 
-  updatedAt         DateTime @updatedAt   
 
-  practiceSession   PracticeSession @relation(fields: [practiceSessionId], references: [id], onDelete: Cascade)
-  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  practiceSession PracticeSession @relation(fields: [practiceSessionId], references: [id], onDelete: Cascade)
+  student         Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model Attendance {
   id        Int      @id @default(autoincrement())
-  date      DateTime 
+  date      DateTime
   present   Boolean
   lessonId  Int
   studentId String
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lesson  Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([lessonId, studentId, date])
 }
@@ -335,65 +397,65 @@ model Event {
   endTime     DateTime
   description String   @db.Text
   classId     Int?
-  studentId   String?  
-  
+  studentId   String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  class       Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
-  student     Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
+  student Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model Announcement {
   id          Int      @id @default(autoincrement())
   title       String
-  date        DateTime @default(now()) 
+  date        DateTime @default(now())
   description String   @db.Text
   classId     Int?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  class       Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
+  class Class? @relation(fields: [classId], references: [id], onDelete: SetNull)
 }
 
 model Badge {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  description String   @db.Text
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String  @db.Text
   icon        String?
-  criteria    String   @db.Text
-  xpBonus     Int      @default(0)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  criteria    String  @db.Text
+  xpBonus     Int     @default(0)
 
-  students    StudentBadge[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  students StudentBadge[]
 }
 
-model StudentBadge { 
+model StudentBadge {
   studentId String
   badgeId   Int
   awardedAt DateTime @default(now())
-  
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  badge   Badge   @relation(fields: [badgeId], references: [id], onDelete: Cascade)
 
   @@id([studentId, badgeId])
 }
 
 model SubjectTeacher {
-  subjectId Int
-  teacherId String
-  assignedAt DateTime @default(now()) 
+  subjectId  Int
+  teacherId  String
+  assignedAt DateTime @default(now())
 
-  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@id([subjectId, teacherId])
 }
 
-// +++ New Models for Oral Practice +++
+// +++ Oral Practice Models +++
 enum OralPromptType {
   PASSAGE_READING
   PICTURE_CONVERSATION
@@ -402,54 +464,44 @@ enum OralPromptType {
 
 model OralPrompt {
   id                  Int            @id @default(autoincrement())
-  title               String         
+  title               String
   subjectId           Int
-  topicId             Int?           
-  promptType          OralPromptType 
-  
-  description         String?        @db.Text 
-  studentInstructions String?        @db.Text 
-
-  imageUrl            String?        
-  videoUrl            String?        
-  guidingQuestions    Json?          // Expect: string[]
-  passageText         String?        @db.Text 
-
-  difficulty          DifficultyLevel? @default(MEDIUM) 
-  keywords            String[]       @default([])      
-  estimatedTimeSeconds Int?          
-
-  // createdByTeacherId  String?        // Optional: if created by a specific teacher
+  topicId             Int?
+  promptType          OralPromptType
+  description         String?        @db.Text
+  studentInstructions String?        @db.Text
+  imageUrl            String?
+  videoUrl            String?
+  guidingQuestions    Json? // Expect: string[]
+  passageText         String?        @db.Text
+  difficulty          DifficultyLevel? @default(MEDIUM)
+  keywords            String[]       @default([])
+  estimatedTimeSeconds Int?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
   productionReady     Boolean        @default(false)
 
-  subject             Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade) 
-  topic               Topic?         @relation(fields: [topicId], references: [id], onDelete:SetNull) 
-  // teacher             Teacher?       @relation("OralPromptsByTeacher", fields: [createdByTeacherId], references: [id], onDelete:SetNull) // Define relation name if used
-
+  subject              Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topic                Topic?  @relation(fields: [topicId], references: [id], onDelete: SetNull)
   oralPracticeAttempts OralPracticeAttempt[]
 }
 
 model OralPracticeAttempt {
-  id                  String    @id @default(uuid())
+  id                  String   @id @default(uuid())
   studentId           String
   oralPromptId        Int
-  attemptedAt         DateTime  @default(now())
-  audioRecordingUrl   String?   
-  transcription       String?   @db.Text
-  aiFeedback          Json?     
-  teacherFeedback     String?   @db.Text 
-  score               Int?      
-  
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  attemptedAt         DateTime @default(now())
+  audioRecordingUrl   String?
+  transcription       String?  @db.Text
+  aiFeedback          Json?
+  teacherFeedback     String?  @db.Text
+  score               Int?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  student             Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  oralPrompt          OralPrompt @relation(fields: [oralPromptId], references: [id], onDelete: Cascade) 
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  oralPrompt OralPrompt @relation(fields: [oralPromptId], references: [id], onDelete: Cascade)
 }
-// --- End New Models for Oral Practice ---
-
 
 // ------------- Enums -------------
 enum UserSex {
@@ -495,6 +547,7 @@ enum PracticeSessionType {
   MOCK_EXAM
   ASSIGNMENT_ATTEMPT
   TOPIC_QUIZ
-  QUESTION_GROUP_PRACTICE 
-  WEEKLY_CHALLENGE 
+  QUESTION_GROUP_PRACTICE
+  WEEKLY_CHALLENGE
+  LISTENING_COMPREHENSION 
 }

@@ -120,14 +120,49 @@ export default function StudentReviewPage() {
   
   const renderCorrectAnswer = (question: QuestionForDisplay) => {
     if (question.correctAnswer === null || question.correctAnswer === undefined) return "N/A";
+    
+    // Handle object-type correct answers first (common in listening comprehension)
+    if (typeof question.correctAnswer === 'object' && question.correctAnswer !== null) {
+      // Check if it's an object with id and text properties
+      if (question.correctAnswer.id && question.correctAnswer.text) {
+        return `${question.correctAnswer.id}. ${question.correctAnswer.text}`;
+      }
+      
+      // Check if it's an object with just an id property
+      if (question.correctAnswer.id && !question.correctAnswer.text) {
+        const correctOption = question.options?.find(opt => 
+          String(opt.id).toLowerCase() === String(question.correctAnswer.id).toLowerCase()
+        );
+        return correctOption ? `${correctOption.id}. ${correctOption.text}` : String(question.correctAnswer.id);
+      }
+      
+      // Handle multi-part answers (objects with multiple properties)
+      if (!Array.isArray(question.correctAnswer) && Object.keys(question.correctAnswer).length > 1) {
+        return (
+          <ul className="list-disc list-inside pl-4 text-xs">
+            {Object.entries(question.correctAnswer).map(([part, ans]) => (
+              <li key={part}><strong>{part}:</strong> {String(ans)}</li>
+            ))}
+          </ul>
+        );
+      }
+      
+      // Fallback: try to extract meaningful content from the object
+      if (Object.keys(question.correctAnswer).length === 1) {
+        const value = Object.values(question.correctAnswer)[0];
+        return String(value);
+      }
+    }
+    
+    // Handle specific question types
     switch (question.questionType) {
       case PrismaQuestionType.MULTIPLE_CHOICE:
-        if (typeof question.correctAnswer === 'object' && !Array.isArray(question.correctAnswer) && question.correctAnswer.id && question.correctAnswer.text) {
-            return `${question.correctAnswer.id}. ${question.correctAnswer.text}`;
-        }
         const correctAnswerId = String(question.correctAnswer);
-        const correctOption = question.options.find(opt => String(opt.id).toLowerCase() === correctAnswerId.toLowerCase());
+        const correctOption = question.options?.find(opt => 
+          String(opt.id).toLowerCase() === correctAnswerId.toLowerCase()
+        );
         return correctOption ? `${correctOption.id}. ${correctOption.text}` : correctAnswerId;
+        
       case PrismaQuestionType.MULTI_PART:
         if (typeof question.correctAnswer === 'object' && question.correctAnswer !== null && !Array.isArray(question.correctAnswer)) {
           return (
@@ -139,10 +174,16 @@ export default function StudentReviewPage() {
           );
         }
         return JSON.stringify(question.correctAnswer);
+        
       case PrismaQuestionType.FILL_IN_THE_BLANK:
       case PrismaQuestionType.OPEN_ENDED:
         return Array.isArray(question.correctAnswer) ? question.correctAnswer.join(' or ') : String(question.correctAnswer);
+        
       default:
+        // For any other question types, including listening comprehension
+        if (Array.isArray(question.correctAnswer)) {
+          return question.correctAnswer.join(' or ');
+        }
         return String(question.correctAnswer);
     }
   };

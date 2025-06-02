@@ -80,7 +80,7 @@ const chinesePracticeComponents: PracticeComponent[] = [
   {
     id: "paper3-listening-comprehension", name: "Paper 3: Listening Comprehension (听力理解)",
     description: "Listen to audio clips and answer multiple-choice questions.", icon: FaHeadphones,
-    path: "/student/practice/chinese/listening", disabled: true,
+    path: "/student/practice/chinese/listening", disabled: false,
   },
   {
     id: "oral-exam", name: "Oral Examination (口试)",
