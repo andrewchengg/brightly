@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -8,7 +8,9 @@ const prisma = new PrismaClient();
 const MATHEMATICS_SUBJECT_ID = 1; // <--- CHANGE THIS IF YOUR MATH SUBJECT ID IS DIFFERENT
 
 async function main() {
-  console.log(`Starting seed process for Mathematics (Subject ID: ${MATHEMATICS_SUBJECT_ID})...`);
+  console.log(
+    `Starting seed process for Mathematics (Subject ID: ${MATHEMATICS_SUBJECT_ID})...`
+  );
 
   // Verify Mathematics subject exists
   const mathSubject = await prisma.subject.findUnique({
@@ -16,7 +18,9 @@ async function main() {
   });
 
   if (!mathSubject) {
-    console.error(`Mathematics subject with ID ${MATHEMATICS_SUBJECT_ID} not found. Please create it first or update the ID in this script.`);
+    console.error(
+      `Mathematics subject with ID ${MATHEMATICS_SUBJECT_ID} not found. Please create it first or update the ID in this script.`
+    );
     return;
   }
 
@@ -27,7 +31,9 @@ async function main() {
   // and creates the new standard topic IDs.
   // If you want to remap first, then delete, the order of operations would be different.
   // Given your request "remove the existing topics", this will do that.
-  console.log(`Deleting existing topics for Mathematics (Subject ID: ${MATHEMATICS_SUBJECT_ID})...`);
+  console.log(
+    `Deleting existing topics for Mathematics (Subject ID: ${MATHEMATICS_SUBJECT_ID})...`
+  );
   const deletedTopics = await prisma.topic.deleteMany({
     where: {
       subjectId: MATHEMATICS_SUBJECT_ID,
@@ -38,13 +44,41 @@ async function main() {
   // 2. Create the 7 new standard Mathematics topics
   console.log("Creating new standardized Mathematics Topics...");
   const standardizedMathTopicsData = [
-    { name: "Numbers", description: "Concepts of whole numbers, fractions, decimals, number theory, and their operations." },
-    { name: "Measurement", description: "Units and calculations for length, mass, volume, time, money, area, and perimeter." },
-    { name: "Statistics", description: "Data representation (graphs, charts) and interpretation, including average." },
-    { name: "Geometry", description: "Properties of shapes, angles, symmetry, circles, and spatial reasoning." },
-    { name: "Ratio and Percentage", description: "Understanding and applying ratios, proportions, and percentages." },
-    { name: "Rate and Speed", description: "Solving problems involving rate, speed, distance, and time." },
-    { name: "Algebra", description: "Basic algebraic expressions, manipulations, and solving simple equations." },
+    {
+      name: "Numbers",
+      description:
+        "Concepts of whole numbers, fractions, decimals, number theory, and their operations.",
+    },
+    {
+      name: "Measurement",
+      description:
+        "Units and calculations for length, mass, volume, time, money, area, and perimeter.",
+    },
+    {
+      name: "Statistics",
+      description:
+        "Data representation (graphs, charts) and interpretation, including average.",
+    },
+    {
+      name: "Geometry",
+      description:
+        "Properties of shapes, angles, symmetry, circles, and spatial reasoning.",
+    },
+    {
+      name: "Ratio and Percentage",
+      description:
+        "Understanding and applying ratios, proportions, and percentages.",
+    },
+    {
+      name: "Rate and Speed",
+      description:
+        "Solving problems involving rate, speed, distance, and time.",
+    },
+    {
+      name: "Algebra",
+      description:
+        "Basic algebraic expressions, manipulations, and solving simple equations.",
+    },
   ];
 
   const newStandardTopics: { name: string; id: number }[] = [];
@@ -61,8 +95,12 @@ async function main() {
   }
 
   console.log("\nNew Standard Mathematics Topics Created:");
-  newStandardTopics.forEach(t => console.log(`- Name: ${t.name}, ID: ${t.id}`));
-  console.log("\nIMPORTANT: Note these new Topic IDs for remapping your questions!");
+  newStandardTopics.forEach((t) =>
+    console.log(`- Name: ${t.name}, ID: ${t.id}`)
+  );
+  console.log(
+    "\nIMPORTANT: Note these new Topic IDs for remapping your questions!"
+  );
 
   console.log("Seeding of standard Mathematics topics completed.");
 }

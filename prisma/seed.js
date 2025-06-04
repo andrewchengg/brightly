@@ -1,259 +1,240 @@
 // prisma/seed.js
-const { PrismaClient, QuestionType, DifficultyLevel } = require('../src/generated/prisma');
-const { createClient } = require('@supabase/supabase-js');
-const OpenAI = require('openai');
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
-
+const {
+  PrismaClient,
+  QuestionType,
+  DifficultyLevel,
+} = require("../src/generated/prisma"); // Adjust path if needed
 const prisma = new PrismaClient();
 
-// --- Supabase Client for Storage (service role key) ---
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// --- Subject ID for Chinese ---
+const CHINESE_SUBJECT_ID = 4; // Assuming 4 is Chinese
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error("Supabase URL or Service Role Key is missing. Check .env at project root.");
-  process.exit(1);
-}
-const supabaseAdminClient = createClient(supabaseUrl, supabaseServiceKey);
-
-// --- OpenAI Client ---
-if (!process.env.OPENAI_API_KEY) {
-  console.error("OPENAI_API_KEY is missing from .env");
-  process.exit(1);
-}
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const TTS_AUDIO_BUCKET = 'tts-audio';
-// *** NEW IDENTIFIER FOR THIS NEW BATCH OF 10 PASSAGES ***
-const CURRENT_BATCH_PAPER_IDENTIFIER = "PSLE_LC_FRESH_SET_10_V15_BATCH11_SPEED1"; // New identifier
-const TTS_SPEED = 1.0;
-const DELAY_BETWEEN_TTS_MS = 5000;
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function generateAndStoreTTS(text, fileNamePrefix) {
-  // ... (generateAndStoreTTS function remains the same as the last version)
-  if (!text || text.trim() === "") { /* ... */ return null; }
-  console.log(`  Generating TTS for: ${fileNamePrefix.substring(0,30)}... (Length: ${text.length}, Speed: ${TTS_SPEED})`);
-  try {
-    const mp3 = await openai.audio.speech.create({ model: "tts-1", voice: "nova", input: text, response_format: "mp3", speed: TTS_SPEED });
-    const audioBuffer = Buffer.from(await mp3.arrayBuffer());
-    const sanitizedPrefix = fileNamePrefix.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase().substring(0, 50);
-    const filePath = `chinese_lc/${CURRENT_BATCH_PAPER_IDENTIFIER.toLowerCase()}/${sanitizedPrefix}_${Date.now()}.mp3`;
-    console.log(`    Uploading ${filePath} to Supabase bucket: ${TTS_AUDIO_BUCKET}...`);
-    const { error: uploadError } = await supabaseAdminClient.storage.from(TTS_AUDIO_BUCKET).upload(filePath, audioBuffer, { contentType: 'audio/mpeg', upsert: true });
-    if (uploadError) throw uploadError;
-    const { data: publicUrlData } = supabaseAdminClient.storage.from(TTS_AUDIO_BUCKET).getPublicUrl(filePath);
-    if (!publicUrlData?.publicUrl) throw new Error(`Could not get public URL for ${filePath}`);
-    console.log(`    TTS & Upload successful for "${fileNamePrefix.substring(0,30)}".`);
-    return publicUrlData.publicUrl;
-  } catch (error) { /* ... error logging from previous version ... */ return null; }
-}
-
-// JSDoc type definitions
-/** @typedef {Object} SeedQuestionOption ... */
-/** @typedef {Object} SeedQuestionCorrectAnswer ... */
-/** @typedef {Object} SeedQuestionDefinition ... */
-/** @typedef {Object} SeedPassageDefinition ... */
-
-async function deletePassageSet(identifierToDelete, bucket) {
-    // ... (deletePassageSet function remains the same as the last version) ...
-    console.log(`\n[Deletion Sub-Routine] Checking for data with IDENTIFIER: ${identifierToDelete}...`);
-    const groups = await prisma.questionGroup.findMany({ where: { sourceAssessmentType: identifierToDelete }, select: { id: true, audioUrl: true }});
-    if (groups.length > 0) {
-        const groupIds = groups.map(g => g.id);
-        await prisma.question.deleteMany({ where: { questionGroupId: { in: groupIds } } });
-        await prisma.questionGroup.deleteMany({ where: { id: { in: groupIds } } });
-        const audioFiles = groups.map(g => g.audioUrl).filter(Boolean).map(url => { try { const p = new URL(url).pathname.split(`/${bucket}/`)[1]; return p; } catch { return null; }}).filter(Boolean);
-        if (audioFiles.length > 0) {
-            const folder = `chinese_lc/${identifierToDelete.toLowerCase()}`;
-            const { data: listData, error: listError } = await supabaseAdminClient.storage.from(bucket).list(folder);
-            if (!listError && listData && listData.length > 0) {
-                const filesInFolder = listData.map(f => `${folder}/${f.name}`);
-                if (filesInFolder.length > 0) await supabaseAdminClient.storage.from(bucket).remove(filesInFolder);
-            }
-        }
-        console.log(`  Deletion for ${identifierToDelete} complete.`);
-    } else { console.log(`  No data found for ${identifierToDelete} to delete.`); }
-}
-
+// --- Topic ID for Cloze Passage Skills ---
+const TOPIC_ID_CLOZE = 43;
+const TOPIC_NAME_CLOZE = "短文填空 (Cloze Passage Skills)";
+const TOPIC_DESC_CLOZE = "Skills for completing cloze passages.";
 
 async function main() {
-  console.log(`STARTING SEED SCRIPT for NEW BATCH: ${CURRENT_BATCH_PAPER_IDENTIFIER} (Speed ${TTS_SPEED})...`);
+  console.log(
+    `Start seeding Cloze Passages for Chinese (Subject ID: ${CHINESE_SUBJECT_ID}, Topic ID: ${TOPIC_ID_CLOZE})...`
+  );
 
-  // --- Targeted DELETION for the CURRENT_BATCH_PAPER_IDENTIFIER (for idempotency) ---
-  await deletePassageSet(CURRENT_BATCH_PAPER_IDENTIFIER, TTS_AUDIO_BUCKET);
-
-  // --- Upsert Subject and Topic ---
-  console.log("\n[Setup Phase] Upserting Subject and Topic...");
-  const chineseLanguageSubject = await prisma.subject.upsert({
-    where: { name: 'Chinese' }, update: {}, create: { name: 'Chinese' },
-  });
-  const listeningTopic = await prisma.topic.upsert({
-    where: { name_subjectId: { name: '听力理解综合练习 (Stored Audio Speed 1.0)', subjectId: chineseLanguageSubject.id } },
-    update: {},
+  // --- 1. Ensure Cloze Topic Exists ---
+  const clozeTopic = await prisma.topic.upsert({
+    where: { id: TOPIC_ID_CLOZE },
+    update: {
+      name: TOPIC_NAME_CLOZE,
+      description: TOPIC_DESC_CLOZE,
+      subjectId: CHINESE_SUBJECT_ID,
+    },
     create: {
-      name: '听力理解综合练习 (Stored Audio Speed 1.0)',
-      description: 'PSLE 标准听力理解题集 - 音频已存储 (标准语速)',
-      subjectId: chineseLanguageSubject.id,
+      id: TOPIC_ID_CLOZE,
+      name: TOPIC_NAME_CLOZE,
+      description: TOPIC_DESC_CLOZE,
+      subjectId: CHINESE_SUBJECT_ID,
     },
   });
-  console.log(`  Upserted Subject: ${chineseLanguageSubject.name}, Topic: ${listeningTopic.name}`);
-  console.log("[Setup Phase] Complete.");
+  console.log(
+    `Ensured/Created Topic: ${clozeTopic.name} (ID: ${clozeTopic.id})`
+  );
 
-  // --- Define 10 NEW Listening Passages (Batch 11 - Speed 1.0) ---
-  // *** PLEASE ADJUST `currentGlobalQuestionNumber` CAREFULLY! ***
-  // If your previous batch (P101-P110) ended at question "144", this starts at "145".
-  let currentGlobalQuestionNumber = 145; // <<<< ADJUST THIS!
+  // --- CLOZE PASSAGE SET 1: "A Day in the Park" (洋洋去公园) ---
+  const passageText1 = `今天，五岁的洋洋和家人一起到公园游玩。这是洋洋 Q16 (1 做梦 2 期盼 3 想象 4 关心) 已久的一天，因为他之前摔伤了腿，哪里都不能去。\n洋洋和哥哥在公园玩得很开心。突然，天暗了下来，下起了大雨。妈妈连忙收拾东西，爸爸也在翻找雨伞：“哎呀，我把雨伞放在客厅的沙发上了！”大家听了，Q17 (1 进一步 2 差不多 3 禁不住 4 回过神) 笑了起来。爸爸看着身边的东西，能遮雨的，只有一块塑料布。他把塑料布交给妈妈，妈妈立刻把它披在哥哥和洋洋的身上。哥哥看到雨水打湿了洋洋的衣服，便把塑料布给了洋洋。\n洋洋觉得很 Q18 (1 惭愧 2 好奇 3 为难 4 悲伤)：“哥哥为什么不要和我一起遮？”妈妈牵着洋洋边跑边说：“因为哥哥觉得自己比较 Q19 (1 强壮 2 勇敢 3 能干 4 精神)，他想保护弱小的你呀！”\n洋洋听了妈妈的话，挣脱妈妈的手，跑到不远处的草丛，在那儿蹲了下来，用塑料布遮着几朵在风雨中 Q20 (1 轻手轻脚 2 摇摇摆摆 3 争先恐后 4 东张西望) 的小花儿。爸爸、妈妈和哥哥望着洋洋可爱的模样，都笑了。\n不一会儿，雨过天晴，一家人又开开心心地继续游玩。`;
 
-  /** @type {SeedPassageDefinition[]} */
-  const listeningPassagesDataBatch11Speed1 = [
-    // Passage 121 (1 Q)
-    {
-      passageNameSuffix: "P121_School_Cleaning_Campaign_Announce",
-      passageFullScript: "同学们请注意，为配合即将来临的“清洁与绿化周”，我校将于本周五下午举行大扫除活动。请各班同学在班主任的带领下，认真打扫课室及公共区域。工具将由学校提供。让我们一起美化校园！",
-      passageOrder: 121,
-      questions: [ { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "学校大扫除活动将在什么时候举行？", options: [ { id: "1", text: "本周一上午。" }, { id: "2", text: "本周五下午。" }, { id: "3", text: "下周一全天。" }], correctAnswer: { id: "2" }, marks: 2, difficulty: DifficultyLevel.EASY, } ],
+  const clozeGroup1 = await prisma.questionGroup.upsert({
+    where: { name: "洋洋去公园 - Cloze Passage" },
+    update: {
+      description: passageText1,
+      sourceAssessmentType: "PSLE Cloze Style 1",
     },
-    // Passage 122 (Dialogue - Baking Cookies) (2 Qs)
-    {
-      passageNameSuffix: "P122_Baking_Cookies_Dialogue",
-      passageFullScript: "女儿：妈妈，我们今天可以一起做饼干吗？我想做巧克力口味的。\n妈妈：好啊！做饼干很有趣。我们需要面粉、糖、鸡蛋、牛油，还有巧克力豆。你去把材料拿出来吧。\n女儿：太好了！我最喜欢和妈妈一起做点心了。\n妈妈：做好了我们可以送一些给隔壁的王奶奶尝尝。",
-      passageOrder: 122,
-      questions: [
-        { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "女儿想做什么口味的饼干？", options: [ { id: "1", text: "香草口味。" }, { id: "2", text: "草莓口味。" }, { id: "3", text: "巧克力口味。" }], correctAnswer: { id: "3" }, marks: 2, difficulty: DifficultyLevel.EASY, },
-        { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "妈妈建议把做好的饼干送给谁？", options: [ { id: "1", text: "老师。" }, { id: "2", text: "隔壁的王奶奶。" }, { id: "3", text: "同学。" }], correctAnswer: { id: "2" }, marks: 2, difficulty: DifficultyLevel.MEDIUM, },
-      ],
+    create: {
+      name: "洋洋去公园 - Cloze Passage",
+      description: passageText1,
+      sourceYear: 2024,
+      sourceLevel: "Primary 6",
+      sourceAssessmentType: "PSLE Cloze Style 1",
     },
-    // Passage 123 (Story - The Boy and The Apple Tree) (1 Q - Inferential)
+  });
+  console.log(
+    `Upserted QuestionGroup: ${clozeGroup1.name} (ID: ${clozeGroup1.id})`
+  );
+
+  const clozeQuestions1 = [
     {
-      passageNameSuffix: "P123_Boy_Apple_Tree_Story",
-      passageFullScript: "很久以前，有一棵大苹果树和一个小男孩。男孩每天都喜欢来和苹果树玩，爬树、吃苹果、在树荫下睡觉。苹果树也很喜欢男孩。男孩长大了，很久没来看苹果树。一天，男孩回来了，看起来很难过。他说：“我需要钱买玩具。”苹果树说：“把我所有的苹果都摘去卖掉吧。”男孩照做了。又过了很多年，男孩回来了，他说：“我需要一栋房子。”苹果树说：“砍下我的树枝去盖房子吧。”男孩又照做了。再后来，男孩变成老人回来了，他说：“我想出海远航，但我没有船。”苹果树说：“把我最后的树干砍去做船吧。”老人最后坐着树做的小船出海了。苹果树虽然什么都没有了，但它很快乐。",
-      passageOrder: 123,
-      questions: [ { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "苹果树为什么最后会感到快乐？", options: [ { id: "1", text: "因为它结了很多苹果。" }, { id: "2", text: "因为它帮助了男孩实现愿望。" }, { id: "3", text: "因为它变得很高大。" }], correctAnswer: { id: "2" }, marks: 2, difficulty: DifficultyLevel.HARD, } ],
+      qNum: "Q16",
+      options: { 1: "做梦", 2: "期盼", 3: "想象", 4: "关心" },
+      correctAnswer: "2",
+      explanation: "洋洋因为之前受伤不能出去，所以他“期盼”这一天很久了。",
     },
-    // Passage 124 (Instructions - School Talent Show Audition) (1 Q)
     {
-      passageNameSuffix: "P124_Talent_Show_Audition_Instructions",
-      passageFullScript: "“校园才艺秀”海选开始啦！无论你是唱歌、跳舞、乐器演奏还是其他才艺，都欢迎报名参加。报名截止日期为本周五。请到音乐室外布告栏索取报名表格，并在下周一带齐所需道具到礼堂参加海选。",
-      passageOrder: 124,
-      questions: [ { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "参加“校园才艺秀”海选的同学应该在哪里索取报名表格？", options: [ { id: "1", text: "教员室。" }, { id: "2", text: "学校网站。" }, { id: "3", text: "音乐室外布告栏。" }], correctAnswer: { id: "3" }, marks: 2, difficulty: DifficultyLevel.MEDIUM, } ],
+      qNum: "Q17",
+      options: { 1: "进一步", 2: "差不多", 3: "禁不住", 4: "回过神" },
+      correctAnswer: "3",
+      explanation: "大家听到爸爸忘了带伞，“禁不住”笑了起来，表示忍不住。",
     },
-    // Passage 125 (Advertisement - Science Museum Workshop) (1 Q)
     {
-      passageNameSuffix: "P125_Science_Museum_Workshop_Ad",
-      passageFullScript: "探索科学奥秘！科学馆将于学校假期举办“小小科学家”工作坊，适合七至十岁的儿童参加。通过有趣的动手实验，激发孩子对科学的兴趣。名额有限，请尽早通过科学馆网站报名。费用为每人三十元。",
-      passageOrder: 125,
-      questions: [ { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "“小小科学家”工作坊的报名费是多少？", options: [ { id: "1", text: "免费。" }, { id: "2", text: "每人二十元。" }, { id: "3", text: "每人三十元。" }], correctAnswer: { id: "3" }, marks: 2, difficulty: DifficultyLevel.EASY, } ],
+      qNum: "Q18",
+      options: { 1: "惭愧", 2: "好奇", 3: "为难", 4: "悲伤" },
+      correctAnswer: "2",
+      explanation: "洋洋不明白哥哥为什么不一起用塑料布，所以感到“好奇”。",
     },
-    // Passage 126 (Dialogue - Traffic Jam) (2 Qs)
     {
-        passageNameSuffix: "P126_Traffic_Jam_Dialogue",
-        passageFullScript: "司机：乘客您好，前面好像发生交通事故了，现在路上非常堵车。\n乘客：是吗？那大概要堵多久啊？我赶时间去机场，怕来不及。\n司机：看起来有点严重，可能至少要半个小时。如果您真的很赶时间，我建议您在前面那个地铁站下车，改搭地铁去机场会比较快。\n乘客：好吧，那麻烦您在地铁站让我下车。谢谢您的建议。",
-        passageOrder: 126,
-        questions: [
-            { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "路上堵车的主要原因是什么？", options: [ { id: "1", text: "道路维修。" }, { id: "2", text: "下大雨。" }, { id: "3", text: "发生交通事故。" }], correctAnswer: { id: "3" }, marks: 2, difficulty: DifficultyLevel.EASY, },
-            { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "司机建议乘客怎样去机场？", options: [ { id: "1", text: "继续等德士。" }, { id: "2", text: "走路去机场。" }, { id: "3", text: "改搭地铁。" }], correctAnswer: { id: "3" }, marks: 2, difficulty: DifficultyLevel.MEDIUM, }
-        ],
+      qNum: "Q19",
+      options: { 1: "强壮", 2: "勇敢", 3: "能干", 4: "精神" },
+      correctAnswer: "1",
+      explanation: "妈妈解释说哥哥觉得自己比较“强壮”，可以不遮雨。",
     },
-    // Passage 127 (Story - The Fox and The Grapes Adaptation) (1 Q)
     {
-        passageNameSuffix: "P127_Fox_Grapes_Adapt_Story",
-        passageFullScript: "一只狐狸饿了，它走到一个葡萄架下，看到架上挂着一串串熟透了的紫葡萄。狐狸馋得直流口水，它跳起来想摘葡萄，试了好几次，就是够不着。最后，狐狸只好放弃了。它边走边自言自语地说：“这葡萄肯定是酸的，不好吃！”",
-        passageOrder: 127,
-        questions: [ { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "狐狸为什么说葡萄是酸的？", options: [ { id: "1", text: "它真的尝过葡萄是酸的。" }, { id: "2", text: "因为它摘不到葡萄，自我安慰。" }, { id: "3", text: "别人告诉它葡萄是酸的。" }], correctAnswer: { id: "2" }, marks: 2, difficulty: DifficultyLevel.HARD, } ], // Inferential
-    },
-    // Passage 128 (Instructions - School Field Trip Consent Form) (1 Q)
-    {
-        passageNameSuffix: "P128_Field_Trip_Consent_Instructions",
-        passageFullScript: "各位家长，学校将于下个月组织四年级学生前往新生水厂参观。请详细阅读随函附上的活动详情和安全须知。如果您同意孩子参加，请在本周五之前填写并交回家长同意书给班主任。逾期者将视为不参加。",
-        passageOrder: 128,
-        questions: [ { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "家长同意书最晚应该在什么时候交给班主任？", options: [ { id: "1", text: "活动当天。" }, { id: "2", text: "下个星期一。" }, { id: "3", text: "本周五之前。" }], correctAnswer: { id: "3" }, marks: 2, difficulty: DifficultyLevel.MEDIUM, } ],
-    },
-    // Passage 129 (Dialogue - Asking for Directions) (1 Q)
-    {
-        passageNameSuffix: "P129_Asking_Directions_Dialogue",
-        passageFullScript: "游客：不好意思，请问国家博物馆怎么走？\n路人：哦，国家博物馆离这里不远。你沿着这条路直走，过两个路口，然后向左转，就能看到了。大概走十分钟就到了。\n游客：太感谢您了！\n路人：不客气。",
-        passageOrder: 129,
-        questions: [ { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "去国家博物馆需要走多久？", options: [ { id: "1", text: "大约五分钟。" }, { id: "2", text: "大约十分钟。" }, { id: "3", text: "大约二十分钟。" }], correctAnswer: { id: "2" }, marks: 2, difficulty: DifficultyLevel.EASY, } ],
-    },
-    // Passage 130 (Announcement - School Sports Equipment Borrowing) (1 Q)
-    {
-        passageNameSuffix: "P130_Sports_Equipment_Borrowing_Announce",
-        passageFullScript: "同学们，体育器材室从今天起调整开放时间。新的开放时间为每天午餐后的一点至一点三十分，以及下午三点至三点三十分。借用器材时请出示学生证，并在使用完毕后按时归还。请爱护体育器材。",
-        passageOrder: 130,
-        questions: [ { questionNumberOnPage: String(currentGlobalQuestionNumber++), text: "体育器材室下午的开放时间是什么时候？", options: [ { id: "1", text: "一点至一点三十分。" }, { id: "2", text: "两点至两点三十分。" }, { id: "3", text: "三点至三点三十分。" }], correctAnswer: { id: "3" }, marks: 2, difficulty: DifficultyLevel.MEDIUM, } ],
+      qNum: "Q20",
+      options: { 1: "轻手轻脚", 2: "摇摇摆摆", 3: "争先恐后", 4: "东张西望" },
+      correctAnswer: "2",
+      explanation: "小花在风雨中“摇摇摆摆”，形容它们不稳定的样子。",
     },
   ];
 
-  console.log(`\n[Content Seeding Phase - Current Batch ${CURRENT_BATCH_PAPER_IDENTIFIER}] Defined ${listeningPassagesDataBatch11Speed1.length} new passages.`);
-  let seededPassageCount = 0;
-  let totalQuestionsInThisBatch = 0;
-
-  for (const passageDef of listeningPassagesDataBatch11Speed1) {
-    const groupNameForDb = `${CURRENT_BATCH_PAPER_IDENTIFIER} - ${passageDef.passageNameSuffix}`;
-    console.log(`\nProcessing New Passage (Current Batch): ${passageDef.passageOrder}. ${passageDef.passageNameSuffix}`);
-
-    const storedAudioUrl = await generateAndStoreTTS(passageDef.passageFullScript, passageDef.passageNameSuffix);
-    console.log(`  Waiting for ${DELAY_BETWEEN_TTS_MS / 1000} seconds before next TTS generation...`);
-    await delay(DELAY_BETWEEN_TTS_MS);
-
-    if (!storedAudioUrl) {
-      console.warn(`  Skipping QuestionGroup ${groupNameForDb} (Current Batch) due to TTS/upload failure.`);
-      continue;
-    }
-
-    const questionGroup = await prisma.questionGroup.create({
-      data: {
-        name: groupNameForDb,
-        description: passageDef.passageFullScript,
-        audioUrl: storedAudioUrl,
-        sourceYear: 2024,
-        sourceLevel: "P6",
-        sourceAssessmentType: CURRENT_BATCH_PAPER_IDENTIFIER,
-      },
-    });
-
-    for (const qDef of passageDef.questions) {
-      await prisma.question.create({
-        data: {
-          pdfPageNumber: passageDef.passageOrder,
-          questionNumberOnPage: qDef.questionNumberOnPage,
-          text: qDef.text,
-          questionType: QuestionType.MULTIPLE_CHOICE,
-          options: qDef.options,
-          correctAnswer: qDef.correctAnswer,
-          marks: qDef.marks,
-          difficulty: qDef.difficulty,
-          pointsAwarded: 10,
-          subjectId: chineseLanguageSubject.id,
-          topicId: listeningTopic.id,
-          questionGroupId: questionGroup.id,
-          fullPageImageUrl: qDef.questionImage || null,
-          productionReady: true,
+  for (let i = 0; i < clozeQuestions1.length; i++) {
+    const q = clozeQuestions1[i];
+    const qDataFull = {
+      pdfPageNumber: 2001 + i, // Assign some unique page numbers for this set
+      questionNumberOnPage: q.qNum,
+      text: `Fill in blank ${q.qNum} in the passage "${clozeGroup1.name}". Options are provided within the passage text or by the application.`, // Generic text, as options are inline or managed by UI
+      questionType: QuestionType.MULTIPLE_CHOICE,
+      options: q.options,
+      correctAnswer: q.correctAnswer,
+      answerKeyRawText: q.options[q.correctAnswer],
+      explanation: q.explanation,
+      marks: 2,
+      difficulty: DifficultyLevel.MEDIUM,
+      pointsAwarded: 10,
+      subjectId: CHINESE_SUBJECT_ID,
+      topicId: clozeTopic.id,
+      questionGroupId: clozeGroup1.id,
+      sourceYear: 2024,
+      sourceLevel: "Primary 6",
+      sourceAssessmentType: "PSLE Cloze Style 1",
+      productionReady: false, // Set to true for testing
+    };
+    await prisma.question.upsert({
+      where: {
+        unique_live_question_in_group_page_num: {
+          questionGroupId: clozeGroup1.id,
+          pdfPageNumber: qDataFull.pdfPageNumber,
+          questionNumberOnPage: qDataFull.questionNumberOnPage,
         },
-      });
-      totalQuestionsInThisBatch++;
-    }
-    seededPassageCount++;
+      },
+      update: qDataFull,
+      create: qDataFull,
+    });
   }
+  console.log(
+    `Seeded ${clozeQuestions1.length} questions for "${clozeGroup1.name}".`
+  );
 
-  console.log(`\n[Content Seeding Phase - Current Batch] Complete. Successfully seeded ${seededPassageCount} new passage groups with ${totalQuestionsInThisBatch} total questions.`);
-  console.log(`Final global question number for this batch reached: ${currentGlobalQuestionNumber - 1}`);
-  console.log(`\nSEED SCRIPT FINISHED for CURRENT BATCH: ${CURRENT_BATCH_PAPER_IDENTIFIER}.`);
+  // --- CLOZE PASSAGE SET 2: "The Little Ant" (小蚂蚁的启发) ---
+  const passageText2 = `炎热的下午，小明在院子里玩耍，看见一只小蚂蚁正 Q21 (1 努力 2 缓慢 3 偷偷 4 飞快) 地搬着一块比自己身体大好几倍的饼干屑。小蚂蚁走得很吃力，好几次都差一点儿 Q22 (1 放弃 2 成功 3 跌倒 4 迷路)。\n小明好奇地蹲下来观察。他看到小蚂蚁并没有因为困难而 Q23 (1 高兴 2 害怕 3 停止 4 骄傲)，反而更加用力地向前爬。有时候，饼干屑太重了，小蚂蚁就把它放下，自己先爬过一个小土丘，然后再回头把饼干屑拖上去。\n过了好一会儿，小蚂蚁终于把饼干屑搬到了蚁穴洞口。这时，从洞里爬出几只蚂蚁，一起 Q24 (1 分享 2 争抢 3 帮忙 4 观看) 把饼干屑抬了进去。\n小明看着，心里很受 Q25 (1 感动 2 批评 3 怀疑 4 嘲笑)。他想，小小的蚂蚁尚且如此坚持不懈，遇到困难也不退缩，我们人类更应该学习它们的精神。`;
+
+  const clozeGroup2 = await prisma.questionGroup.upsert({
+    where: { name: "小蚂蚁的启发 - Cloze Passage" },
+    update: {
+      description: passageText2,
+      sourceAssessmentType: "PSLE Cloze Style 2",
+    },
+    create: {
+      name: "小蚂蚁的启发 - Cloze Passage",
+      description: passageText2,
+      sourceYear: 2024,
+      sourceLevel: "Primary 6",
+      sourceAssessmentType: "PSLE Cloze Style 2",
+    },
+  });
+  console.log(
+    `Upserted QuestionGroup: ${clozeGroup2.name} (ID: ${clozeGroup2.id})`
+  );
+
+  const clozeQuestions2 = [
+    {
+      qNum: "Q21",
+      options: { 1: "努力", 2: "缓慢", 3: "偷偷", 4: "飞快" },
+      correctAnswer: "1",
+      explanation: "蚂蚁“努力”地搬东西，形容它很用力。",
+    },
+    {
+      qNum: "Q22",
+      options: { 1: "放弃", 2: "成功", 3: "跌倒", 4: "迷路" },
+      correctAnswer: "3",
+      explanation: "小蚂蚁走得很吃力，差点“跌倒”。",
+    },
+    {
+      qNum: "Q23",
+      options: { 1: "高兴", 2: "害怕", 3: "停止", 4: "骄傲" },
+      correctAnswer: "3",
+      explanation: "小蚂蚁没有因为困难而“停止”不前。",
+    },
+    {
+      qNum: "Q24",
+      options: { 1: "分享", 2: "争抢", 3: "帮忙", 4: "观看" },
+      correctAnswer: "3",
+      explanation: "其他蚂蚁出来“帮忙”一起搬饼干屑。",
+    },
+    {
+      qNum: "Q25",
+      options: { 1: "感动", 2: "批评", 3: "怀疑", 4: "嘲笑" },
+      correctAnswer: "1",
+      explanation: "小明被蚂蚁的精神所“感动”。",
+    },
+  ];
+
+  for (let i = 0; i < clozeQuestions2.length; i++) {
+    const q = clozeQuestions2[i];
+    const qDataFull = {
+      pdfPageNumber: 2010 + i, // Different page numbers for this set
+      questionNumberOnPage: q.qNum,
+      text: `Fill in blank ${q.qNum} in the passage "${clozeGroup2.name}".`,
+      questionType: QuestionType.MULTIPLE_CHOICE,
+      options: q.options,
+      correctAnswer: q.correctAnswer,
+      answerKeyRawText: q.options[q.correctAnswer],
+      explanation: q.explanation,
+      marks: 2,
+      difficulty: DifficultyLevel.EASY, // Example difficulty
+      pointsAwarded: 10,
+      subjectId: CHINESE_SUBJECT_ID,
+      topicId: clozeTopic.id,
+      questionGroupId: clozeGroup2.id,
+      sourceYear: 2024,
+      sourceLevel: "Primary 6",
+      sourceAssessmentType: "PSLE Cloze Style 2",
+      productionReady: false,
+    };
+    await prisma.question.upsert({
+      where: {
+        unique_live_question_in_group_page_num: {
+          questionGroupId: clozeGroup2.id,
+          pdfPageNumber: qDataFull.pdfPageNumber,
+          questionNumberOnPage: qDataFull.questionNumberOnPage,
+        },
+      },
+      update: qDataFull,
+      create: qDataFull,
+    });
+  }
+  console.log(
+    `Seeded ${clozeQuestions2.length} questions for "${clozeGroup2.name}".`
+  );
+
+  console.log(
+    `\nSeeding completed for Cloze Passages (Topic ID: ${TOPIC_ID_CLOZE}).`
+  );
+  console.log(
+    `Remember to update the paths in your frontend components if you are hardcoding QuestionGroup IDs for specific passages.`
+  );
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error("Seeding script failed:", e);
-    await prisma.$disconnect();
+  .catch((e) => {
+    console.error("Error during seeding:", e);
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });
