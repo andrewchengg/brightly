@@ -35,6 +35,7 @@ import {
 } from "react-icons/fa";
 
 import PassageDisplay from "@/components/Practice/PassageDisplay";
+import AITutor from "@/components/Practice/AITutor";
 
 export interface OptionClient {
   id: string;
@@ -111,17 +112,11 @@ export default function ClozePassagePracticePage() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
 
-  const [userMessage, setUserMessage] = useState("");
-  const [isLoadingAI, setIsLoadingAI] = useState(false);
-  const [chatHistory, setChatHistory] = useState<
-    { role: string; content: string }[]
-  >([]);
-  const [aiMessage, setAiMessage] = useState<string | null>(null);
+  // AI tutor state is now handled by the AITutor component
 
   const [splitPosition, setSplitPosition] = useState(65);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const aiContentRef = useRef<HTMLDivElement>(null);
 
   const currentQuestion: QuestionClient | null =
     questions.length > 0 && currentQuestionIndex < questions.length
@@ -198,8 +193,7 @@ export default function ClozePassagePracticePage() {
     setAnsweredQuestions({});
     setQuestionResults([]);
     setSessionFinalized(false);
-    setAiMessage(null);
-    setChatHistory([]);
+    // AI tutor state is reset within the AITutor component
     setCurrentPracticeSessionId(null);
     setCurrentSubjectId(null);
     try {
@@ -267,28 +261,33 @@ export default function ClozePassagePracticePage() {
             progress.questionGroupId === numericQuestionGroupId &&
             progress.practiceSessionId
           ) {
-            setPassageTitle(progress.passageTitle);
-            setPassageContent(progress.passageContent);
-            setPassageAudioUrl(progress.audioUrl || null);
-            setQuestions(progress.questions || []);
-            setCurrentQuestionIndex(progress.currentQuestionIndex || 0);
-            setScore(progress.score || 0);
-            setAnsweredQuestions(
-              (progress.answeredQuestions as Record<
-                number,
-                string | Record<string, string>
-              >) || {}
-            );
-            setQuestionResults(progress.questionResults || []);
-            setCurrentPracticeSessionId(progress.practiceSessionId);
-            setCurrentSubjectId(progress.subjectId || null);
+            // If the session is already finalized, don't resume it - start fresh instead
             if (progress.sessionFinalized) {
-              setSessionFinalized(true);
-              setShowSummary(true);
+              console.log(
+                "Found completed session, starting fresh instead of resuming"
+              );
+              safeStorage.removeItem(localStorageKey, "local");
+              resumableSessionFound = false;
             } else {
+              // Only resume if the session is not finalized (still in progress)
+              setPassageTitle(progress.passageTitle);
+              setPassageContent(progress.passageContent);
+              setPassageAudioUrl(progress.audioUrl || null);
+              setQuestions(progress.questions || []);
+              setCurrentQuestionIndex(progress.currentQuestionIndex || 0);
+              setScore(progress.score || 0);
+              setAnsweredQuestions(
+                (progress.answeredQuestions as Record<
+                  number,
+                  string | Record<string, string>
+                >) || {}
+              );
+              setQuestionResults(progress.questionResults || []);
+              setCurrentPracticeSessionId(progress.practiceSessionId);
+              setCurrentSubjectId(progress.subjectId || null);
               setSessionFinalized(false);
+              resumableSessionFound = true;
             }
-            resumableSessionFound = true;
           } else {
             safeStorage.removeItem(localStorageKey, "local");
           }
@@ -487,7 +486,7 @@ export default function ClozePassagePracticePage() {
     setQuestionResults(results);
     setSessionFinalized(true);
     await finalizePracticeSessionInDb();
-    setShowSummary(true);
+    // Do not automatically show summary - stay on passage page with feedback
   }, [
     questions,
     answeredQuestions,
@@ -511,75 +510,7 @@ export default function ClozePassagePracticePage() {
     else router.push("/student/practice/subject/4");
   }, [currentSubjectId, router]);
 
-  const handleSendMessage = useCallback(async () => {
-    if (!userMessage.trim()) return;
-    const currentUserMessage = userMessage.trim();
-    setUserMessage("");
-    setIsLoadingAI(true);
-    const currentChatHistory = [
-      ...chatHistory,
-      { role: "user", content: currentUserMessage },
-    ];
-    setChatHistory(currentChatHistory);
-    if (aiContentRef.current)
-      setTimeout(() => {
-        if (aiContentRef.current)
-          aiContentRef.current.scrollTop = aiContentRef.current.scrollHeight;
-      }, 100);
-    try {
-      let context = `Passage (Cloze Test context): "${passageContent?.substring(
-        0,
-        300
-      )}..."\n`;
-      // For inline cloze, currentQuestion might not be the best focus for AI.
-      // AI can be asked about the passage generally, or user can specify a blank.
-      context +=
-        "The student is working on an inline cloze passage and may ask about specific blanks (e.g., 'What about Q21?') or the passage in general. Provide guidance or clarification but avoid giving direct answers to the blanks.";
-      const response = await fetch("/api/ai-tutor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: "system",
-              content: `Tutor for Primary School (Chinese Cloze Passage context). Context: ${context}. Guide, don't just give answers unless asked repeatedly. Keep concise and encouraging.`,
-            },
-            ...currentChatHistory,
-          ],
-        }),
-      });
-      if (!response.ok) throw new Error("AI tutor request failed");
-      const data = await response.json();
-      setChatHistory((prev) => [
-        ...prev,
-        { role: "assistant", content: data.message },
-      ]);
-      if (aiContentRef.current)
-        setTimeout(() => {
-          if (aiContentRef.current)
-            aiContentRef.current.scrollTop = aiContentRef.current.scrollHeight;
-        }, 100);
-    } catch (error) {
-      console.error("AI Tutor Error:", error);
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "Sorry, I'm having trouble connecting to the AI assistant right now.",
-        },
-      ]);
-    } finally {
-      setIsLoadingAI(false);
-    }
-  }, [userMessage, chatHistory, passageContent]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+  // AI tutor functionality is now handled by the AITutor component
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     isDragging.current = true;
@@ -675,7 +606,7 @@ export default function ClozePassagePracticePage() {
               Cloze Passage Complete: {passageTitle}
             </h1>{" "}
             <p className="text-indigo-200">
-              Well done! Here's your performance:
+              Well done! Here is your performance:
             </p>{" "}
           </div>{" "}
           <div className="p-6 md:p-8">
@@ -828,7 +759,6 @@ export default function ClozePassagePracticePage() {
             onAnswerSelect={handleInlineAnswerSelect}
             submitted={sessionFinalized}
             questionResults={questionResults}
-            currentQuestion={null}
           />
           {noQuestionsAndNoPassage && (
             <p className="text-center text-gray-500 py-10">
@@ -856,16 +786,48 @@ export default function ClozePassagePracticePage() {
             </div>
           )}
           {sessionFinalized && questions.length > 0 && !showSummary && (
-            <div className="mt-8 pt-6 border-t text-center">
-              <p className="text-lg font-semibold text-indigo-700">
-                Passage submitted! View your summary.
-              </p>
-              <Button
-                onClick={() => setShowSummary(true)}
-                className="mt-2 bg-indigo-600 hover:bg-indigo-700"
-              >
-                View Summary
-              </Button>
+            <div className="mt-8 pt-6 border-t bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg">
+              <div className="text-center mb-4">
+                <FaCheck className="text-green-600 text-3xl mx-auto mb-2" />
+                <p className="text-lg font-semibold text-gray-800 mb-2">
+                  Great job! Your answers have been submitted.
+                </p>
+                <p className="text-gray-600 mb-3">
+                  Review your performance above - correct answers are
+                  highlighted in green, incorrect ones in red.
+                </p>
+                <div className="flex items-center justify-center gap-4 text-sm">
+                  <span className="flex items-center text-green-700">
+                    <FaCheck className="mr-1" />
+                    {questionResults.filter((r) => r.correct).length} Correct
+                  </span>
+                  <span className="flex items-center text-red-600">
+                    <FaTimes className="mr-1" />
+                    {questionResults.filter((r) => !r.correct).length} Incorrect
+                  </span>
+                  <span className="flex items-center text-amber-600">
+                    <FaTrophy className="mr-1" />
+                    {score} XP Earned
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  onClick={() => setShowSummary(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <FaChartBar className="mr-2" />
+                  View Detailed Summary
+                </Button>
+                <Button
+                  onClick={restartPractice}
+                  variant="outline"
+                  className="border-green-600 text-green-700 hover:bg-green-50"
+                >
+                  <FaRedo className="mr-2" />
+                  Practice Again
+                </Button>
+              </div>
             </div>
           )}
           {passageContent &&
@@ -896,114 +858,24 @@ export default function ClozePassagePracticePage() {
               <div className="h-8 w-0.5 bg-gray-400 rounded-full group-hover:bg-indigo-500 transition-colors duration-150"></div>
             </div>
             <div
-              className="bg-indigo-50 flex flex-col overflow-hidden custom-scrollbar"
+              className="flex flex-col overflow-hidden"
               style={{ width: `${100 - splitPosition - 0.5}%` }}
             >
-              <div className="p-3 border-b border-indigo-200 bg-indigo-100 flex items-center shadow-sm">
-                <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white mr-2.5 text-md font-bold">
-                  <FaCommentDots />
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-indigo-800 text-sm">
-                    AI Learning Assistant
-                  </div>
-                  <div className="text-xs text-indigo-600">
-                    Ask about this passage!
-                  </div>
-                </div>
-                <div className="text-xs text-indigo-600 flex items-center">
-                  <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1 border border-indigo-100 shadow-sm"></span>
-                  Online
-                </div>
-              </div>
-              <div
-                ref={aiContentRef}
-                className="flex-1 overflow-y-auto p-3 space-y-3 bg-indigo-25 custom-scrollbar"
-              >
-                {chatHistory.length > 0 ? (
-                  chatHistory.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`flex ${
-                        message.role === "user"
-                          ? "justify-end"
-                          : "justify-start"
-                      }`}
-                    >
-                      <div
-                        className={`max-w-[85%] rounded-xl p-2.5 shadow-sm text-sm ${
-                          message.role === "user"
-                            ? "ml-auto bg-indigo-500 text-white rounded-br-none"
-                            : "mr-auto bg-white text-gray-800 border border-gray-200 rounded-bl-none"
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : aiMessage ? (
-                  <div className="flex justify-start">
-                    <div className="max-w-[85%] rounded-xl p-2.5 shadow-sm text-sm mr-auto bg-white text-gray-800 border border-gray-200 rounded-bl-none">
-                      <p className="whitespace-pre-wrap">{aiMessage}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 p-6">
-                    <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mb-3 text-3xl text-indigo-500">
-                      <FaLightbulb />
-                    </div>
-                    <p className="text-sm">
-                      Ask me anything about this passage.
-                    </p>
-                  </div>
-                )}
-                {isLoadingAI && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[85%] rounded-xl p-2.5 shadow-sm text-sm mr-auto bg-white text-gray-800 border border-gray-200 rounded-bl-none">
-                      <div className="flex space-x-1 items-center">
-                        <div
-                          className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0ms" }}
-                        ></div>
-                        <div
-                          className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "150ms" }}
-                        ></div>
-                        <div
-                          className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "300ms" }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="p-2.5 border-t border-indigo-200 bg-indigo-100">
-                <div className="flex items-center rounded-full border border-gray-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 bg-white shadow-sm">
-                  <input
-                    type="text"
-                    value={userMessage}
-                    onChange={(e) => setUserMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask about the passage..."
-                    className="flex-1 py-2 px-3.5 text-sm border-none outline-none bg-transparent rounded-l-full"
-                    disabled={isLoadingAI || sessionFinalized}
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={
-                      isLoadingAI || !userMessage.trim() || sessionFinalized
-                    }
-                    className={`w-8 h-8 m-0.5 rounded-full flex items-center justify-center transition-colors ${
-                      userMessage.trim() && !isLoadingAI && !sessionFinalized
-                        ? "bg-indigo-500 hover:bg-indigo-600 text-white"
-                        : "bg-gray-300 text-gray-400 cursor-not-allowed"
-                    }`}
-                  >
-                    <FaPaperPlane className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+              <AITutor
+                passageTitle={passageTitle}
+                passageContent={passageContent}
+                questions={questions.map((q) => ({
+                  id: q.id,
+                  questionNumberOnPage: q.questionNumberOnPage,
+                  options: q.options,
+                  correctAnswer: q.correctAnswer,
+                  explanation: q.explanation,
+                }))}
+                answeredQuestions={answeredQuestions}
+                questionResults={questionResults}
+                sessionFinalized={sessionFinalized}
+                isDisabled={false}
+              />
             </div>
           </>
         )}
