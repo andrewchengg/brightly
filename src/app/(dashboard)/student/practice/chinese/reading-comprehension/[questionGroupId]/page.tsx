@@ -693,7 +693,10 @@ export default function ReadingComprehensionPassagePracticePage() {
     questions.length > 0 ? (currentQuestionIndex / questions.length) * 100 : 0;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100" ref={containerRef}>
+    <div
+      className="flex flex-col h-screen bg-gray-100 overflow-hidden"
+      ref={containerRef}
+    >
       {showLevelUp && (
         <LevelUpNotification
           level={newLevel}
