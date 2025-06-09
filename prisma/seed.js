@@ -1,4 +1,4 @@
-// seed.js for YET ANOTHER 10 (Batch 11) Dialogue Completion QuestionGroups WITH 4 individual Question records each
+// seed.js for YET ANOTHER 10 (Batch 21) Dialogue Completion QuestionGroups WITH 4 individual Question records each
 const {
   PrismaClient,
   QuestionType,
@@ -11,134 +11,32 @@ const CHINESE_SUBJECT_ID = 4;
 const DIALOGUE_COMPLETION_TOPIC_ID = 45; // YOUR EXISTING TOPIC ID
 
 // --- Helper to generate unique Question Group names ---
-let dialogueGroupCounter = 106; // Start counter from where the previous set left off (e.g., if prev was 96-105, start at 106)
+let dialogueGroupCounter = 206; // Start counter from where the previous set left off (e.g., if prev was 196-205, start at 206)
 function getUniqueDialogueGroupName(baseName) {
-  const name = `${baseName} (Seed_DC_IndivQ_Batch11_${dialogueGroupCounter}_${Date.now()})`;
+  const name = `${baseName} (Seed_DC_IndivQ_Batch21_${dialogueGroupCounter}_${Date.now()})`;
   dialogueGroupCounter++;
   return name;
 }
 
 // --- Data for 10 MORE Dialogue Completion Exercises ---
 const dialogueExercisesData = [
-  // Exercise 106
+  // Exercise 206
   {
-    baseGroupName: "完成对话 (商量周末补习)",
+    baseGroupName: "完成对话 (讨论周末义卖活动)",
     sharedOptionsList: {
-      1: "这个周末你有空吗？我想和你一起复习华文。",
-      2: "我觉得我的作文和阅读理解比较薄弱。",
-      3: "那我们约在星期六上午在图书馆见面怎么样？",
-      4: "太好了！有你一起复习，我感觉更有动力了！",
-      5: "我周末要去参加篮球比赛。",
-      6: "华文太难了，我不想复习。",
-      7: "图书馆周末开门吗？",
-      8: "我们可以请老师给我们补习吗？",
+      1: "我们班周末要参加学校的义卖活动，你准备卖什么呀？",
+      2: "我想卖一些自己做的小手工艺品，比如书签和钥匙扣。",
+      3: "我们还可以一起制作一些海报，宣传我们的摊位。",
+      4: "希望能为班级筹集到一些活动经费，也很有意义！",
+      5: "义卖活动太累了。",
+      6: "我不知道该卖什么好。",
+      7: "卖东西能赚钱吗？",
+      8: "我们还是去玩吧。",
     },
     dialogueContext: [
-      "小华：小明，__Q1__",
-      "小华：是吗？太好了！__Q2__ 你呢？",
-      "小华：嗯，好主意。__Q3__",
-      "小华：__Q4__",
-    ],
-    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
-根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
-选择适当的短语：
-1. ${opts[1]}
-2. ${opts[2]}
-3. ${opts[3]}
-4. ${opts[4]}
-5. ${opts[5]}
-6. ${opts[6]}
-7. ${opts[7]}
-8. ${opts[8]}
-对话：
-小华：小明，__Q1__
-小明：好啊！我正想找个人一起复习呢。你觉得哪些部分需要加强？
-小华：是吗？太好了！__Q2__ 你呢？
-小明：我的口试和听力比较弱，我们可以互相练习。
-小华：嗯，好主意。__Q3__
-小明：没问题！图书馆环境安静，适合学习。
-小华：__Q4__
-答案：
-Q1: 1
-Q2: 2
-Q3: 3
-Q4: 4`,
-    correctAnswers: ["1", "2", "3", "4"],
-    difficulties: [
-      DifficultyLevel.EASY,
-      DifficultyLevel.MEDIUM,
-      DifficultyLevel.MEDIUM,
-      DifficultyLevel.EASY,
-    ],
-  },
-  // Exercise 107
-  {
-    baseGroupName: "完成对话 (忘记带体育服)",
-    sharedOptionsList: {
-      1: "陈老师，对不起，我今天忘记带体育服了。",
-      2: "我早上出门太急，不小心拿错了包。",
-      3: "那我这节课可以在旁边观看吗？",
-      4: "谢谢老师，我下次一定会记得带的。",
-      5: "今天的体育课是什么内容？",
-      6: "我可以向同学借体育服吗？",
-      7: "我不想上体育课。",
-      8: "我的体育服洗了还没干。",
-    },
-    dialogueContext: [
-      "小刚：（找到体育老师）__Q1__",
-      "小刚：__Q2__",
-      "小刚：__Q3__ 我保证会认真观察同学们的动作。",
-      "小刚：__Q4__",
-    ],
-    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
-根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
-选择适当的短语：
-1. ${opts[1]}
-2. ${opts[2]}
-3. ${opts[3]}
-4. ${opts[4]}
-5. ${opts[5]}
-6. ${opts[6]}
-7. ${opts[7]}
-8. ${opts[8]}
-对话：
-小刚：（找到体育老师）__Q1__
-陈老师：哦？怎么回事？体育服是上体育课必需的。
-小刚：__Q2__
-陈老师：这样啊。那这节课你不能参加运动了。
-小刚：__Q3__ 我保证会认真观察同学们的动作。
-陈老师：好吧。下次一定要记住，不然会影响你的体育成绩。
-小刚：__Q4__
-答案：
-Q1: 1
-Q2: 2
-Q3: 3
-Q4: 4`,
-    correctAnswers: ["1", "2", "3", "4"],
-    difficulties: [
-      DifficultyLevel.EASY,
-      DifficultyLevel.EASY,
-      DifficultyLevel.MEDIUM,
-      DifficultyLevel.EASY,
-    ],
-  },
-  // Exercise 108
-  {
-    baseGroupName: "完成对话 (分享养宠物经验)",
-    sharedOptionsList: {
-      1: "你家新养的小狗真可爱！它叫什么名字？",
-      2: "养宠物需要很多耐心和责任心。",
-      3: "你要记得每天喂它食物，还要带它出去散步。",
-      4: "看着它健康快乐地长大，是一件很幸福的事！",
-      5: "我不太喜欢小狗，它们太吵了。",
-      6: "小狗的寿命有多长？",
-      7: "在哪里可以买到宠物用品？",
-      8: "养宠物太花钱了。",
-    },
-    dialogueContext: [
-      "小丽：小芳，__Q1__",
-      "小丽：是啊，__Q2__ 我以前也养过小狗。",
-      "小丽：嗯，还有，__Q3__ 这样它才不会生病。",
+      "小丽：小明，__Q1__",
+      "小丽：这个主意不错！__Q2__ 大家都夸你心灵手巧。",
+      "小丽：好啊！__Q3__ 吸引更多同学来光顾。",
       "小丽：对！__Q4__",
     ],
     fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
@@ -153,12 +51,12 @@ Q4: 4`,
 7. ${opts[7]}
 8. ${opts[8]}
 对话：
-小丽：小芳，__Q1__
-小芳：它叫“豆豆”！是不是很可爱？
-小丽：是啊，__Q2__ 我以前也养过小狗。
-小芳：真的吗？那你有什么经验可以分享吗？
-小丽：嗯，还有，__Q3__ 这样它才不会生病。
-小芳：我记住了！谢谢你的提醒。
+小丽：小明，__Q1__
+小明：我还在想呢，你有什么好点子吗？
+小丽：这个主意不错！__Q2__ 大家都夸你心灵手巧。
+小明：谢谢！那我们一起准备吧！
+小丽：好啊！__Q3__ 吸引更多同学来光顾。
+小明：太好了！
 小丽：对！__Q4__
 答案：
 Q1: 1
@@ -169,28 +67,181 @@ Q4: 4`,
     difficulties: [
       DifficultyLevel.EASY,
       DifficultyLevel.MEDIUM,
+      DifficultyLevel.EASY,
+      DifficultyLevel.EASY,
+    ],
+  },
+  // Exercise 207
+  {
+    baseGroupName: "完成对话 (道歉并解释弄丢同学的书)",
+    sharedOptionsList: {
+      1: "对不起，我不小心把你借给我的那本《格林童话》弄丢了。",
+      2: "我昨天把它放在书包里，今天早上就找不到了。",
+      3: "我明天去书店给你买一本一模一样的赔给你，好吗？",
+      4: "请你原谅我这次的马虎，我以后借东西一定会更小心的。",
+      5: "这本书不好看。",
+      6: "我还有很多其他的书。",
+      7: "是你自己不小心弄丢的。",
+      8: "我们一起去找找吧。",
+    },
+    dialogueContext: [
+      "小刚：小芳，__Q1__",
+      "小刚：__Q2__ 我到处都找遍了。",
+      "小刚：__Q3__",
+      "小刚：__Q4__",
+    ],
+    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
+根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
+选择适当的短语：
+1. ${opts[1]}
+2. ${opts[2]}
+3. ${opts[3]}
+4. ${opts[4]}
+5. ${opts[5]}
+6. ${opts[6]}
+7. ${opts[7]}
+8. ${opts[8]}
+对话：
+小刚：小芳，__Q1__
+小芳：啊？怎么会这样？那本书我还没看完呢。
+小刚：__Q2__ 我到处都找遍了。
+小芳：唉，那可怎么办啊？
+小刚：__Q3__
+小芳：好吧，那只能这样了。
+小刚：__Q4__
+答案：
+Q1: 1
+Q2: 2
+Q3: 3
+Q4: 4`,
+    correctAnswers: ["1", "2", "3", "4"],
+    difficulties: [
+      DifficultyLevel.EASY,
+      DifficultyLevel.MEDIUM,
+      DifficultyLevel.EASY,
+      DifficultyLevel.EASY,
+    ],
+  },
+  // Exercise 208
+  {
+    baseGroupName: "完成对话 (分享参加学校运动会的经历)",
+    sharedOptionsList: {
+      1: "上周的学校运动会你参加了吗？感觉怎么样？",
+      2: "我参加了跳远比赛，虽然没有拿到名次，但重在参与嘛！",
+      3: "我还看到了很多同学在赛场上奋力拼搏的样子，非常感动。",
+      4: "运动会不仅锻炼了我们的身体，还增强了班级的凝聚力！",
+      5: "运动会太累了，我不想参加。",
+      6: "我跑步得了第一名。",
+      7: "运动会应该多设一些有趣的团体项目。",
+      8: "明年的运动会我一定要拿到冠军。",
+    },
+    dialogueContext: [
+      "小华：小丽，__Q1__",
+      "小华：是啊！__Q2__",
+      "小华：没错！__Q3__ 大家都非常努力。",
+      "小华：嗯！__Q4__",
+    ],
+    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
+根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
+选择适当的短语：
+1. ${opts[1]}
+2. ${opts[2]}
+3. ${opts[3]}
+4. ${opts[4]}
+5. ${opts[5]}
+6. ${opts[6]}
+7. ${opts[7]}
+8. ${opts[8]}
+对话：
+小华：小丽，__Q1__
+小丽：我参加了！气氛特别热烈，同学们都很投入！
+小华：是啊！__Q2__
+小丽：你也很棒啊！能勇敢地挑战自己就很了不起了！
+小华：没错！__Q3__ 大家都非常努力。
+小丽：是的，这种精神值得我们学习。
+小华：嗯！__Q4__
+答案：
+Q1: 1
+Q2: 2
+Q3: 3
+Q4: 4`,
+    correctAnswers: ["1", "2", "3", "4"],
+    difficulties: [
+      DifficultyLevel.EASY,
+      DifficultyLevel.EASY,
       DifficultyLevel.MEDIUM,
       DifficultyLevel.EASY,
     ],
   },
-  // Exercise 109
+  // Exercise 209
   {
-    baseGroupName: "完成对话 (讨论如何提高写作水平)",
+    baseGroupName: "完成对话 (劝说同学不要在图书馆打电话)",
     sharedOptionsList: {
-      1: "我的华文作文总是写不好，你有什么好办法吗？",
-      2: "我觉得多阅读好的范文很有帮助。",
-      3: "还有，平时要注意积累好词好句，多加运用。",
-      4: "谢谢你的建议，我会努力尝试的！",
-      5: "写作文太难了，我不想写。",
-      6: "老师对我的作文评价不高。",
-      7: "我们可以一起写作文吗？",
-      8: "作文的题目是什么？",
+      1: "同学，不好意思，这里是图书馆，请不要打电话。",
+      2: "你的说话声音会影响到其他正在看书或学习的同学。",
+      3: "如果你有急事需要打电话，可以去外面的走廊或者休息区。",
+      4: "请你配合一下，共同维护图书馆的安静环境，谢谢。",
+      5: "你在跟谁打电话？",
+      6: "我也想打电话。",
+      7: "图书馆里信号不好。",
+      8: "我们可以小声打电话吗？",
+    },
+    dialogueContext: [
+      "图书管理员：（走近正在打电话的同学）__Q1__",
+      "图书管理员：__Q2__",
+      "图书管理员：__Q3__",
+      "图书管理员：__Q4__",
+    ],
+    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
+根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
+选择适当的短语：
+1. ${opts[1]}
+2. ${opts[2]}
+3. ${opts[3]}
+4. ${opts[4]}
+5. ${opts[5]}
+6. ${opts[6]}
+7. ${opts[7]}
+8. ${opts[8]}
+对话：
+图书管理员：（走近正在打电话的同学）__Q1__
+同学：啊，对不起，我马上就好。
+图书管理员：__Q2__
+同学：我知道了，我这就出去打。
+图书管理员：__Q3__
+同学：好的，谢谢提醒。
+图书管理员：__Q4__
+答案：
+Q1: 1
+Q2: 2
+Q3: 3
+Q4: 4`,
+    correctAnswers: ["1", "2", "3", "4"],
+    difficulties: [
+      DifficultyLevel.EASY,
+      DifficultyLevel.MEDIUM,
+      DifficultyLevel.EASY,
+      DifficultyLevel.EASY,
+    ],
+  },
+  // Exercise 210
+  {
+    baseGroupName: "完成对话 (讨论如何帮助受灾地区的学校)",
+    sharedOptionsList: {
+      1: "我看到新闻里说，邻省有些学校在水灾中受损严重，学生们都不能上课了。",
+      2: "我觉得我们可以组织一次爱心捐款，帮助他们重建校园。",
+      3: "还可以捐赠一些我们看过的课外书和学习用品给他们。",
+      4: "虽然我们的帮助可能很微小，但希望能给他们带去一些温暖和希望。",
+      5: "水灾太可怕了，希望他们平安。",
+      6: "我们应该如何预防水灾？",
+      7: "政府一定会帮助他们的。",
+      8: "我们还是先管好自己的学习吧。",
     },
     dialogueContext: [
       "小明：小华，__Q1__",
-      "小明：是吗？__Q2__ 可以学习别人的写作技巧。",
-      "小明：嗯，这个方法不错。__Q3__",
-      "小明：__Q4__ 希望能有进步。",
+      "小明：是啊，他们现在一定很困难。__Q2__",
+      "小明：这个想法很好！__Q3__",
+      "小明：嗯！__Q4__",
     ],
     fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
 根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
@@ -205,12 +256,12 @@ Q4: 4`,
 8. ${opts[8]}
 对话：
 小明：小华，__Q1__
-小华：嗯，提高写作水平确实需要一些方法和练习。
-小明：是吗？__Q2__ 可以学习别人的写作技巧。
-小华：对，模仿是学习的开始。
-小明：嗯，这个方法不错。__Q3__
-小华：是的，把学到的用到自己的作文里，慢慢就会进步。
-小明：__Q4__ 希望能有进步。
+小华：我也看到了，真是让人揪心。
+小明：是啊，他们现在一定很困难。__Q2__
+小华：好主意！我们可以向学校建议，组织全校师生一起行动。
+小明：这个想法很好！__Q3__
+小华：对，让他们知道我们都在关心他们。
+小明：嗯！__Q4__
 答案：
 Q1: 1
 Q2: 2
@@ -220,27 +271,178 @@ Q4: 4`,
     difficulties: [
       DifficultyLevel.EASY,
       DifficultyLevel.MEDIUM,
-      DifficultyLevel.HARD,
+      DifficultyLevel.MEDIUM,
       DifficultyLevel.EASY,
     ],
   },
-  // Exercise 110
+  // Exercise 211
   {
-    baseGroupName: "完成对话 (邀请同学参加社区清洁活动)",
+    baseGroupName: "完成对话 (分享学乐器的经验)",
     sharedOptionsList: {
-      1: "我们社区明天上午有个清洁日活动，你要不要一起参加？",
-      2: "这是一个为社区做贡献的好机会。",
-      3: "活动会提供手套和垃圾袋，我们只需要带上热情就行了。",
-      4: "太好了！我们一起让社区变得更美丽！",
-      5: "我明天有其他安排。",
-      6: "清洁活动会很累吗？",
-      7: "我们社区的环境已经很干净了。",
-      8: "参加活动有奖励吗？",
+      1: "你最近在学弹钢琴吗？我听到琴房里传出很好听的琴声。",
+      2: "我觉得学乐器最重要的是坚持练习，不能三天打鱼两天晒网。",
+      3: "还要找到一位好老师，学习正确的指法和乐理知识。",
+      4: "如果你也对音乐感兴趣，不妨也尝试学一种乐器吧！",
+      5: "弹钢琴太难了，我学不会。",
+      6: "我没有时间练习乐器。",
+      7: "学乐器要花很多钱吗？",
+      8: "我更喜欢听音乐，而不是弹奏。",
     },
     dialogueContext: [
-      "小芳：小刚，__Q1__",
-      "小芳：__Q2__ 还能认识很多新朋友。",
-      "小芳：是啊！__Q3__",
+      "小丽：小刚，__Q1__",
+      "小丽：是吗？__Q2__",
+      "小丽：嗯，有道理。__Q3__",
+      "小丽：太好了！__Q4__",
+    ],
+    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
+根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
+选择适当的短语：
+1. ${opts[1]}
+2. ${opts[2]}
+3. ${opts[3]}
+4. ${opts[4]}
+5. ${opts[5]}
+6. ${opts[6]}
+7. ${opts[7]}
+8. ${opts[8]}
+对话：
+小丽：小刚，__Q1__
+小刚：是啊，我刚开始学不久，还在练习基础指法呢。
+小丽：是吗？__Q2__
+小刚：你说得对，练习确实很重要。
+小丽：嗯，有道理。__Q3__
+小刚：是的，好老师能让你少走很多弯路。
+小丽：太好了！__Q4__
+答案：
+Q1: 1
+Q2: 2
+Q3: 3
+Q4: 4`,
+    correctAnswers: ["1", "2", "3", "4"],
+    difficulties: [
+      DifficultyLevel.EASY,
+      DifficultyLevel.MEDIUM,
+      DifficultyLevel.MEDIUM,
+      DifficultyLevel.EASY,
+    ],
+  },
+  // Exercise 212
+  {
+    baseGroupName: "完成对话 (讨论如何安排假期生活)",
+    sharedOptionsList: {
+      1: "假期快到了，你有什么计划来充实自己的假期生活吗？",
+      2: "我觉得除了完成作业，我们还可以多读一些自己喜欢的书。",
+      3: "或者学一门新技能，比如画画、游泳或者编程。",
+      4: "合理安排假期，才能让它过得既轻松愉快又有意义！",
+      5: "假期太短了，根本不够玩。",
+      6: "我只想每天睡到自然醒。",
+      7: "爸爸妈妈会带我去旅游。",
+      8: "假期里有很多补习班要上。",
+    },
+    dialogueContext: [
+      "老师：同学们，__Q1__",
+      "小明：老师，__Q2__",
+      "小华：嗯，这个建议不错。__Q3__",
+      "老师：说得都很好！__Q4__",
+    ],
+    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
+根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
+选择适当的短语：
+1. ${opts[1]}
+2. ${opts[2]}
+3. ${opts[3]}
+4. ${opts[4]}
+5. ${opts[5]}
+6. ${opts[6]}
+7. ${opts[7]}
+8. ${opts[8]}
+对话：
+老师：同学们，__Q1__
+小明：老师，__Q2__
+老师：小明说得对，阅读能开阔眼界。还有其他想法吗？
+小华：嗯，这个建议不错。__Q3__
+老师：说得都很好！__Q4__
+答案：
+Q1: 1
+Q2: 2
+Q3: 3
+Q4: 4`,
+    correctAnswers: ["1", "2", "3", "4"],
+    difficulties: [
+      DifficultyLevel.EASY,
+      DifficultyLevel.MEDIUM,
+      DifficultyLevel.EASY,
+      DifficultyLevel.EASY,
+    ],
+  },
+  // Exercise 213
+  {
+    baseGroupName: "完成对话 (劝说同学不要在楼道内打球)",
+    sharedOptionsList: {
+      1: "你们不能在楼道里打球，这里空间太小，很危险！",
+      2: "球很容易打到别人，或者碰坏楼道里的东西。",
+      3: "如果想打球，可以去操场或者体育馆，那里更安全。",
+      4: "请你们遵守学校的规定，不要在楼道里进行危险活动。",
+      5: "这个球是新买的吗？",
+      6: "我也想和你们一起打球。",
+      7: "老师没有看见我们。",
+      8: "我们只是随便玩玩。",
+    },
+    dialogueContext: [
+      "值日老师：（看到几个同学在楼道打球）同学们！__Q1__",
+      "值日老师：__Q2__",
+      "值日老师：__Q3__",
+      "值日老师：__Q4__",
+    ],
+    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
+根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
+选择适当的短语：
+1. ${opts[1]}
+2. ${opts[2]}
+3. ${opts[3]}
+4. ${opts[4]}
+5. ${opts[5]}
+6. ${opts[6]}
+7. ${opts[7]}
+8. ${opts[8]}
+对话：
+值日老师：（看到几个同学在楼道打球）同学们！__Q1__
+同学A：老师，我们只是轻轻地玩一下。
+值日老师：__Q2__
+同学B：知道了，老师，我们不打了。
+值日老师：__Q3__
+同学A：好的，我们现在就去操场。
+值日老师：__Q4__
+答案：
+Q1: 1
+Q2: 2
+Q3: 3
+Q4: 4`,
+    correctAnswers: ["1", "2", "3", "4"],
+    difficulties: [
+      DifficultyLevel.EASY,
+      DifficultyLevel.MEDIUM,
+      DifficultyLevel.MEDIUM,
+      DifficultyLevel.EASY,
+    ],
+  },
+  // Exercise 214
+  {
+    baseGroupName: "完成对话 (分享观看画展的感受)",
+    sharedOptionsList: {
+      1: "我上周末去参观了一个现代艺术画展，感觉很特别！",
+      2: "有些画我不太能看懂，但色彩和构图都很大胆。",
+      3: "我觉得艺术就是这样，可以有很多不同的表达方式。",
+      4: "多看画展能培养我们的艺术修养和想象力。",
+      5: "我对现代艺术不感兴趣。",
+      6: "画展的门票免费吗？",
+      7: "那些画都是谁画的？",
+      8: "美术馆里可以拍照吗？",
+    },
+    dialogueContext: [
+      "小芳：小华，__Q1__",
+      "小芳：是啊！__Q2__ 和我们平时看的传统绘画很不一样。",
+      "小芳：没错！__Q3__ 每个人都可以有自己的理解。",
       "小芳：嗯！__Q4__",
     ],
     fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
@@ -255,12 +457,12 @@ Q4: 4`,
 7. ${opts[7]}
 8. ${opts[8]}
 对话：
-小芳：小刚，__Q1__
-小刚：清洁日活动？听起来不错！
-小芳：__Q2__ 还能认识很多新朋友。
-小刚：好啊！我加入！我们需要准备什么吗？
-小芳：是啊！__Q3__
-小刚：那太方便了！
+小芳：小华，__Q1__
+小华：哦？现代艺术画展？听起来很抽象啊！
+小芳：是啊！__Q2__ 和我们平时看的传统绘画很不一样。
+小华：那你看懂了那些画的含义吗？
+小芳：没错！__Q3__ 每个人都可以有自己的理解。
+小华：嗯，艺术欣赏确实是见仁见智。
 小芳：嗯！__Q4__
 答案：
 Q1: 1
@@ -270,129 +472,27 @@ Q4: 4`,
     correctAnswers: ["1", "2", "3", "4"],
     difficulties: [
       DifficultyLevel.EASY,
-      DifficultyLevel.EASY,
       DifficultyLevel.MEDIUM,
+      DifficultyLevel.EASY,
       DifficultyLevel.EASY,
     ],
   },
-  // Exercise 111
+  // Exercise 215
   {
-    baseGroupName: "完成对话 (课间休息讨论)",
+    baseGroupName: "完成对话 (请求老师帮忙写推荐信)",
     sharedOptionsList: {
-      1: "刚才那节数学课的内容你都听懂了吗？",
-      2: "我有些地方还是不太明白，特别是最后那道例题。",
-      3: "我们可以一起去问问老师吗？",
-      4: "太好了，有你一起我就不那么紧张了。",
-      5: "数学课太简单了。",
-      6: "下节课是什么课？",
-      7: "老师讲得太快了。",
-      8: "我们还是讨论一下别的吧。",
+      1: "王老师，我下学期想申请加入学校的科学兴趣小组，您能帮我写一封推荐信吗？",
+      2: "我对科学实验非常感兴趣，也取得了一些小小的成绩。",
+      3: "如果能得到您的推荐，我相信对我的申请会很有帮助。",
+      4: "太感谢您了！我一定会努力，不辜负您的期望！",
+      5: "科学兴趣小组的活动多吗？",
+      6: "写推荐信太麻烦您了。",
+      7: "我的科学成绩不太好。",
+      8: "我不想加入任何兴趣小组。",
     },
     dialogueContext: [
-      "小丽：小明，__Q1__",
-      "小丽：__Q2__",
-      "小丽：我也是！__Q3__ 我怕自己去问会说不清楚。",
-      "小丽：__Q4__",
-    ],
-    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
-根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
-选择适当的短语：
-1. ${opts[1]}
-2. ${opts[2]}
-3. ${opts[3]}
-4. ${opts[4]}
-5. ${opts[5]}
-6. ${opts[6]}
-7. ${opts[7]}
-8. ${opts[8]}
-对话：
-小丽：小明，__Q1__
-小明：大部分听懂了，但有几个概念还有点模糊。
-小丽：__Q2__
-小明：那道题确实有点难，我也没完全弄懂。
-小丽：我也是！__Q3__ 我怕自己去问会说不清楚。
-小明：好啊，我们现在就去！
-小丽：__Q4__
-答案：
-Q1: 1
-Q2: 2
-Q3: 3
-Q4: 4`,
-    correctAnswers: ["1", "2", "3", "4"],
-    difficulties: [
-      DifficultyLevel.EASY,
-      DifficultyLevel.MEDIUM,
-      DifficultyLevel.MEDIUM,
-      DifficultyLevel.EASY,
-    ],
-  },
-  // Exercise 112
-  {
-    baseGroupName: "完成对话 (美术馆看画展)",
-    sharedOptionsList: {
-      1: "这个画展上的画都好有特色啊！",
-      2: "我最喜欢那幅描绘星空的油画，太梦幻了。",
-      3: "画家的想象力和技巧真是令人佩服。",
-      4: "是啊，看画展能提升我们的审美能力！",
-      5: "我对画画不感兴趣。",
-      6: "这些画卖多少钱？",
-      7: "我们可以拍照吗？",
-      8: "美术馆什么时候关门？",
-    },
-    dialogueContext: [
-      "小芳：小华，__Q1__",
-      "小芳：我也是！__Q2__",
-      "小芳：嗯，__Q3__",
-      "小芳：对！__Q4__",
-    ],
-    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
-根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
-选择适当的短语：
-1. ${opts[1]}
-2. ${opts[2]}
-3. ${opts[3]}
-4. ${opts[4]}
-5. ${opts[5]}
-6. ${opts[6]}
-7. ${opts[7]}
-8. ${opts[8]}
-对话：
-小芳：小华，__Q1__
-小华：是啊，每一幅都像一个故事。
-小芳：我也是！__Q2__
-小华：那幅我也很喜欢，颜色搭配得特别好。
-小芳：嗯，__Q3__
-小华：没错，能画出这样的作品真不简单。
-小芳：对！__Q4__
-答案：
-Q1: 1
-Q2: 2
-Q3: 3
-Q4: 4`,
-    correctAnswers: ["1", "2", "3", "4"],
-    difficulties: [
-      DifficultyLevel.EASY,
-      DifficultyLevel.EASY,
-      DifficultyLevel.MEDIUM,
-      DifficultyLevel.EASY,
-    ],
-  },
-  // Exercise 113
-  {
-    baseGroupName: "完成对话 (劝同学遵守规则)",
-    sharedOptionsList: {
-      1: "你为什么要在图书馆里吃零食？",
-      2: "图书馆规定不许在里面吃东西的。",
-      3: "这样会弄脏书本，也会影响其他同学阅读。",
-      4: "请你把零食收起来，遵守图书馆的规则好吗？",
-      5: "这个零食很好吃。",
-      6: "我只是有点饿。",
-      7: "没有人看见我吃零食。",
-      8: "我们一起去外面吃吧。",
-    },
-    dialogueContext: [
-      "小明：（看到小刚在吃零食）小刚！__Q1__",
-      "小明：可是，__Q2__ 你忘了吗？",
+      "小明：（找到科学老师）__Q1__",
+      "小明：__Q2__ 我在上次的科学小发明比赛中还得了奖。",
       "小明：__Q3__",
       "小明：__Q4__",
     ],
@@ -408,12 +508,12 @@ Q4: 4`,
 7. ${opts[7]}
 8. ${opts[8]}
 对话：
-小明：（看到小刚在吃零食）小刚！__Q1__
-小刚：嘘……小声点，我只是偷偷吃一点。
-小明：可是，__Q2__ 你忘了吗？
-小刚：我知道，但是我很饿嘛。
+小明：（找到科学老师）__Q1__
+王老师：哦，小明，你想加入科学兴趣小组？很好啊！
+小明：__Q2__ 我在上次的科学小发明比赛中还得了奖。
+王老师：嗯，你确实对科学很有热情，表现也不错。
 小明：__Q3__
-小刚：好吧好吧，我马上收起来。
+王老师：没问题，我很乐意为你写推荐信。
 小明：__Q4__
 答案：
 Q1: 1
@@ -424,108 +524,6 @@ Q4: 4`,
     difficulties: [
       DifficultyLevel.EASY,
       DifficultyLevel.MEDIUM,
-      DifficultyLevel.MEDIUM,
-      DifficultyLevel.EASY,
-    ],
-  },
-  // Exercise 114
-  {
-    baseGroupName: "完成对话 (分享假期趣事)",
-    sharedOptionsList: {
-      1: "这个假期你过得怎么样？有什么有趣的事吗？",
-      2: "我去了乡下外婆家，体验了农场生活，特别好玩！",
-      3: "我还学会了喂小鸡、摘蔬菜，感觉很新鲜。",
-      4: "下次有机会，你也应该去体验一下田园风光！",
-      5: "我整个假期都在补习，好无聊。",
-      6: "乡下的蚊子多吗？",
-      7: "农场里有什么动物？",
-      8: "我更喜欢城市生活。",
-    },
-    dialogueContext: [
-      "小丽：小文，__Q1__",
-      "小丽：哇，听起来真不错！__Q2__",
-      "小丽：__Q3__",
-      "小丽：太羡慕你了！__Q4__",
-    ],
-    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
-根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
-选择适当的短语：
-1. ${opts[1]}
-2. ${opts[2]}
-3. ${opts[3]}
-4. ${opts[4]}
-5. ${opts[5]}
-6. ${opts[6]}
-7. ${opts[7]}
-8. ${opts[8]}
-对话：
-小丽：小文，__Q1__
-小文：我过得非常充实！
-小丽：哇，听起来真不错！__Q2__
-小文：是啊，每天都能呼吸到新鲜空气，看到绿油油的田野。
-小丽：__Q3__
-小文：对啊，这些都是在城市里体验不到的。
-小丽：太羡慕你了！__Q4__
-答案：
-Q1: 1
-Q2: 2
-Q3: 3
-Q4: 4`,
-    correctAnswers: ["1", "2", "3", "4"],
-    difficulties: [
-      DifficultyLevel.EASY,
-      DifficultyLevel.MEDIUM,
-      DifficultyLevel.EASY,
-      DifficultyLevel.EASY,
-    ],
-  },
-  // Exercise 115
-  {
-    baseGroupName: "完成对话 (丢失钥匙)",
-    sharedOptionsList: {
-      1: "糟糕！我好像把家里的钥匙弄丢了！",
-      2: "我记得出门的时候还带在身上的。",
-      3: "会不会是掉在从学校回家的路上了？",
-      4: "我得赶紧回去找找，不然晚上就进不了家门了！",
-      5: "我可以去你家住一晚吗？",
-      6: "我们家有备用钥匙吗？",
-      7: "都怪我太粗心了。",
-      8: "我们先去吃点东西吧。",
-    },
-    dialogueContext: [
-      "小明：（焦急地在书包里翻找）哎呀！__Q1__",
-      "小明：__Q2__ 怎么会不见了呢？",
-      "小明：__Q3__ 我得沿路回去看看。",
-      "小明：__Q4__",
-    ],
-    fullDialogueForGroup: (opts) => `四 完成对话（4题8分）
-根据上下文的意思，从表中选出适当的短语或短句，然后把代表它们的数字填写在作答簿上。
-选择适当的短语：
-1. ${opts[1]}
-2. ${opts[2]}
-3. ${opts[3]}
-4. ${opts[4]}
-5. ${opts[5]}
-6. ${opts[6]}
-7. ${opts[7]}
-8. ${opts[8]}
-对话：
-小明：（焦急地在书包里翻找）哎呀！__Q1__
-小刚：别慌，你仔细想想，最后一次用钥匙是什么时候？
-小明：__Q2__ 怎么会不见了呢？
-小刚：你再想想，从学校到这里，你都去过哪些地方？
-小明：__Q3__ 我得沿路回去看看。
-小刚：我陪你一起找吧！
-小明：__Q4__
-答案：
-Q1: 1
-Q2: 2
-Q3: 3
-Q4: 4`,
-    correctAnswers: ["1", "2", "3", "4"],
-    difficulties: [
-      DifficultyLevel.EASY,
-      DifficultyLevel.EASY,
       DifficultyLevel.MEDIUM,
       DifficultyLevel.EASY,
     ],
@@ -534,7 +532,7 @@ Q4: 4`,
 
 async function main() {
   console.log(
-    `Start seeding ${dialogueExercisesData.length} MORE (Batch 11) Chinese Dialogue Completion exercises (Subject ID: ${CHINESE_SUBJECT_ID}, Topic ID: ${DIALOGUE_COMPLETION_TOPIC_ID})...`
+    `Start seeding ${dialogueExercisesData.length} MORE (Batch 21) Chinese Dialogue Completion exercises (Subject ID: ${CHINESE_SUBJECT_ID}, Topic ID: ${DIALOGUE_COMPLETION_TOPIC_ID})...`
   );
 
   const chineseSubject = await prisma.subject.findUnique({
@@ -567,7 +565,7 @@ async function main() {
     `Verified Dialogue Completion Topic (ID: ${dialogueTopic.id}, Name: "${dialogueTopic.name}") exists and is linked to Subject ID ${CHINESE_SUBJECT_ID}.`
   );
 
-  let startPdfPageForDialogues = 315; // Adjusted starting PDF page number for this new batch (e.g., 305 + 10)
+  let startPdfPageForDialogues = 415; // Adjusted starting PDF page number for this new batch (e.g., 405 + 10)
 
   for (const exercise of dialogueExercisesData) {
     const dialogueExerciseGroupName = getUniqueDialogueGroupName(
@@ -669,7 +667,7 @@ async function main() {
     startPdfPageForDialogues++;
   }
   console.log(
-    `\nFinished seeding ${dialogueExercisesData.length} MORE (Batch 11) Dialogue Completion exercises with individual questions.`
+    `\nFinished seeding ${dialogueExercisesData.length} MORE (Batch 21) Dialogue Completion exercises with individual questions.`
   );
 }
 

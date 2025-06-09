@@ -2,6 +2,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
+import {
+  calculateLevel,
+  calculateNextLevelXP,
+  calculateProgressToNextLevel,
+  checkLevelUp,
+} from "@/lib/xp-utils";
 
 interface XpRequestBody {
   xpAmount: number;
@@ -57,9 +63,8 @@ export async function POST(req: NextRequest) {
     const currentXP = studentData?.xpPoints || 0;
     const newXP = currentXP + xpAmount;
 
-    const oldLevel = Math.floor(currentXP / 1000) + 1;
-    const newLevel = Math.floor(newXP / 1000) + 1;
-    const leveledUp = newLevel > oldLevel;
+    const levelUpInfo = checkLevelUp(currentXP, newXP);
+    const newLevel = calculateLevel(newXP);
 
     const { error: updateError } = await supabase
       .from("Student")
@@ -79,13 +84,10 @@ export async function POST(req: NextRequest) {
       currentXp: newXP,
       awarded: xpAmount,
       level: newLevel,
-      leveledUp: leveledUp,
-      previousLevel: oldLevel,
-      nextLevelXp: newLevel * 1000,
-      progressToNextLevel: Math.max(
-        0,
-        Math.min(100, ((newXP - (newLevel - 1) * 1000) / 1000) * 100)
-      ), // Ensure progress is between 0-100
+      leveledUp: levelUpInfo.leveledUp,
+      previousLevel: levelUpInfo.oldLevel,
+      nextLevelXp: calculateNextLevelXP(newLevel),
+      progressToNextLevel: calculateProgressToNextLevel(newXP),
     });
   } catch (error: any) {
     console.error("Error in award-xp endpoint:", error);

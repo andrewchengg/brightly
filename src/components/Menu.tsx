@@ -27,6 +27,9 @@ import {
   FaEdit,
   FaPlusSquare,
   FaUserFriends,
+  FaTasks,
+  FaQuestionCircle,
+  FaRobot,
 } from "react-icons/fa";
 
 const studentMenuItems = [
@@ -38,6 +41,12 @@ const studentMenuItems = [
         icon: FaBook,
         label: "Practice",
         href: "/student/practice",
+        visible: ["student"],
+      },
+      {
+        icon: FaQuestionCircle,
+        label: "Ask",
+        href: "/student/ask",
         visible: ["student"],
       },
       {
@@ -54,7 +63,7 @@ const studentMenuItems = [
       },
       {
         icon: FaLightbulb,
-        label: "Review Mistakes",
+        label: "Review",
         href: "/student/review",
         visible: ["student"],
       },
@@ -115,21 +124,21 @@ const menuItems = [
         visible: ["admin"],
       },
       {
-        icon: FaUserFriends,
-        label: "My Children",
-        href: "/parent/children",
+        icon: FaTasks,
+        label: "Assign Homework",
+        href: "/parent/assign",
+        visible: ["parent"],
+      },
+      {
+        icon: FaRobot,
+        label: "AI Planner",
+        href: "/parent/plan",
         visible: ["parent"],
       },
       {
         icon: FaLightbulb,
         label: "Child Review",
         href: "/parent/review",
-        visible: ["parent"],
-      },
-      {
-        icon: FaChartBar,
-        label: "Child Results",
-        href: "/parent/results-overview",
         visible: ["parent"],
       },
       {
@@ -184,7 +193,13 @@ const menuItems = [
         icon: FaChartBar,
         label: "Overall Results",
         href: "/list/results",
-        visible: ["admin", "teacher", "parent"],
+        visible: ["admin", "teacher"],
+      },
+      {
+        icon: FaChartBar,
+        label: "Children's Results",
+        href: "/parent/results",
+        visible: ["parent"],
       },
       {
         icon: FaCheckSquare,
@@ -204,10 +219,16 @@ const menuItems = [
     title: "OTHER",
     items: [
       {
+        icon: FaUserFriends,
+        label: "My Children",
+        href: "/profile",
+        visible: ["parent"],
+      },
+      {
         icon: FaUserAlt,
         label: "Profile",
         href: "/profile",
-        visible: ["admin", "teacher", "parent"],
+        visible: ["admin", "teacher"],
       }, // Generic, will be adjusted
       {
         icon: FaCog,
@@ -328,6 +349,10 @@ const Menu = () => {
               // Adjust "Profile" link for non-student roles
               if (item.label === "Profile" && userRole !== "student") {
                 effectiveHref = `/profile/${userRole}`;
+              }
+              // Adjust "My Children" link for parents to show their children profile
+              if (item.label === "My Children" && userRole === "parent") {
+                effectiveHref = `/parent/children`;
               }
 
               // More precise isActive check

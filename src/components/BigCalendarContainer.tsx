@@ -1,6 +1,5 @@
 import prisma from "@/lib/prisma";
 import BigCalendar from "./BigCalender";
-import { Lesson } from "@prisma/client";
 
 const BigCalendarContainer = async ({
   type,
@@ -32,18 +31,12 @@ const BigCalendarContainer = async ({
       day: l.day,
       start: l.startTime.toISOString(),
       end: l.endTime.toISOString(),
-      className: l.class.name,
+      className: l.class?.name || "Unknown Class",
     }))
   );
 
   // Generate dates for each day of the current week
-  const generateWeekDates = (
-    lessons: (Lesson & {
-      teacher: { name: string };
-      subject: { name: string };
-      class: { name: string };
-    })[]
-  ) => {
+  const generateWeekDates = (lessons: (typeof dataRes)[0][]) => {
     const events = [];
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday, etc.

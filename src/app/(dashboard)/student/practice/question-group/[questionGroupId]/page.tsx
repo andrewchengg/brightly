@@ -15,6 +15,11 @@ import safeStorage from "@/lib/safeStorage";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
 import {
+  validateUserInput,
+  sanitizeUserInput,
+  getHelpfulSuggestions,
+} from "@/lib/client-validation";
+import {
   FaLightbulb,
   FaArrowLeft,
   FaSpinner,
@@ -66,7 +71,7 @@ export interface QuestionClient {
 
 interface LocalStorageQuestionGroupPracticeProgress {
   questionGroupId: number;
-  passageTitle: string;
+  passageTitle?: string;
   passageContent: string | null; // Keep as string | null to represent actual fetched state
   audioUrl?: string | null;
   questions: QuestionClient[];
@@ -346,9 +351,9 @@ export default function QuestionGroupPracticePage() {
             !progress.sessionFinalized &&
             progress.practiceSessionId
           ) {
-            setPassageTitle(progress.passageTitle);
+            setPassageTitle(progress.passageTitle || "");
             setPassageContent(progress.passageContent);
-            setPassageAudioUrl(progress.audioUrl);
+            setPassageAudioUrl(progress.audioUrl || null);
             setQuestions(progress.questions || []);
             setCurrentQuestionIndex(progress.currentQuestionIndex || 0);
             setScore(progress.score || 0);
@@ -778,7 +783,19 @@ export default function QuestionGroupPracticePage() {
 
   const handleSendMessage = useCallback(async () => {
     if (!userMessage.trim() || !currentQuestion) return;
-    const currentUserMessage = userMessage.trim();
+
+    // Client-side validation
+    const validation = validateUserInput(userMessage);
+    if (!validation.isValid) {
+      toast.error(validation.reason || "Please enter a valid question.");
+      if (validation.suggestedMessage) {
+        setUserMessage(validation.suggestedMessage);
+      }
+      return;
+    }
+
+    const sanitizedMessage = sanitizeUserInput(userMessage);
+    const currentUserMessage = sanitizedMessage;
     setUserMessage("");
     setIsLoadingAI(true);
     const currentChatHistory = [
@@ -792,44 +809,46 @@ export default function QuestionGroupPracticePage() {
           aiContentRef.current.scrollTop = aiContentRef.current.scrollHeight;
       }, 100);
     try {
-      const optionsText =
-        currentQuestion.options
-          ?.map((o, i) => `${String.fromCharCode(65 + i)}. ${o.text}`)
-          .join("\n") || "N/A";
-      let cAnsDisp = "Not available";
-      if (currentQuestion.correctAnswer) {
-        if (
-          typeof currentQuestion.correctAnswer === "string" &&
-          currentQuestion.questionType === PrismaQuestionType.MULTIPLE_CHOICE
-        ) {
-          const correctAnswerStr = currentQuestion.correctAnswer as string;
-          const opt = currentQuestion.options.find(
-            (o) => o.id.toLowerCase() === correctAnswerStr.toLowerCase()
-          );
-          cAnsDisp = opt ? opt.text : String(currentQuestion.correctAnswer);
-        } else {
-          cAnsDisp = JSON.stringify(currentQuestion.correctAnswer);
-        }
-      }
-      const context = `Passage context: "${passageContent?.substring(
-        0,
-        200
-      )}..."\nQ: ${
-        currentQuestion.text
-      }\nOpts: ${optionsText}\nAns: ${cAnsDisp}\nHint: ${
-        currentQuestion.hint || "None"
-      }`;
+      // Create proper context structure for the AI tutor API
+      const questionContext = {
+        id: currentQuestion.id,
+        text: currentQuestion.text,
+        questionType: currentQuestion.questionType || "MULTIPLE_CHOICE",
+        options: currentQuestion.options || [],
+        correctAnswer: currentQuestion.correctAnswer,
+        explanation: currentQuestion.explanation,
+        hint: currentQuestion.hint,
+        userAnswer: selectedAnswer,
+        isCorrect: selectedAnswer !== null ? isAnswerCorrect : undefined,
+      };
+
+      const passageContext = passageContent
+        ? {
+            title: passageTitle || "Untitled",
+            content: passageContent,
+          }
+        : undefined;
+
+      const sessionContext = {
+        sessionId: currentPracticeSessionId,
+        sessionType: "question_group" as const,
+        isCompleted: showSummary,
+        totalQuestions: questions.length,
+        answeredQuestions: Object.keys(answeredQuestions).length,
+        correctAnswers: Math.round(score / 10), // Assuming 10 points per correct answer
+        studentLevel: "Primary School",
+      };
+
       const response = await fetch("/api/ai-tutor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [
-            {
-              role: "system",
-              content: `Tutor for Primary School. Context: ${context}. Guide, don't just give answers unless asked repeatedly. Keep concise and encouraging.`,
-            },
-            ...currentChatHistory,
-          ],
+          messages: currentChatHistory,
+          context: {
+            question: questionContext,
+            passage: passageContext,
+            session: sessionContext,
+          },
         }),
       });
       if (!response.ok) throw new Error("AI tutor request failed");
@@ -844,6 +863,7 @@ export default function QuestionGroupPracticePage() {
             aiContentRef.current.scrollTop = aiContentRef.current.scrollHeight;
         }, 100);
     } catch (error) {
+      console.error("AI tutor error:", error);
       setChatHistory((prev) => [
         ...prev,
         { role: "assistant", content: "Sorry, I'm having trouble." },
@@ -851,7 +871,20 @@ export default function QuestionGroupPracticePage() {
     } finally {
       setIsLoadingAI(false);
     }
-  }, [userMessage, currentQuestion, chatHistory, passageContent]);
+  }, [
+    userMessage,
+    currentQuestion,
+    chatHistory,
+    passageContent,
+    passageTitle,
+    selectedAnswer,
+    isAnswerCorrect,
+    currentPracticeSessionId,
+    showSummary,
+    questions.length,
+    answeredQuestions,
+    score,
+  ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

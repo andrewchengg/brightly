@@ -1,15 +1,25 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Calendar, momentLocalizer, View, Views } from 'react-big-calendar';
-import moment from 'moment';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { FaCalendarPlus, FaTimes, FaEdit, FaTrash, FaCalendarAlt, FaClock, FaChevronLeft, FaChevronRight, FaCalendarDay } from 'react-icons/fa';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
-import { toast } from 'react-toastify';
+import { useState, useEffect } from "react";
+import { Calendar, momentLocalizer, View, Views } from "react-big-calendar";
+import moment from "moment";
+import "react-big-calendar/lib/css/react-big-calendar.css";
+import {
+  FaCalendarPlus,
+  FaTimes,
+  FaEdit,
+  FaTrash,
+  FaCalendarAlt,
+  FaClock,
+  FaChevronLeft,
+  FaChevronRight,
+  FaCalendarDay,
+} from "react-icons/fa";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { toast } from "react-toastify";
 
 const localizer = momentLocalizer(moment);
 
@@ -19,7 +29,7 @@ interface Event {
   start: Date;
   end: Date;
   description?: string;
-  type: 'personal' | 'lesson';
+  type: "personal" | "lesson";
 }
 
 interface StudentCalendarProps {
@@ -33,24 +43,47 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{
+    start: Date;
+    end: Date;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [practiceDates, setPracticeDates] = useState<{ [key: string]: any }>(
+    {}
+  );
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    date: '',
-    startTime: '',
-    endTime: '',
+    title: "",
+    description: "",
+    date: "",
+    startTime: "",
+    endTime: "",
   });
+
+  // Fetch practice dates from the API
+  const fetchPracticeDates = async () => {
+    try {
+      const response = await fetch("/api/student/practice-dates");
+      if (response.ok) {
+        const data = await response.json();
+        const datesMap: { [key: string]: any } = {};
+        data.practiceDates.forEach((dayData: any) => {
+          datesMap[dayData.date] = dayData;
+        });
+        setPracticeDates(datesMap);
+      }
+    } catch (error) {
+      console.error("Error fetching practice dates:", error);
+    }
+  };
 
   // Fetch events from the API
   const fetchEvents = async () => {
     try {
       // Fetch personal events
-      const personalResponse = await fetch('/api/student/events');
+      const personalResponse = await fetch("/api/student/events");
       let personalEvents: Event[] = [];
-      
+
       if (personalResponse.ok) {
         const personalData = await personalResponse.json();
         personalEvents = personalData.map((event: any) => ({
@@ -59,36 +92,37 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
           start: new Date(event.startTime),
           end: new Date(event.endTime),
           description: event.description,
-          type: 'personal' as const,
+          type: "personal" as const,
         }));
       }
 
       // Fetch class lessons
-      const lessonsResponse = await fetch('/api/student/lessons');
+      const lessonsResponse = await fetch("/api/student/lessons");
       let lessonEvents: Event[] = [];
-      
+
       if (lessonsResponse.ok) {
         const lessonsData = await lessonsResponse.json();
         lessonEvents = lessonsData.map((lesson: any) => ({
           id: lesson.id,
-          title: `${lesson.name} - ${lesson.subject?.name || 'Subject'}`,
+          title: `${lesson.name} - ${lesson.subject?.name || "Subject"}`,
           start: new Date(lesson.startTime),
           end: new Date(lesson.endTime),
-          description: `Teacher: ${lesson.teacher?.name || 'Unknown'}`,
-          type: 'lesson' as const,
+          description: `Teacher: ${lesson.teacher?.name || "Unknown"}`,
+          type: "lesson" as const,
         }));
       }
 
       // Combine both types of events
       setEvents([...personalEvents, ...lessonEvents]);
     } catch (error) {
-      console.error('Error fetching events:', error);
-      toast.error('Failed to load events');
+      console.error("Error fetching events:", error);
+      toast.error("Failed to load events");
     }
   };
 
   useEffect(() => {
     fetchEvents();
+    fetchPracticeDates();
   }, []);
 
   // Navigation functions
@@ -129,15 +163,17 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   // Get current view title
   const getViewTitle = () => {
     if (view === Views.MONTH) {
-      return moment(date).format('MMMM YYYY');
+      return moment(date).format("MMMM YYYY");
     } else if (view === Views.WEEK) {
-      const startOfWeek = moment(date).startOf('week');
-      const endOfWeek = moment(date).endOf('week');
-      return `${startOfWeek.format('MMM D')} - ${endOfWeek.format('MMM D, YYYY')}`;
+      const startOfWeek = moment(date).startOf("week");
+      const endOfWeek = moment(date).endOf("week");
+      return `${startOfWeek.format("MMM D")} - ${endOfWeek.format(
+        "MMM D, YYYY"
+      )}`;
     } else if (view === Views.DAY) {
-      return moment(date).format('dddd, MMMM D, YYYY');
+      return moment(date).format("dddd, MMMM D, YYYY");
     }
-    return '';
+    return "";
   };
 
   // Handle slot selection (when user clicks on calendar)
@@ -145,11 +181,11 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
     setSelectedSlot({ start, end });
     setIsEditing(false);
     setFormData({
-      title: '',
-      description: '',
-      date: moment(start).format('YYYY-MM-DD'),
-      startTime: moment(start).format('HH:mm'),
-      endTime: moment(end).format('HH:mm'),
+      title: "",
+      description: "",
+      date: moment(start).format("YYYY-MM-DD"),
+      startTime: moment(start).format("HH:mm"),
+      endTime: moment(end).format("HH:mm"),
     });
     setShowAddModal(true);
   };
@@ -166,10 +202,10 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
     setIsEditing(true);
     setFormData({
       title: event.title,
-      description: event.description || '',
-      date: moment(event.start).format('YYYY-MM-DD'),
-      startTime: moment(event.start).format('HH:mm'),
-      endTime: moment(event.end).format('HH:mm'),
+      description: event.description || "",
+      date: moment(event.start).format("YYYY-MM-DD"),
+      startTime: moment(event.start).format("HH:mm"),
+      endTime: moment(event.end).format("HH:mm"),
     });
     setShowEventModal(false);
     setShowAddModal(true);
@@ -178,12 +214,12 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   // Validate form data
   const validateForm = () => {
     if (!formData.title.trim()) {
-      toast.error('Please enter a title for the event');
+      toast.error("Please enter a title for the event");
       return false;
     }
 
     if (!formData.date || !formData.startTime || !formData.endTime) {
-      toast.error('Please select date and times');
+      toast.error("Please select date and times");
       return false;
     }
 
@@ -192,7 +228,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
     const endDateTime = new Date(`${formData.date}T${formData.endTime}`);
 
     if (endDateTime <= startDateTime) {
-      toast.error('End time must be after start time');
+      toast.error("End time must be after start time");
       return false;
     }
 
@@ -208,10 +244,10 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/student/events', {
-        method: 'POST',
+      const response = await fetch("/api/student/events", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           title: formData.title,
@@ -222,17 +258,23 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
       });
 
       if (response.ok) {
-        toast.success('Event added successfully!');
+        toast.success("Event added successfully!");
         setShowAddModal(false);
-        setFormData({ title: '', description: '', date: '', startTime: '', endTime: '' });
+        setFormData({
+          title: "",
+          description: "",
+          date: "",
+          startTime: "",
+          endTime: "",
+        });
         fetchEvents();
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Failed to add event');
+        toast.error(error.error || "Failed to add event");
       }
     } catch (error) {
-      console.error('Error adding event:', error);
-      toast.error('Failed to add event');
+      console.error("Error adding event:", error);
+      toast.error("Failed to add event");
     } finally {
       setLoading(false);
     }
@@ -248,9 +290,9 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
     setLoading(true);
     try {
       const response = await fetch(`/api/student/events/${selectedEvent.id}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           title: formData.title,
@@ -261,19 +303,25 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
       });
 
       if (response.ok) {
-        toast.success('Event updated successfully!');
+        toast.success("Event updated successfully!");
         setShowAddModal(false);
         setIsEditing(false);
         setSelectedEvent(null);
-        setFormData({ title: '', description: '', date: '', startTime: '', endTime: '' });
+        setFormData({
+          title: "",
+          description: "",
+          date: "",
+          startTime: "",
+          endTime: "",
+        });
         fetchEvents();
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Failed to update event');
+        toast.error(error.error || "Failed to update event");
       }
     } catch (error) {
-      console.error('Error updating event:', error);
-      toast.error('Failed to update event');
+      console.error("Error updating event:", error);
+      toast.error("Failed to update event");
     } finally {
       setLoading(false);
     }
@@ -283,20 +331,20 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   const deleteEvent = async (eventId: number) => {
     try {
       const response = await fetch(`/api/student/events/${eventId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       if (response.ok) {
-        toast.success('Event deleted successfully!');
+        toast.success("Event deleted successfully!");
         setShowEventModal(false);
         fetchEvents();
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Failed to delete event');
+        toast.error(error.error || "Failed to delete event");
       }
     } catch (error) {
-      console.error('Error deleting event:', error);
-      toast.error('Failed to delete event');
+      console.error("Error deleting event:", error);
+      toast.error("Failed to delete event");
     }
   };
 
@@ -316,11 +364,11 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
           onClick={() => {
             setIsEditing(false);
             setFormData({
-              title: '',
-              description: '',
-              date: moment().format('YYYY-MM-DD'),
-              startTime: moment().format('HH:mm'),
-              endTime: moment().add(1, 'hour').format('HH:mm'),
+              title: "",
+              description: "",
+              date: moment().format("YYYY-MM-DD"),
+              startTime: moment().format("HH:mm"),
+              endTime: moment().add(1, "hour").format("HH:mm"),
             });
             setShowAddModal(true);
           }}
@@ -344,7 +392,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             <FaChevronLeft size={12} />
             <span className="hidden sm:inline">Previous</span>
           </Button>
-          
+
           <Button
             onClick={navigateToToday}
             variant="outline"
@@ -354,7 +402,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             <FaCalendarDay size={12} />
             <span>Today</span>
           </Button>
-          
+
           <Button
             onClick={navigateToNext}
             variant="outline"
@@ -371,12 +419,12 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
           <h3 className="text-lg font-medium text-gray-800 min-w-0">
             {getViewTitle()}
           </h3>
-          
+
           {/* Date picker for quick navigation */}
           <div className="flex items-center gap-2">
             <Input
               type="date"
-              value={moment(date).format('YYYY-MM-DD')}
+              value={moment(date).format("YYYY-MM-DD")}
               onChange={(e) => handleDateJump(e.target.value)}
               className="w-auto text-sm"
             />
@@ -412,13 +460,52 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
         </div>
       </div>
 
-      <div className="h-[500px] bg-white rounded-lg border">
+      <div className="h-[500px] bg-white rounded-lg border relative">
+        <style jsx global>{`
+          /* Practice completed days - simple dot */
+          .practice-completed::after {
+            content: "";
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+          }
+
+          /* Today + practiced - green dot with subtle glow */
+          .practice-today-completed::after {
+            content: "";
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+          }
+
+          /* Today + not practiced - subtle orange dot */
+          .practice-today-pending::after {
+            content: "";
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            width: 6px;
+            height: 6px;
+            background: #f59e0b;
+            border-radius: 50%;
+            opacity: 0.7;
+          }
+        `}</style>
         <Calendar
           localizer={localizer}
           events={events}
           startAccessor="start"
           endAccessor="end"
-          views={['month', 'week', 'day']}
+          views={["month", "week", "day"]}
           view={view}
           date={date}
           onView={handleViewChange}
@@ -427,32 +514,65 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
           onSelectEvent={handleSelectEvent}
           selectable
           popup
-          style={{ height: '100%', padding: '10px' }}
+          style={{ height: "100%", padding: "10px" }}
           eventPropGetter={(event) => ({
             style: {
-              backgroundColor: event.type === 'lesson' ? '#059669' : '#4f46e5',
-              borderRadius: '4px',
+              backgroundColor: event.type === "lesson" ? "#059669" : "#4f46e5",
+              borderRadius: "4px",
               opacity: 0.8,
-              color: 'white',
-              border: '0px',
-              display: 'block',
-              cursor: 'pointer',
+              color: "white",
+              border: "0px",
+              display: "block",
+              cursor: "pointer",
             },
           })}
           dayPropGetter={(date) => {
             const today = new Date();
-            const isToday = moment(date).isSame(today, 'day');
+            const isToday = moment(date).isSame(today, "day");
+            const dateKey = moment(date).format("YYYY-MM-DD");
+            const hasPracticed = practiceDates[dateKey]?.hasPracticed;
+
+            let backgroundColor = undefined;
+            let border = undefined;
+            let className = "";
+
+            if (isToday && hasPracticed) {
+              backgroundColor = "#dcfce7"; // light green
+              border = "2px solid #16a34a"; // green border
+              className = "practice-today-completed";
+            } else if (isToday && !hasPracticed) {
+              backgroundColor = "#fef3c7"; // light yellow
+              border = "2px solid #f59e0b"; // orange border
+              className = "practice-today-pending";
+            } else if (isToday) {
+              backgroundColor = "#f0f9ff"; // light blue
+            } else if (hasPracticed) {
+              backgroundColor = "#f0fdf4"; // very light green
+              border = "1px solid #22c55e"; // green border
+              className = "practice-completed";
+            }
+
             return {
               style: {
-                backgroundColor: isToday ? '#f0f9ff' : undefined,
+                backgroundColor,
+                border,
+                position: "relative" as const,
               },
+              className,
+              title: hasPracticed
+                ? `✨ Practiced on ${moment(date).format("MMM D")} - ${
+                    practiceDates[dateKey].sessionCount
+                  } session(s), ${practiceDates[dateKey].avgAccuracy}% accuracy`
+                : isToday
+                ? "🎯 Practice today to keep your streak!"
+                : undefined,
             };
           }}
         />
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-4 text-sm">
+      <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-indigo-600 rounded"></div>
           <span>Personal Events</span>
@@ -460,6 +580,14 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-600 rounded"></div>
           <span>Class Lessons</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">⭐</span>
+          <span>Practice Completed</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🎯</span>
+          <span>Practice Today!</span>
         </div>
       </div>
 
@@ -482,11 +610,12 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
               <div>
                 <p className="text-sm text-gray-600 mb-2">
                   <FaCalendarAlt className="inline mr-2" />
-                  {moment(selectedEvent.start).format('MMMM D, YYYY')}
+                  {moment(selectedEvent.start).format("MMMM D, YYYY")}
                 </p>
                 <p className="text-sm text-gray-600 mb-2">
                   <FaClock className="inline mr-2" />
-                  {moment(selectedEvent.start).format('h:mm A')} - {moment(selectedEvent.end).format('h:mm A')}
+                  {moment(selectedEvent.start).format("h:mm A")} -{" "}
+                  {moment(selectedEvent.end).format("h:mm A")}
                 </p>
                 {selectedEvent.description && (
                   <p className="text-sm text-gray-700 mt-3 p-3 bg-gray-50 rounded">
@@ -495,7 +624,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                 )}
               </div>
 
-              {selectedEvent.type === 'personal' ? (
+              {selectedEvent.type === "personal" ? (
                 <div className="flex gap-2 pt-4">
                   <Button
                     onClick={() => handleEditEvent(selectedEvent)}
@@ -506,7 +635,11 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                   </Button>
                   <Button
                     onClick={() => {
-                      if (window.confirm(`Are you sure you want to delete "${selectedEvent.title}"?`)) {
+                      if (
+                        window.confirm(
+                          `Are you sure you want to delete "${selectedEvent.title}"?`
+                        )
+                      ) {
                         deleteEvent(selectedEvent.id);
                       }
                     }}
@@ -535,7 +668,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
           <Card className="w-full max-w-md p-6 bg-white">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">
-                {isEditing ? 'Edit Event' : 'Add New Event'}
+                {isEditing ? "Edit Event" : "Add New Event"}
               </h3>
               <Button
                 variant="outline"
@@ -558,7 +691,9 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                 <Input
                   type="text"
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
                   placeholder="Enter event title"
                   className="w-full"
                 />
@@ -570,7 +705,9 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                 </label>
                 <Textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   placeholder="Enter event description (optional)"
                   rows={3}
                   className="w-full"
@@ -585,7 +722,9 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                   <Input
                     type="date"
                     value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, date: e.target.value })
+                    }
                     className="w-full pl-10"
                   />
                   <FaCalendarAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -601,7 +740,9 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                     <Input
                       type="time"
                       value={formData.startTime}
-                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, startTime: e.target.value })
+                      }
                       className="w-full pl-10"
                     />
                     <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -616,7 +757,9 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                     <Input
                       type="time"
                       value={formData.endTime}
-                      onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, endTime: e.target.value })
+                      }
                       className="w-full pl-10"
                     />
                     <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -630,10 +773,13 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                   disabled={loading}
                   className="flex-1 bg-indigo-600 hover:bg-indigo-700"
                 >
-                  {loading 
-                    ? (isEditing ? 'Updating...' : 'Adding...') 
-                    : (isEditing ? 'Update Event' : 'Add Event')
-                  }
+                  {loading
+                    ? isEditing
+                      ? "Updating..."
+                      : "Adding..."
+                    : isEditing
+                    ? "Update Event"
+                    : "Add Event"}
                 </Button>
                 <Button
                   variant="outline"
@@ -655,4 +801,4 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   );
 };
 
-export default StudentCalendar; 
+export default StudentCalendar;

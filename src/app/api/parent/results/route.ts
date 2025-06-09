@@ -1,0 +1,121 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import prisma from "@/lib/prisma";
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get parent ID from user
+    const parent = await prisma.parent.findUnique({
+      where: { id: user.id },
+      include: {
+        students: true,
+      },
+    });
+
+    if (!parent) {
+      return NextResponse.json({ error: "Parent not found" }, { status: 404 });
+    }
+
+    const childrenIds = parent.students.map((student) => student.id);
+
+    if (childrenIds.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // Fetch completed practice sessions for all children
+    const completedSessions = await prisma.practiceSession.findMany({
+      where: {
+        studentId: { in: childrenIds },
+        status: "COMPLETED",
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+          },
+        },
+        subject: {
+          select: {
+            name: true,
+          },
+        },
+        topic: {
+          select: {
+            name: true,
+          },
+        },
+        basedOnQuestionGroup: {
+          select: {
+            name: true,
+          },
+        },
+        studentAnswers: {
+          select: {
+            isCorrect: true,
+            pointsEarned: true,
+          },
+        },
+      },
+      orderBy: {
+        endTime: "desc",
+      },
+      take: 100, // Limit to recent 100 sessions
+    });
+
+    // Calculate session statistics
+    const sessionsWithStats = completedSessions.map((session) => {
+      const totalQuestions = session.studentAnswers.length;
+      const correctAnswers = session.studentAnswers.filter(
+        (answer) => answer.isCorrect
+      ).length;
+      const totalScore = session.studentAnswers.reduce(
+        (sum, answer) => sum + (answer.pointsEarned || 0),
+        0
+      );
+
+      // Calculate XP earned (example formula, adjust as needed)
+      const xpEarned = Math.round(totalScore * 1.5); // 1.5x multiplier for XP
+
+      return {
+        id: session.id,
+        title: session.title,
+        type: session.type,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        durationSeconds: session.durationSeconds,
+        totalQuestions,
+        correctAnswers,
+        score: totalScore,
+        xpEarned,
+        subjectName: session.subject?.name || null,
+        topicName: session.topic?.name || null,
+        questionGroupName: session.basedOnQuestionGroup?.name || null,
+        student: {
+          id: session.student.id,
+          name: session.student.name,
+          username: session.student.username,
+        },
+      };
+    });
+
+    return NextResponse.json(sessionsWithStats);
+  } catch (error) {
+    console.error("Error fetching parent results:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch results" },
+      { status: 500 }
+    );
+  }
+}
