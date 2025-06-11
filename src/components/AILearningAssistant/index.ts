@@ -13,7 +13,9 @@ export function createSessionContext(
   correctAnswers: number,
   isCompleted: boolean,
   sessionId?: string,
-  studentLevel?: string
+  studentLevel?: string,
+  subjectId?: number,
+  subjectName?: string
 ): SessionContext {
   return {
     sessionId,
@@ -23,6 +25,8 @@ export function createSessionContext(
     answeredQuestions,
     correctAnswers,
     studentLevel,
+    subjectId,
+    subjectName,
   };
 }
 

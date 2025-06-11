@@ -815,7 +815,9 @@ export default function ReadingComprehensionPassagePracticePage() {
               questionResults.filter((r) => r.correct).length,
               sessionFinalized,
               currentPracticeSessionId || undefined,
-              "Primary School"
+              "Primary School",
+              4, // Chinese subject ID
+              "Chinese" // Explicitly set for Chinese reading comprehension
             )}
           />
         </div>

@@ -202,7 +202,9 @@ export async function POST(req: NextRequest) {
       context.session.sessionType,
       context.session.studentLevel,
       !!context.question,
-      !!context.passage
+      !!context.passage,
+      context.session.subjectId,
+      context.session.subjectName
     );
 
     // Enhanced prompt when selected text is present

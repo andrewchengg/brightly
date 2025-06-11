@@ -483,32 +483,64 @@ export function checkRateLimit(
 }
 
 /**
+ * Helper function to map subject IDs to names and determine if it's Chinese
+ */
+function getSubjectInfo(subjectId?: number, subjectName?: string): { name: string; isChinese: boolean } {
+  // If subjectName is provided, use it directly
+  if (subjectName) {
+    const isChinese = subjectName.toLowerCase().includes('chinese') || subjectName.includes('华文') || subjectName.includes('中文');
+    return { name: subjectName, isChinese };
+  }
+
+  // Otherwise, map based on subjectId
+  const subjectMap: Record<number, { name: string; isChinese: boolean }> = {
+    1: { name: "Mathematics", isChinese: false },
+    2: { name: "Science", isChinese: false },
+    3: { name: "English", isChinese: false },
+    4: { name: "Chinese", isChinese: true },
+  };
+
+  return subjectMap[subjectId || 0] || { name: "General Studies", isChinese: false };
+}
+
+/**
  * Generate educational system prompt based on context
  */
 export function generateEducationalSystemPrompt(
   sessionType: string,
   studentLevel?: string,
   hasQuestion?: boolean,
-  hasPassage?: boolean
+  hasPassage?: boolean,
+  subjectId?: number,
+  subjectName?: string
 ): string {
+  const subjectInfo = getSubjectInfo(subjectId, subjectName);
+  const { name: subject, isChinese } = subjectInfo;
+  
   let contextString = "";
   
   if (sessionType === "cloze_passage" && hasPassage) {
-    contextString = "Student is working on a Chinese cloze passage.";
+    contextString = `Student is working on a ${subject} cloze passage.`;
   } else if (sessionType === "topic_practice") {
-    contextString = "Student is practicing specific Chinese language topics.";
+    contextString = `Student is practicing specific ${subject} topics.`;
   } else if (sessionType === "question_group") {
-    contextString = "Student is working on a set of related questions.";
+    contextString = `Student is working on a set of related ${subject} questions.`;
   } else if (hasQuestion) {
-    contextString = "Student is working on Chinese language questions.";
+    contextString = `Student is working on ${subject} questions.`;
   }
 
-  const basePrompt = `You are an AI learning assistant for primary school students studying Chinese language. You should:
+  // Language instruction based on subject
+  const languageInstruction = isChinese 
+    ? "You may respond in Chinese when appropriate, especially when explaining Chinese language concepts, vocabulary, or cultural context. However, keep explanations clear and use both Chinese and English when helpful for understanding."
+    : "IMPORTANT: Always respond in English only. Do not use Chinese characters or Pinyin in your responses, as this is not a Chinese language subject.";
+
+  const basePrompt = `You are an AI learning assistant for primary school students studying ${subject}. You should:
 
 1. Be encouraging and helpful
-2. Focus on Chinese language learning
+2. Focus on ${subject} learning
 3. Provide clear explanations
 4. Use simple language appropriate for primary school students
+5. ${languageInstruction}
 
 CONTEXT:
 ${contextString}

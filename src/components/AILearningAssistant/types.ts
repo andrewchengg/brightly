@@ -41,6 +41,8 @@ export interface SessionContext {
   answeredQuestions: number;
   correctAnswers: number;
   studentLevel?: string;
+  subjectId?: number;
+  subjectName?: string;
 }
 
 export interface AIAssistantProps {

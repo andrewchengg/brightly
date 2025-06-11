@@ -1544,7 +1544,9 @@ export default function RandomPractice() {
               questionResults.filter((r) => r.correct).length,
               sessionFinalized,
               currentPracticeSessionId || undefined,
-              "Primary School"
+              "Primary School",
+              currentQuestion?.topic?.subjectId,
+              undefined // Subject name will be determined from subjectId in the helper function
             )}
             disabled={false}
             className="h-full"
