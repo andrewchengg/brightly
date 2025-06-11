@@ -33,7 +33,7 @@ const getOpenRouterClient = () => {
 export async function POST(req: NextRequest) {
   try {
     console.log("AI Tutor API: Request received");
-    
+
     // Authenticate user
     const supabase = createClient();
     const {
@@ -96,19 +96,19 @@ export async function POST(req: NextRequest) {
     // Moderate the latest user message
     const lastUserMessage = messages[messages.length - 1];
     if (lastUserMessage && lastUserMessage.role === "user") {
-      console.log("AI Tutor API: Moderating user message", { 
+      console.log("AI Tutor API: Moderating user message", {
         originalMessage: lastUserMessage.content,
-        selectedText: context.selectedText 
+        selectedText: context.selectedText,
       });
-      
+
       const moderation = moderateUserContent(lastUserMessage.content);
-      
+
       console.log("AI Tutor API: User message moderation result", {
         isAllowed: moderation.isAllowed,
         reason: moderation.reason,
-        sanitizedContent: moderation.sanitizedContent
+        sanitizedContent: moderation.sanitizedContent,
       });
-      
+
       if (!moderation.isAllowed) {
         return NextResponse.json(
           {
@@ -131,7 +131,9 @@ export async function POST(req: NextRequest) {
       openai = getOpenRouterClient();
       console.log("AI Tutor API: OpenRouter client initialized");
     } catch (error) {
-      console.error("AI Tutor API: OpenRouter client initialization failed", { error });
+      console.error("AI Tutor API: OpenRouter client initialization failed", {
+        error,
+      });
       return NextResponse.json(
         {
           error:
@@ -219,7 +221,7 @@ export async function POST(req: NextRequest) {
     console.log("AI Tutor API: Full system prompt", {
       systemPrompt: fullSystemPrompt,
       selectedText: context.selectedText,
-      hasSelectedText: !!context.selectedText
+      hasSelectedText: !!context.selectedText,
     });
 
     // Prepare messages for OpenAI
@@ -229,7 +231,7 @@ export async function POST(req: NextRequest) {
     ];
 
     console.log("AI Tutor API: Sending request to OpenRouter");
-    
+
     // Call OpenRouter API with safety parameters
     const response = await openai.chat.completions.create({
       model: "anthropic/claude-3.5-haiku", // Using Claude 3.5 Haiku for educational content

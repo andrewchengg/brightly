@@ -1,17 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
+import { ProcessingStatus } from "@/generated/prisma";
 
 export async function GET(request: NextRequest) {
   try {
-    // For now, using a hardcoded student ID - you should implement proper authentication
-    const studentId = "student-1";
+    // Get authenticated user
+    const supabase = createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    // Fetch user-uploaded questions
-    // Since we don't have uploadedByStudentId field yet, we'll fetch questions with specific criteria
-    const questions = await prisma.question.findMany({
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const studentId = user.id;
+
+    // Fetch user-uploaded questions from the new StudentUploadedQuestion table
+    const uploadedQuestions = await prisma.studentUploadedQuestion.findMany({
       where: {
-        questionNumberOnPage: "user-upload", // This identifies user uploads
-        productionReady: false,
+        studentId,
+        processingStatus: ProcessingStatus.COMPLETED, // Only show successfully processed questions
       },
       include: {
         subject: { select: { name: true, id: true } },
@@ -20,21 +31,24 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: "desc",
       },
-      take: 10, // Limit to recent 10 questions
+      take: 20, // Limit to recent 20 questions
     });
 
     // Transform the data to match the expected format
-    const transformedQuestions = questions.map((question) => ({
+    const transformedQuestions = uploadedQuestions.map((question) => ({
       id: question.id,
       text: question.text,
       questionType: question.questionType,
       options: question.options as any,
       correctAnswer: question.correctAnswer,
       explanation: question.explanation,
+      hint: question.hint,
       difficulty: question.difficulty,
-      imageUrl: question.imageUrl,
-      subject: question.subject,
-      topic: question.topic,
+      subject: question.subject || { id: 0, name: "Unknown" },
+      topic: question.topic || { id: 0, name: "General" },
+      processingStatus: question.processingStatus,
+      createdAt: question.createdAt,
+      originalFileName: question.originalFileName,
     }));
 
     return NextResponse.json(transformedQuestions);

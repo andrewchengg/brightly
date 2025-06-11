@@ -52,6 +52,7 @@ interface QuestionForDisplay {
   explanation?: string | null;
   hint?: string | null;
   imageUrl?: string | null;
+  requiresImage?: boolean;
   difficulty: keyof typeof PrismaDifficultyLevel;
   topic: { name: string; id: number };
   subject: { name: string; id: number };
@@ -420,7 +421,7 @@ export default function StudentReviewPage() {
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <div className="max-w-6xl mx-auto px-6 py-12">
           {/* Header */}
-          <div className="text-center mb-12">
+          <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl mb-6 shadow-xl">
               <FaLightbulb className="text-3xl text-white" />
             </div>
@@ -433,8 +434,52 @@ export default function StudentReviewPage() {
             </p>
           </div>
 
+          {/* Upload Feature Highlight */}
+          <div className="bg-gradient-to-r from-violet-500 to-purple-600 rounded-2xl p-8 mb-8 text-white shadow-2xl">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <FaUpload className="text-3xl text-white" />
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h2 className="text-2xl md:text-3xl font-bold mb-3">
+                    📚 Build Your Personal Question Library
+                  </h2>
+                  <p className="text-lg text-white/90 mb-4">
+                    Upload your past exam papers, homework, or practice
+                    questions. We'll save them forever and organize them by
+                    subject for easy revision!
+                  </p>
+                  <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm">
+                    <span className="bg-white/20 px-3 py-1 rounded-full">
+                      ✨ AI Question Extraction
+                    </span>
+                    <span className="bg-white/20 px-3 py-1 rounded-full">
+                      💾 Permanent Storage
+                    </span>
+                    <span className="bg-white/20 px-3 py-1 rounded-full">
+                      🎯 Smart Organization
+                    </span>
+                    <span className="bg-white/20 px-3 py-1 rounded-full">
+                      📊 Progress Tracking
+                    </span>
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  <Button
+                    onClick={() => setShowUploadSection(true)}
+                    className="bg-white text-purple-600 hover:bg-gray-100 font-semibold px-6 py-3 rounded-xl shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <FaUpload className="mr-2" />
+                    Start Uploading
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Upload Questions Section */}
-          <Card className="mb-8 bg-gradient-to-br from-emerald-50 to-blue-50 border-emerald-200">
+          <Card className="mb-8 bg-gradient-to-br from-emerald-50 to-blue-50 border-emerald-200 shadow-lg">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -443,10 +488,11 @@ export default function StudentReviewPage() {
                   </div>
                   <div>
                     <CardTitle className="text-xl text-gray-800">
-                      Upload Your Questions
+                      Upload Your Past Papers & Questions
                     </CardTitle>
                     <CardDescription className="text-gray-600">
-                      Upload images of questions to extract and review
+                      Save your past exam papers or individual questions with us
+                      for easy revision access
                     </CardDescription>
                   </div>
                 </div>
@@ -463,16 +509,76 @@ export default function StudentReviewPage() {
                   ) : (
                     <>
                       <FaPlus className="mr-2" />
-                      Add Question
+                      Upload Now
                     </>
                   )}
                 </Button>
               </div>
             </CardHeader>
 
+            {/* Enhanced Info Section */}
+            <CardContent className="pt-0 pb-4">
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 mb-4 border border-indigo-100">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                    <FaLightbulb className="text-white text-sm" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-indigo-800 mb-2">
+                      📚 Build Your Personal Question Bank
+                    </h4>
+                    <div className="text-sm text-indigo-700 space-y-1">
+                      <p>
+                        • <strong>Upload full past papers</strong> - We'll
+                        extract all questions for you to review
+                      </p>
+                      <p>
+                        • <strong>Upload individual questions</strong> - Add
+                        specific questions you want to practice
+                      </p>
+                      <p>
+                        • <strong>Saved forever</strong> - Access your uploaded
+                        questions anytime for revision
+                      </p>
+                      <p>
+                        • <strong>Smart organization</strong> - Questions are
+                        automatically categorized by subject and topic
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+
             {showUploadSection && (
               <CardContent className="pt-0">
                 <div className="space-y-4">
+                  {/* Upload Type Info */}
+                  <div className="bg-white/80 rounded-lg p-4 border border-emerald-200">
+                    <h5 className="font-semibold text-emerald-800 mb-3 flex items-center gap-2">
+                      <FaImage className="text-emerald-600" />
+                      What You Can Upload:
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2 text-emerald-700">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                        <span>Full exam papers (multiple questions)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-emerald-700">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                        <span>Individual practice questions</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-emerald-700">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                        <span>Homework assignments</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-emerald-700">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                        <span>Textbook exercises</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Image Preview */}
                   {imagePreview && (
                     <div className="relative inline-block">
@@ -525,17 +631,20 @@ export default function StudentReviewPage() {
                       ) : (
                         <>
                           <FaUpload className="mr-2" />
-                          Extract Question
+                          Save & Extract Questions
                         </>
                       )}
                     </Button>
                   </div>
 
-                  <p className="text-sm text-gray-600">
-                    Upload clear images of questions with text and options
-                    visible. Our AI will extract the question and add it to your
-                    review collection.
-                  </p>
+                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                    <p className="text-sm text-blue-800">
+                      💡 <strong>Pro tip:</strong> Upload clear images with good
+                      lighting. Our AI will automatically extract questions,
+                      save them to your personal question bank, and make them
+                      available for future revision sessions!
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             )}
@@ -543,15 +652,26 @@ export default function StudentReviewPage() {
 
           {/* Uploaded Questions Display */}
           {userUploadedQuestions.length > 0 && (
-            <Card className="mb-8 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+            <Card className="mb-8 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200 shadow-lg">
               <CardHeader>
-                <CardTitle className="text-xl text-purple-800 flex items-center gap-3">
-                  <FaLightbulb className="text-purple-600" />
-                  Your Uploaded Questions ({userUploadedQuestions.length})
-                </CardTitle>
-                <CardDescription className="text-purple-600">
-                  Questions you've uploaded for review and practice
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl text-purple-800 flex items-center gap-3">
+                      <FaLightbulb className="text-purple-600" />
+                      Your Personal Question Bank (
+                      {userUploadedQuestions.length})
+                    </CardTitle>
+                    <CardDescription className="text-purple-600">
+                      Saved questions from your uploaded papers - ready for
+                      revision anytime!
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 bg-purple-100 px-3 py-2 rounded-lg">
+                    <span className="text-purple-700 text-sm font-medium">
+                      💾 Saved Forever
+                    </span>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4">
@@ -560,29 +680,55 @@ export default function StudentReviewPage() {
                       key={question.id}
                       className="p-4 bg-white/70 rounded-lg border border-purple-200 hover:shadow-md transition-shadow"
                     >
-                      <p className="text-sm font-medium text-gray-800 line-clamp-2">
-                        {question.text}
-                      </p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
-                        <span className="flex items-center gap-1">
-                          <FaBook />
-                          {question.subject.name}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FaGraduationCap />
-                          {question.topic.name}
-                        </span>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs ${
-                            question.difficulty === "EASY"
-                              ? "bg-green-100 text-green-700"
-                              : question.difficulty === "MEDIUM"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                        >
-                          {question.difficulty.toLowerCase()}
-                        </span>
+                      <div className="flex gap-3">
+                        {/* Optimized Image Display */}
+                        {question.imageUrl && question.requiresImage && (
+                          <div className="flex-shrink-0">
+                            <img
+                              src={question.imageUrl}
+                              alt="Question diagram"
+                              className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                              loading="lazy"
+                            />
+                            <div className="text-xs text-purple-600 text-center mt-1 flex items-center justify-center gap-1">
+                              <FaImage className="text-xs" />
+                              Visual
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-800 line-clamp-2">
+                            {question.text}
+                          </p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <FaBook />
+                              {question.subject.name}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <FaGraduationCap />
+                              {question.topic.name}
+                            </span>
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs ${
+                                question.difficulty === "EASY"
+                                  ? "bg-green-100 text-green-700"
+                                  : question.difficulty === "MEDIUM"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {question.difficulty.toLowerCase()}
+                            </span>
+                            {question.requiresImage && (
+                              <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-700 flex items-center gap-1">
+                                <FaImage />
+                                Visual
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}

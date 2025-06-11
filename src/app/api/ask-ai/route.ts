@@ -6,6 +6,14 @@ import {
   moderateAIResponse,
   checkRateLimit,
 } from "@/lib/ai-moderation";
+import {
+  getStudentContext,
+  formatStudentContextForAI,
+  shouldIncludeContext,
+} from "@/lib/student-context";
+import { PrismaClient } from "@/generated/prisma";
+
+const prisma = new PrismaClient();
 
 // Initialize OpenRouter client (using OpenAI SDK with OpenRouter endpoints)
 const getOpenRouterClient = () => {
@@ -25,6 +33,8 @@ const getOpenRouterClient = () => {
 
 export async function POST(req: NextRequest) {
   try {
+    console.log("Ask AI API called");
+
     // Authenticate user
     const supabase = createClient();
     const {
@@ -33,15 +43,19 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      console.log("Authentication failed:", authError?.message);
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
 
+    console.log("User authenticated:", user.id);
+
     // Check rate limiting
     if (!checkRateLimit(user.id, 30, 60 * 60 * 1000)) {
       // 30 requests per hour for Ask AI
+      console.log("Rate limit exceeded for user:", user.id);
       return NextResponse.json(
         {
           error:
@@ -55,18 +69,75 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const message = formData.get("message") as string;
     const imageFile = formData.get("image") as File | null;
+    const sessionId = formData.get("sessionId") as string | null;
+
+    console.log(
+      "Request data - Message:",
+      message ? message.substring(0, 100) : "null",
+      "Image:",
+      imageFile ? "present" : "null",
+      "Session ID:",
+      sessionId || "null"
+    );
 
     if (!message && !imageFile) {
+      console.log("No message or image provided");
       return NextResponse.json(
         { error: "Either message or image is required" },
         { status: 400 }
       );
     }
 
+    // Handle session management
+    let currentSession = null;
+    let conversationHistory: OpenAI.Chat.Completions.ChatCompletionMessageParam[] =
+      [];
+
+    if (sessionId) {
+      // Verify session belongs to user and get conversation history
+      currentSession = await prisma.chatSession.findFirst({
+        where: {
+          id: sessionId,
+          studentId: user.id,
+        },
+        include: {
+          messages: {
+            orderBy: { timestamp: "asc" },
+            take: 20, // Limit to last 20 messages for context
+          },
+        },
+      });
+
+      if (!currentSession) {
+        return NextResponse.json(
+          { error: "Chat session not found or access denied" },
+          { status: 404 }
+        );
+      }
+
+      // Build conversation history from previous messages
+      conversationHistory = currentSession.messages.map((msg) => ({
+        role: msg.role === "USER" ? "user" : "assistant",
+        content: msg.content,
+      })) as OpenAI.Chat.Completions.ChatCompletionMessageParam[];
+    } else {
+      // Create new session
+      currentSession = await prisma.chatSession.create({
+        data: {
+          studentId: user.id,
+          title: message ? message.substring(0, 50) + "..." : "Image Question",
+        },
+      });
+    }
+
     // Moderate the user message if provided
     if (message) {
+      console.log("Moderating message:", message.substring(0, 50));
       const moderation = moderateUserContent(message);
+      console.log("Moderation result:", moderation);
+
       if (!moderation.isAllowed) {
+        console.log("Message blocked by moderation:", moderation.reason);
         return NextResponse.json(
           {
             error:
@@ -79,7 +150,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Get OpenAI client
-    const openai = getOpenRouterClient();
+    let openai;
+    try {
+      openai = getOpenRouterClient();
+      console.log("OpenRouter client created successfully");
+    } catch (error: any) {
+      console.log("OpenRouter client error:", error.message);
+      return NextResponse.json(
+        { error: "AI service configuration error" },
+        { status: 500 }
+      );
+    }
 
     let imageBase64 = null;
     if (imageFile) {
@@ -91,10 +172,29 @@ export async function POST(req: NextRequest) {
       )}`;
     }
 
+    // Get student context for personalization (only for educational questions)
+    let studentContextString = "";
+    if (message && shouldIncludeContext(message)) {
+      console.log("Gathering student context for personalized response");
+      const studentContext = await getStudentContext(user.id);
+      if (studentContext) {
+        studentContextString = formatStudentContextForAI(studentContext);
+        console.log("Student context:", studentContextString);
+      }
+    }
+
     // Prepare system prompt for educational AI tutor
     const systemPrompt = `You are an expert AI tutor designed to help primary school students learn by providing clear, educational explanations. You must STRICTLY follow these guidelines:
 
-CORE PRINCIPLES:
+${
+  studentContextString
+    ? `STUDENT CONTEXT: ${studentContextString}
+
+Use this context to personalize your responses - reference their weak areas when relevant, build on their strengths, and adjust difficulty to their level. If they ask about a topic they struggle with, provide extra support and encouragement.
+
+`
+    : ""
+}CORE PRINCIPLES:
 1. Focus EXCLUSIVELY on educational content appropriate for primary school students
 2. Analyze questions or problems (text or images) and provide step-by-step solutions
 3. Explain concepts to help students understand underlying principles, not just get answers
@@ -125,6 +225,7 @@ IMPORTANT: If asked anything inappropriate or off-topic, respond with: "I'm here
     // Prepare messages for OpenAI
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
+      ...conversationHistory, // Include previous conversation
     ];
 
     if (imageBase64) {
@@ -157,7 +258,9 @@ IMPORTANT: If asked anything inappropriate or off-topic, respond with: "I'm here
 
     // Call OpenRouter API with safety parameters
     const response = await openai.chat.completions.create({
-      model: imageBase64 ? "anthropic/claude-3.5-haiku" : "anthropic/claude-3.5-haiku", // Using Claude for both text and image
+      model: imageBase64
+        ? "anthropic/claude-3.5-haiku"
+        : "anthropic/claude-3.5-haiku", // Using Claude for both text and image
       messages: messages,
       max_tokens: 600,
       temperature: 0.7,
@@ -171,8 +274,47 @@ IMPORTANT: If asked anything inappropriate or off-topic, respond with: "I'm here
     // Moderate AI response
     const moderatedResponse = moderateAIResponse(rawAIResponse);
 
+    // Save messages to database
+    const messagesToSave = [];
+
+    // Save user message
+    messagesToSave.push(
+      prisma.chatMessage.create({
+        data: {
+          sessionId: currentSession.id,
+          role: "USER",
+          content: message || "Image question",
+          imageUrl: imageBase64 || null,
+          hasImage: !!imageFile,
+        },
+      })
+    );
+
+    // Save AI response
+    messagesToSave.push(
+      prisma.chatMessage.create({
+        data: {
+          sessionId: currentSession.id,
+          role: "ASSISTANT",
+          content: moderatedResponse,
+        },
+      })
+    );
+
+    // Update session last activity
+    messagesToSave.push(
+      prisma.chatSession.update({
+        where: { id: currentSession.id },
+        data: { lastActivity: new Date() },
+      })
+    );
+
+    // Execute all database operations
+    await Promise.all(messagesToSave);
+
     return NextResponse.json({
       response: moderatedResponse,
+      sessionId: currentSession.id,
       success: true,
     });
   } catch (error: any) {

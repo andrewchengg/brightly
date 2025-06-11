@@ -52,10 +52,17 @@ export async function POST(req: NextRequest) {
 
     let currentStreak = studentData.currentStreak || 0;
     let longestStreak = studentData.longestStreak || 0;
-    const lastActivityDateString = studentData.lastActivityDate; // Should be YYYY-MM-DD from DB
+    const lastActivityDate = studentData.lastActivityDate; // This is a timestamp from DB
+
+    // Convert lastActivityDate timestamp to YYYY-MM-DD format for comparison
+    let lastActivityDateString = null;
+    if (lastActivityDate) {
+      const lastActivityDateObj = new Date(lastActivityDate);
+      lastActivityDateString = lastActivityDateObj.toISOString().split("T")[0];
+    }
 
     let needsDatabaseUpdate = false;
-    let newLastActivityDate = lastActivityDateString;
+    let newLastActivityDate = lastActivityDate;
 
     if (!lastActivityDateString) {
       // First activity ever for this user
@@ -79,7 +86,6 @@ export async function POST(req: NextRequest) {
         newLastActivityDate = todayDateString; // Update last activity to today
         needsDatabaseUpdate = true; // We'll be updating at least lastActivityDate
 
-        const lastActivityDay = new Date(lastActivityDateString); // Already YYYY-MM-DD
         const dayBeforeToday = new Date(today);
         dayBeforeToday.setDate(today.getDate() - 1);
         const dayBeforeTodayString = dayBeforeToday.toISOString().split("T")[0];

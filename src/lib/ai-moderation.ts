@@ -67,6 +67,25 @@ const EDUCATIONAL_KEYWORDS = [
   "what",
   "clarify",
 
+  // Student performance & analytics terms
+  "weak",
+  "strong",
+  "topics",
+  "subjects",
+  "performance",
+  "progress",
+  "mistakes",
+  "errors",
+  "accuracy",
+  "score",
+  "results",
+  "analytics",
+  "stats",
+  "statistics",
+  "review",
+  "improve",
+  "better",
+
   // Chinese language specific
   "chinese",
   "language",
@@ -245,7 +264,10 @@ export function checkSyllabusAlignment(input: string): {
   if (totalWords > 50 && educationalMatches < 2) confidence -= 0.1; // Reduced penalty for longer content
 
   // Additional boost for Chinese reading comprehension content
-  if (lowerInput.includes("chinese") && (lowerInput.includes("reading") || lowerInput.includes("comprehension"))) {
+  if (
+    lowerInput.includes("chinese") &&
+    (lowerInput.includes("reading") || lowerInput.includes("comprehension"))
+  ) {
     confidence += 0.3; // Increased boost
   }
 
@@ -259,21 +281,33 @@ export function checkSyllabusAlignment(input: string): {
     "can you explain",
     "i don't understand",
     "clarify",
-    "meaning"
+    "meaning",
+    "what are my weak",
+    "what are my strong",
+    "show me my",
+    "my performance",
+    "my progress",
+    "my mistakes",
+    "my results",
+    "my weak topics",
+    "my strong subjects",
+    "help me with",
+    "i need help",
+    "can you help",
   ];
 
   const hasCommonPhrase = commonEducationalPhrases.some((phrase) =>
     lowerInput.includes(phrase)
   );
-  if (hasCommonPhrase) confidence += 0.4; // Big boost for common educational phrases
+  if (hasCommonPhrase) confidence += 0.6; // Increased boost for common educational phrases
 
   confidence = Math.max(0, Math.min(1, confidence));
 
   return {
-    isAligned: confidence > 0.2, // Lowered threshold from 0.3 to 0.2
+    isAligned: confidence > 0.1, // Lowered threshold from 0.2 to 0.1 - much more permissive
     confidence,
     reason:
-      confidence <= 0.2
+      confidence <= 0.1
         ? "Content doesn't appear to be related to educational topics"
         : undefined,
   };
@@ -306,7 +340,19 @@ export function moderateUserContent(input: string): ContentModerationResult {
     "what is this",
     "help me",
     "meaning",
-    "clarify"
+    "clarify",
+    "what are my",
+    "show me",
+    "my weak",
+    "my strong",
+    "weak topics",
+    "strong subjects",
+    "performance",
+    "progress",
+    "mistakes",
+    "help with",
+    "can you help",
+    "i need help",
   ];
 
   const isVeryCommonEducational = veryCommonEducationalPhrases.some((phrase) =>
@@ -332,14 +378,23 @@ export function moderateUserContent(input: string): ContentModerationResult {
   // Check syllabus alignment
   const syllabusCheck = checkSyllabusAlignment(sanitized);
   if (!syllabusCheck.isAligned) {
-    // If it's a very short message or common educational phrase, allow it anyway
-    if (sanitized.length < 20 || isVeryCommonEducational) {
+    // If it's a short message, common educational phrase, or contains basic question words, allow it anyway
+    const hasBasicQuestionWords =
+      /\b(what|how|why|when|where|which|help|show|my|weak|strong|topics|performance)\b/i.test(
+        sanitized
+      );
+
+    if (
+      sanitized.length < 30 ||
+      isVeryCommonEducational ||
+      hasBasicQuestionWords
+    ) {
       return {
         isAllowed: true,
         sanitizedContent: sanitized,
       };
     }
-    
+
     return {
       isAllowed: false,
       reason:
@@ -355,7 +410,11 @@ export function moderateUserContent(input: string): ContentModerationResult {
   );
 
   // Allow educational content or short general questions or common phrases
-  if (hasEducationalContent || sanitized.length < 50 || isVeryCommonEducational) {
+  if (
+    hasEducationalContent ||
+    sanitized.length < 50 ||
+    isVeryCommonEducational
+  ) {
     return {
       isAllowed: true,
       sanitizedContent: sanitized,
@@ -363,7 +422,8 @@ export function moderateUserContent(input: string): ContentModerationResult {
   }
 
   // For longer content without clear educational intent, be more lenient
-  if (sanitized.length > 150 && syllabusCheck.confidence < 0.3) { // Lowered from 0.5 to 0.3
+  if (sanitized.length > 150 && syllabusCheck.confidence < 0.3) {
+    // Lowered from 0.5 to 0.3
     return {
       isAllowed: false,
       reason:
@@ -383,7 +443,7 @@ export function moderateUserContent(input: string): ContentModerationResult {
  */
 export function moderateAIResponse(response: string): string {
   if (!response || typeof response !== "string") return "";
-  
+
   let moderated = response;
 
   // Log the original response for debugging
@@ -391,20 +451,14 @@ export function moderateAIResponse(response: string): string {
 
   // Only remove clearly harmful content, be less aggressive
   moderated = moderated
-    .replace(
-      /\b(password|login|admin|hack|exploit|bypass)\b/gi,
-      (match) => {
-        console.log("Blocked potentially harmful content:", match);
-        return "[content removed]";
-      }
-    )
-    .replace(
-      /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,
-      (match) => {
-        console.log("Blocked card number:", match);
-        return "[card number removed]";
-      }
-    )
+    .replace(/\b(password|login|admin|hack|exploit|bypass)\b/gi, (match) => {
+      console.log("Blocked potentially harmful content:", match);
+      return "[content removed]";
+    })
+    .replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, (match) => {
+      console.log("Blocked card number:", match);
+      return "[card number removed]";
+    })
     .replace(
       /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
       (match) => {
@@ -434,9 +488,7 @@ export function moderateAIResponse(response: string): string {
   });
 
   // Be more selective about inappropriate content - only block truly inappropriate terms
-  const strictCleanupPatterns = [
-    /\b(stupid|dumb|idiot|moron)\b/gi,
-  ];
+  const strictCleanupPatterns = [/\b(stupid|dumb|idiot|moron)\b/gi];
 
   strictCleanupPatterns.forEach((pattern) => {
     moderated = moderated.replace(pattern, (match) => {
@@ -485,10 +537,16 @@ export function checkRateLimit(
 /**
  * Helper function to map subject IDs to names and determine if it's Chinese
  */
-function getSubjectInfo(subjectId?: number, subjectName?: string): { name: string; isChinese: boolean } {
+function getSubjectInfo(
+  subjectId?: number,
+  subjectName?: string
+): { name: string; isChinese: boolean } {
   // If subjectName is provided, use it directly
   if (subjectName) {
-    const isChinese = subjectName.toLowerCase().includes('chinese') || subjectName.includes('华文') || subjectName.includes('中文');
+    const isChinese =
+      subjectName.toLowerCase().includes("chinese") ||
+      subjectName.includes("华文") ||
+      subjectName.includes("中文");
     return { name: subjectName, isChinese };
   }
 
@@ -500,7 +558,9 @@ function getSubjectInfo(subjectId?: number, subjectName?: string): { name: strin
     4: { name: "Chinese", isChinese: true },
   };
 
-  return subjectMap[subjectId || 0] || { name: "General Studies", isChinese: false };
+  return (
+    subjectMap[subjectId || 0] || { name: "General Studies", isChinese: false }
+  );
 }
 
 /**
@@ -516,9 +576,9 @@ export function generateEducationalSystemPrompt(
 ): string {
   const subjectInfo = getSubjectInfo(subjectId, subjectName);
   const { name: subject, isChinese } = subjectInfo;
-  
+
   let contextString = "";
-  
+
   if (sessionType === "cloze_passage" && hasPassage) {
     contextString = `Student is working on a ${subject} cloze passage.`;
   } else if (sessionType === "topic_practice") {
@@ -530,7 +590,7 @@ export function generateEducationalSystemPrompt(
   }
 
   // Language instruction based on subject
-  const languageInstruction = isChinese 
+  const languageInstruction = isChinese
     ? "You may respond in Chinese when appropriate, especially when explaining Chinese language concepts, vocabulary, or cultural context. However, keep explanations clear and use both Chinese and English when helpful for understanding."
     : "IMPORTANT: Always respond in English only. Do not use Chinese characters or Pinyin in your responses, as this is not a Chinese language subject.";
 

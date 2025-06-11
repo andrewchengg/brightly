@@ -45,6 +45,8 @@ model Student {
   grade                Grade?                @relation(fields: [gradeId], references: [id])
   parent               Parent?               @relation(fields: [parentId], references: [id])
   studentBadges        StudentBadge[]
+  chatSessions         ChatSession[]
+  uploadedQuestions    StudentUploadedQuestion[]
 }
 
 model Teacher {
@@ -118,6 +120,7 @@ model Subject {
   questions         Question[]                 @relation("SubjectQuestions")
   subjectTeachers   SubjectTeacher[]
   topics            Topic[]
+  uploadedQuestions StudentUploadedQuestion[]  @relation("StudentUploadedQuestionSubjects")
 }
 
 model Topic {
@@ -132,6 +135,7 @@ model Topic {
   practiceSessions  PracticeSession[]
   questions         Question[]                 @relation("TopicQuestions")
   subject           Subject                    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  uploadedQuestions StudentUploadedQuestion[]  @relation("StudentUploadedQuestionTopics")
 
   @@unique([name, subjectId])
 }
@@ -379,6 +383,34 @@ model StudentBadge {
   @@id([studentId, badgeId])
 }
 
+model StudentUploadedQuestion {
+  id               String          @id @default(uuid())
+  studentId        String
+  originalFileName String?         // Keep filename for reference
+  text             String
+  questionType     QuestionType    @default(MULTIPLE_CHOICE)
+  options          Json?
+  correctAnswer    Json?
+  explanation      String?
+  hint             String?
+  difficulty       DifficultyLevel @default(MEDIUM)
+  subjectId        Int?
+  topicId          Int?
+  processingStatus ProcessingStatus @default(PROCESSING)
+  ocrText          String?         // Raw OCR extracted text for search
+  aiProcessingLog  String?         // Log of AI processing steps
+  imageUrl         String?         // Only saved when question requires visual elements
+  requiresImage    Boolean         @default(false) // AI-detected flag for image dependency
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  student          Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject          Subject?        @relation("StudentUploadedQuestionSubjects", fields: [subjectId], references: [id], onDelete: SetNull)
+  topic            Topic?          @relation("StudentUploadedQuestionTopics", fields: [topicId], references: [id], onDelete: SetNull)
+
+  @@index([studentId, createdAt])
+  @@index([studentId, subjectId])
+}
+
 model SubjectTeacher {
   subjectId  Int
   teacherId  String
@@ -426,6 +458,40 @@ model OralPracticeAttempt {
   updatedAt         DateTime   @updatedAt
   oralPrompt        OralPrompt @relation(fields: [oralPromptId], references: [id], onDelete: Cascade)
   student           Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model ChatSession {
+  id          String        @id @default(uuid())
+  studentId   String
+  title       String?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  lastActivity DateTime     @default(now())
+  student     Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  messages    ChatMessage[]
+
+  @@index([studentId, lastActivity])
+}
+
+model ChatMessage {
+  id            String      @id @default(uuid())
+  sessionId     String
+  role          MessageRole
+  content       String
+  imageUrl      String?
+  hasImage      Boolean     @default(false)
+  timestamp     DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
 }
 
 enum OralPromptType {
@@ -480,4 +546,11 @@ enum PracticeSessionType {
   QUESTION_GROUP_PRACTICE
   WEEKLY_CHALLENGE
   LISTENING_COMPREHENSION
+}
+
+enum ProcessingStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+  NEEDS_REVIEW
 }
