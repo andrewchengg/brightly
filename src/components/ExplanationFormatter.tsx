@@ -73,13 +73,19 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
   };
 
   const formatMultiPartSections = (text: string): string => {
+    // Debug: Log the input text
+    console.log('ExplanationFormatter - Input text:', text);
+    
     // Split text by part markers (a), (b), (c), etc. and restructure
     // This handles cases where parts are embedded within the same line
     const partPattern = /\(([a-z])\)\s*/gi;
     const parts = text.split(partPattern);
     
+    console.log('ExplanationFormatter - Parts after split:', parts);
+    
     if (parts.length <= 2) {
       // No parts found or only one part, return original text
+      console.log('ExplanationFormatter - No multi-parts detected, returning original');
       return text;
     }
     
@@ -95,12 +101,16 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
       const partLetter = parts[i];
       const partContent = parts[i + 1] || '';
       
+      console.log(`ExplanationFormatter - Processing part ${partLetter}:`, partContent);
+      
       if (partLetter && partContent.trim()) {
         formatted += `Part (${partLetter}): ${partContent.trim()}\n\n`;
       }
     }
     
-    return formatted.trim();
+    const result = formatted.trim();
+    console.log('ExplanationFormatter - Final formatted result:', result);
+    return result;
   };
 
   const formatTextWithSentenceBreaks = (text: string): React.ReactNode[] => {
