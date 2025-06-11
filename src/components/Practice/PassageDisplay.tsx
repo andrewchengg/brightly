@@ -10,7 +10,7 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-} from "@/components/ui/select"; // Using your Select component
+} from "@/components/ui/select";
 import {
   FaCheck,
   FaQuestionCircle,
@@ -20,6 +20,7 @@ import {
   FaBook,
   FaSpinner,
   FaTimes as FaClose,
+  FaCommentDots,
 } from "react-icons/fa";
 
 interface PassageDisplayProps {
@@ -30,6 +31,7 @@ interface PassageDisplayProps {
   onAnswerSelect: (questionId: number, selectedOptionId: string) => void;
   submitted: boolean; // To disable selects after submission
   questionResults: { id: number; correct: boolean }[]; // To show correctness after submission
+  onAddTextToAIContext: (text: string) => void;
 }
 
 interface TextSelection {
@@ -54,6 +56,7 @@ const PassageDisplay: React.FC<PassageDisplayProps> = ({
   onAnswerSelect,
   submitted,
   questionResults,
+  onAddTextToAIContext,
 }) => {
   const [showingExplanation, setShowingExplanation] = useState<number | null>(
     null
@@ -206,6 +209,13 @@ const PassageDisplay: React.FC<PassageDisplayProps> = ({
         explanation: "Unable to get explanation",
         loading: false,
       }));
+    }
+  };
+
+  const handleAddToContext = () => {
+    if (selectedText) {
+      onAddTextToAIContext(selectedText.text);
+      closeSelectionPopup();
     }
   };
 
@@ -465,7 +475,7 @@ const PassageDisplay: React.FC<PassageDisplayProps> = ({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center">
               <span className="text-lg font-semibold text-gray-800 mr-2">
-                &ldquo;{selectedText.text}&rdquo;
+                “{selectedText.text}”
               </span>
             </div>
             <button
@@ -499,6 +509,14 @@ const PassageDisplay: React.FC<PassageDisplayProps> = ({
               {showExplanation && wordInfo?.loading && (
                 <FaSpinner className="animate-spin" />
               )}
+            </button>
+            <button
+              onClick={handleAddToContext}
+              className="flex items-center gap-2 px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+              title="Add to AI chat for further questions"
+            >
+              <FaCommentDots />
+              <span>Ask AI</span>
             </button>
           </div>
 

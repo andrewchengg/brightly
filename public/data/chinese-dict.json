@@ -1,0 +1,42 @@
+{
+  "你好": {
+    "pinyin": "nǐ hǎo",
+    "definitions": ["hello", "hi"]
+  },
+  "谢谢": {
+    "pinyin": "xiè xie",
+    "definitions": ["thank you", "thanks"]
+  },
+  "再见": {
+    "pinyin": "zài jiàn",
+    "definitions": ["goodbye", "see you again"]
+  },
+  "请": {
+    "pinyin": "qǐng",
+    "definitions": ["please", "to invite", "to request"]
+  },
+  "对不起": {
+    "pinyin": "duì bu qǐ",
+    "definitions": ["sorry", "excuse me", "I apologize"]
+  },
+  "没关系": {
+    "pinyin": "méi guān xi",
+    "definitions": ["it doesn't matter", "never mind", "that's OK"]
+  },
+  "早上好": {
+    "pinyin": "zǎo shang hǎo",
+    "definitions": ["good morning"]
+  },
+  "晚上好": {
+    "pinyin": "wǎn shang hǎo",
+    "definitions": ["good evening"]
+  },
+  "晚安": {
+    "pinyin": "wǎn ān",
+    "definitions": ["good night"]
+  },
+  "请问": {
+    "pinyin": "qǐng wèn",
+    "definitions": ["excuse me, may I ask...", "please tell me"]
+  }
+} 

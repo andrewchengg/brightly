@@ -1,3 +1,4 @@
+// src/components/AILearningAssistant/index.ts
 // Main AI Learning Assistant exports
 export { default as AIAssistant } from "./AIAssistant";
 export * from "./types";

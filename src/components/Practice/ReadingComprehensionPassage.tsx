@@ -1,9 +1,11 @@
+// src/components/Practice/ReadingComprehensionPassage.tsx
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   FaLanguage,
   FaBook,
   FaSpinner,
   FaTimes as FaClose,
+  FaCommentDots,
 } from "react-icons/fa";
 
 interface TextSelection {
@@ -23,15 +25,18 @@ interface WordInfo {
 interface ReadingComprehensionPassageProps {
   passageTitle: string;
   passageContent: string | null;
+  onAddTextToAIContext: (text: string) => void;
 }
 
 const ReadingComprehensionPassage: React.FC<
   ReadingComprehensionPassageProps
-> = ({ passageTitle, passageContent }) => {
+> = ({ passageTitle, passageContent, onAddTextToAIContext }) => {
   const [selectedText, setSelectedText] = useState<TextSelection | null>(null);
   const [wordInfo, setWordInfo] = useState<WordInfo | null>(null);
   const [showPinyin, setShowPinyin] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [customQuestion, setCustomQuestion] = useState("");
+  const [showQuestionInput, setShowQuestionInput] = useState(false);
   const passageRef = useRef<HTMLDivElement>(null);
 
   // Function to check if text contains Chinese characters
@@ -82,10 +87,28 @@ const ReadingComprehensionPassage: React.FC<
               content: `Please explain the Chinese word/phrase "${text}" in simple terms for a primary school student.`,
             },
           ],
+          context: {
+            session: {
+              sessionType: "reading_comprehension",
+              totalQuestions: 1,
+              answeredQuestions: 0,
+              correctAnswers: 0,
+              isCompleted: false,
+              studentLevel: "Primary School"
+            },
+            selectedText: text,
+            passage: {
+              title: passageTitle,
+              content: passageContent || ""
+            }
+          }
         }),
       });
 
-      if (!response.ok) throw new Error("Explanation request failed");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Explanation request failed");
+      }
 
       const data = await response.json();
       return data.message;
@@ -107,7 +130,10 @@ const ReadingComprehensionPassage: React.FC<
     }
 
     const selectedText = selection.toString().trim();
+    console.log('Selected text:', selectedText); // Debug log
+
     if (selectedText.length === 0 || !containsChinese(selectedText)) {
+      console.log('No Chinese text detected'); // Debug log
       setSelectedText(null);
       setWordInfo(null);
       setShowPinyin(false);
@@ -117,6 +143,7 @@ const ReadingComprehensionPassage: React.FC<
 
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
+    console.log('Selection position:', rect); // Debug log
 
     setSelectedText({
       text: selectedText,
@@ -132,10 +159,12 @@ const ReadingComprehensionPassage: React.FC<
 
   // Add event listeners for text selection
   useEffect(() => {
+    console.log('Adding text selection event listeners'); // Debug log
     document.addEventListener("mouseup", handleTextSelection);
     document.addEventListener("keyup", handleTextSelection);
 
     return () => {
+      console.log('Removing text selection event listeners'); // Debug log
       document.removeEventListener("mouseup", handleTextSelection);
       document.removeEventListener("keyup", handleTextSelection);
     };
@@ -149,9 +178,12 @@ const ReadingComprehensionPassage: React.FC<
     setShowPinyin(true);
 
     try {
+      console.log('Fetching pinyin for:', selectedText.text); // Debug log
       const pinyin = await getPinyin(selectedText.text);
+      console.log('Pinyin result:', pinyin); // Debug log
       setWordInfo((prev) => ({ ...prev, pinyin, loading: false }));
     } catch (error) {
+      console.error("Pinyin conversion error:", error);
       setWordInfo((prev) => ({
         ...prev,
         pinyin: "Unable to get pinyin",
@@ -179,12 +211,30 @@ const ReadingComprehensionPassage: React.FC<
     }
   };
 
+  const handleAddToContext = () => {
+    if (selectedText) {
+      onAddTextToAIContext(selectedText.text);
+      closeSelectionPopup();
+    }
+  };
+
+  const handleSubmitQuestion = () => {
+    if (selectedText && customQuestion.trim()) {
+      onAddTextToAIContext(`${selectedText.text}\n\nQuestion: ${customQuestion.trim()}`);
+      setCustomQuestion("");
+      setShowQuestionInput(false);
+      closeSelectionPopup();
+    }
+  };
+
   // Close selection popup
   const closeSelectionPopup = () => {
     setSelectedText(null);
     setWordInfo(null);
     setShowPinyin(false);
     setShowExplanation(false);
+    setShowQuestionInput(false);
+    setCustomQuestion("");
     window.getSelection()?.removeAllRanges();
   };
 
@@ -252,7 +302,7 @@ const ReadingComprehensionPassage: React.FC<
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center">
               <span className="text-lg font-semibold text-gray-800 mr-2">
-                &ldquo;{selectedText.text}&rdquo;
+                "{selectedText.text}"
               </span>
             </div>
             <button
@@ -287,7 +337,45 @@ const ReadingComprehensionPassage: React.FC<
                 <FaSpinner className="animate-spin" />
               )}
             </button>
+            <button
+              onClick={handleAddToContext}
+              className="flex items-center gap-2 px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+              title="Add this text as context for your question"
+            >
+              <FaCommentDots />
+              <span>Add as Context</span>
+            </button>
           </div>
+
+          {/* Custom Question Input */}
+          {showQuestionInput && (
+            <div className="mb-3">
+              <div className="text-sm text-gray-600 mb-2">
+                Ask a question about "{selectedText.text}":
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customQuestion}
+                  onChange={(e) => setCustomQuestion(e.target.value)}
+                  placeholder="Type your question here..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSubmitQuestion();
+                    }
+                  }}
+                />
+                <button
+                  onClick={handleSubmitQuestion}
+                  disabled={!customQuestion.trim()}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Results */}
           {showPinyin && wordInfo?.pinyin && (
@@ -318,3 +406,4 @@ const ReadingComprehensionPassage: React.FC<
 };
 
 export default ReadingComprehensionPassage;
+

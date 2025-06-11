@@ -7,13 +7,20 @@ import {
   checkRateLimit,
 } from "@/lib/ai-moderation";
 
-// Initialize OpenAI client
-const getOpenAIClient = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
+// Initialize OpenRouter client (using OpenAI SDK with OpenRouter endpoints)
+const getOpenRouterClient = () => {
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    throw new Error("OpenAI API key is not set in environment variables");
+    throw new Error("OpenRouter API key is not set in environment variables");
   }
-  return new OpenAI({ apiKey });
+  return new OpenAI({
+    apiKey: apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+      "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
+      "X-Title": "Edcel - Educational Learning Platform",
+    },
+  });
 };
 
 export async function POST(req: NextRequest) {
@@ -72,7 +79,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get OpenAI client
-    const openai = getOpenAIClient();
+    const openai = getOpenRouterClient();
 
     let imageBase64 = null;
     if (imageFile) {
@@ -148,15 +155,13 @@ IMPORTANT: If asked anything inappropriate or off-topic, respond with: "I'm here
       });
     }
 
-    // Call OpenAI API with safety parameters
+    // Call OpenRouter API with safety parameters
     const response = await openai.chat.completions.create({
-      model: imageBase64 ? "gpt-4o" : "gpt-3.5-turbo",
+      model: imageBase64 ? "anthropic/claude-3.5-haiku" : "anthropic/claude-3.5-haiku", // Using Claude for both text and image
       messages: messages,
       max_tokens: 600,
       temperature: 0.7,
-      frequency_penalty: 0.3,
-      presence_penalty: 0.3,
-      user: user.id, // For OpenAI's safety monitoring
+      // Remove frequency_penalty and presence_penalty as they may not be supported by all models
     });
 
     const rawAIResponse =

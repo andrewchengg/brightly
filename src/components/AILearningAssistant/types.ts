@@ -1,3 +1,4 @@
+// src/components/AILearningAssistant/types.ts
 // Types for the AI Learning Assistant system
 
 export interface ChatMessage {
@@ -58,6 +59,7 @@ export interface AITutorRequest {
     question?: QuestionContext;
     passage?: PassageContext;
     session: SessionContext;
+    selectedText?: string;
   };
   studentId?: string;
 }
@@ -66,10 +68,15 @@ export interface AITutorResponse {
   message: string;
   flagged?: boolean;
   warning?: string;
+  error?: string;
 }
 
 export interface ContentModerationResult {
   isAllowed: boolean;
   reason?: string;
   sanitizedContent?: string;
+}
+
+export interface AIAssistantRef {
+  addTextToInput: (text: string) => void;
 }

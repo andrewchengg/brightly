@@ -35,7 +35,12 @@ import {
 } from "react-icons/fa";
 
 import PassageDisplay from "@/components/Practice/PassageDisplay";
-import AITutor from "@/components/Practice/AITutor";
+import {
+  AIAssistant,
+  createPassageContext,
+  createSessionContext,
+  AIAssistantRef,
+} from "@/components/AILearningAssistant";
 
 export interface OptionClient {
   id: string;
@@ -63,7 +68,7 @@ interface LocalStorageClozePracticeProgress {
   passageContent: string | null;
   audioUrl?: string | null;
   questions: QuestionClient[];
-  currentQuestionIndex: number; // Still keep for potential future use or if AI needs context of "current" blank
+  currentQuestionIndex: number;
   score: number;
   answeredQuestions: Record<number, string | Record<string, string>>;
   questionResults: {
@@ -84,16 +89,14 @@ export default function ClozePassagePracticePage() {
   const questionGroupIdParam = params.questionGroupId as string;
   const numericQuestionGroupId = parseInt(questionGroupIdParam, 10);
 
+  // State variables
   const [passageTitle, setPassageTitle] = useState<string>("");
   const [passageContent, setPassageContent] = useState<string | null>(null);
-  const [passageAudioUrl, setPassageAudioUrl] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuestionClient[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-
   const [score, setScore] = useState(0);
-  const [loading, setLoading] = useState<boolean | string>(true); // Can be boolean or string for specific states
+  const [loading, setLoading] = useState<boolean | string>(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-
+  const [splitPosition, setSplitPosition] = useState(65);
   const [answeredQuestions, setAnsweredQuestions] = useState<
     Record<number, string | Record<string, string>>
   >({});
@@ -101,6 +104,7 @@ export default function ClozePassagePracticePage() {
   const [questionResults, setQuestionResults] = useState<
     LocalStorageClozePracticeProgress["questionResults"]
   >([]);
+
   const [sessionFinalized, setSessionFinalized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPracticeSessionId, setCurrentPracticeSessionId] = useState<
@@ -109,23 +113,22 @@ export default function ClozePassagePracticePage() {
   const { user: authUser, isLoaded: authUserIsLoaded } = useSupabaseUser();
   const [userId, setUserId] = useState<string | null>(null);
   const [currentSubjectId, setCurrentSubjectId] = useState<number | null>(null);
+
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
 
-  // AI tutor state is now handled by the AITutor component
-
-  const [splitPosition, setSplitPosition] = useState(65);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const currentQuestion: QuestionClient | null =
-    questions.length > 0 && currentQuestionIndex < questions.length
-      ? questions[currentQuestionIndex]
-      : null;
+  const aiAssistantRef = useRef<AIAssistantRef>(null);
 
   const localStorageKey = userId
     ? `clozeInlinePracticeProgress_${userId}_${numericQuestionGroupId}`
     : null;
+
+  // Function to pass text to the AI assistant
+  const addTextToAI = (text: string) => {
+    aiAssistantRef.current?.addTextToInput(text);
+  };
 
   useEffect(() => {
     if (authUserIsLoaded) {
@@ -186,14 +189,11 @@ export default function ClozePassagePracticePage() {
     setError(null);
     setPassageTitle("");
     setPassageContent(null);
-    setPassageAudioUrl(null);
     setQuestions([]);
-    setCurrentQuestionIndex(0);
     setScore(0);
     setAnsweredQuestions({});
     setQuestionResults([]);
     setSessionFinalized(false);
-    // AI tutor state is reset within the AITutor component
     setCurrentPracticeSessionId(null);
     setCurrentSubjectId(null);
     try {
@@ -215,7 +215,6 @@ export default function ClozePassagePracticePage() {
       if (!data.questionGroup) throw new Error("No group data from API.");
       setPassageContent(data.questionGroup.description || "");
       setPassageTitle(data.questionGroup.name || "Cloze Passage");
-      setPassageAudioUrl(data.questionGroup.audioUrl);
       const fQ = data.questions || [];
       if (fQ.length === 0 && !data.questionGroup.description?.trim())
         throw new Error("No passage or questions found.");
@@ -230,9 +229,7 @@ export default function ClozePassagePracticePage() {
       setPassageContent("Load error.");
       setQuestions([]);
     } finally {
-      setLoading(
-        false
-      ); /* setInitialLoadComplete(true); // Handled by the calling useEffect now */
+      setLoading(false);
     }
   }, [userId, numericQuestionGroupId, createNewSession, localStorageKey]);
 
@@ -245,13 +242,11 @@ export default function ClozePassagePracticePage() {
     ) {
       return;
     }
-
     const attemptLoadOrFetch = async () => {
       setLoading(true);
       setError(null);
       const savedProgressString = safeStorage.getItem(localStorageKey, "local");
       let resumableSessionFound = false;
-
       if (savedProgressString) {
         setLoading("resuming-session");
         try {
@@ -259,35 +254,24 @@ export default function ClozePassagePracticePage() {
             JSON.parse(savedProgressString);
           if (
             progress.questionGroupId === numericQuestionGroupId &&
+            !progress.sessionFinalized &&
             progress.practiceSessionId
           ) {
-            // If the session is already finalized, don't resume it - start fresh instead
-            if (progress.sessionFinalized) {
-              console.log(
-                "Found completed session, starting fresh instead of resuming"
-              );
-              safeStorage.removeItem(localStorageKey, "local");
-              resumableSessionFound = false;
-            } else {
-              // Only resume if the session is not finalized (still in progress)
-              setPassageTitle(progress.passageTitle);
-              setPassageContent(progress.passageContent);
-              setPassageAudioUrl(progress.audioUrl || null);
-              setQuestions(progress.questions || []);
-              setCurrentQuestionIndex(progress.currentQuestionIndex || 0);
-              setScore(progress.score || 0);
-              setAnsweredQuestions(
-                (progress.answeredQuestions as Record<
-                  number,
-                  string | Record<string, string>
-                >) || {}
-              );
-              setQuestionResults(progress.questionResults || []);
-              setCurrentPracticeSessionId(progress.practiceSessionId);
-              setCurrentSubjectId(progress.subjectId || null);
-              setSessionFinalized(false);
-              resumableSessionFound = true;
-            }
+            setPassageTitle(progress.passageTitle);
+            setPassageContent(progress.passageContent);
+            setQuestions(progress.questions || []);
+            setScore(progress.score || 0);
+            setAnsweredQuestions(
+              (progress.answeredQuestions as Record<
+                number,
+                string | Record<string, string>
+              >) || {}
+            );
+            setQuestionResults(progress.questionResults || []);
+            setCurrentPracticeSessionId(progress.practiceSessionId);
+            setCurrentSubjectId(progress.subjectId || null);
+            setSessionFinalized(false);
+            resumableSessionFound = true;
           } else {
             safeStorage.removeItem(localStorageKey, "local");
           }
@@ -296,7 +280,6 @@ export default function ClozePassagePracticePage() {
           safeStorage.removeItem(localStorageKey, "local");
         }
       }
-
       if (!resumableSessionFound) {
         await fetchContentAndStart();
       } else {
@@ -304,7 +287,6 @@ export default function ClozePassagePracticePage() {
       }
       setInitialLoadComplete(true);
     };
-
     if (!initialLoadComplete) {
       attemptLoadOrFetch();
     }
@@ -332,25 +314,22 @@ export default function ClozePassagePracticePage() {
       questionGroupId: numericQuestionGroupId,
       passageTitle,
       passageContent: contentToSave,
-      audioUrl: passageAudioUrl,
       questions,
-      currentQuestionIndex,
       score,
-      answeredQuestions: answeredQuestions as Record<
-        number,
-        string | Record<string, string>
-      >,
       questionResults,
       sessionFinalized,
       practiceSessionId: currentPracticeSessionId,
       subjectId: currentSubjectId,
+      answeredQuestions: answeredQuestions as Record<
+        number,
+        string | Record<string, string>
+      >,
+      currentQuestionIndex: 0,
     };
     safeStorage.setItem(localStorageKey, JSON.stringify(progress), "local");
   }, [
     questions,
-    currentQuestionIndex,
     score,
-    answeredQuestions,
     questionResults,
     sessionFinalized,
     loading,
@@ -360,10 +339,10 @@ export default function ClozePassagePracticePage() {
     numericQuestionGroupId,
     passageTitle,
     passageContent,
-    passageAudioUrl,
     currentSubjectId,
     localStorageKey,
     initialLoadComplete,
+    answeredQuestions,
   ]);
 
   const awardXPAndStreak = useCallback(
@@ -510,7 +489,6 @@ export default function ClozePassagePracticePage() {
     else router.push("/student/practice/subject/4");
   }, [currentSubjectId, router]);
 
-  // AI tutor functionality is now handled by the AITutor component
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     isDragging.current = true;
@@ -720,7 +698,10 @@ export default function ClozePassagePracticePage() {
     !loading;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100" ref={containerRef}>
+    <div
+      className="flex flex-col h-screen bg-gray-100 overflow-hidden"
+      ref={containerRef}
+    >
       {showLevelUp && (
         <LevelUpNotification
           level={newLevel}
@@ -732,7 +713,6 @@ export default function ClozePassagePracticePage() {
           onClick={exitToSubjectPractice}
           className="text-gray-600 hover:text-gray-800 mr-4 p-2 rounded-md hover:bg-gray-100 transition-colors flex items-center text-sm"
         >
-          {" "}
           <FaArrowLeft className="mr-1.5" /> Exit
         </button>
         <div className="flex-1 text-center font-medium text-gray-700 text-sm md:text-base">
@@ -759,6 +739,7 @@ export default function ClozePassagePracticePage() {
             onAnswerSelect={handleInlineAnswerSelect}
             submitted={sessionFinalized}
             questionResults={questionResults}
+            onAddTextToAIContext={addTextToAI}
           />
           {noQuestionsAndNoPassage && (
             <p className="text-center text-gray-500 py-10">
@@ -861,20 +842,22 @@ export default function ClozePassagePracticePage() {
               className="flex flex-col overflow-hidden"
               style={{ width: `${100 - splitPosition - 0.5}%` }}
             >
-              <AITutor
-                passageTitle={passageTitle}
-                passageContent={passageContent}
-                questions={questions.map((q) => ({
-                  id: q.id,
-                  questionNumberOnPage: q.questionNumberOnPage,
-                  options: q.options,
-                  correctAnswer: q.correctAnswer,
-                  explanation: q.explanation,
-                }))}
-                answeredQuestions={answeredQuestions}
-                questionResults={questionResults}
-                sessionFinalized={sessionFinalized}
-                isDisabled={false}
+              <AIAssistant
+                ref={aiAssistantRef}
+                passageContext={
+                  passageContent
+                    ? createPassageContext(passageContent, passageTitle)
+                    : undefined
+                }
+                sessionContext={createSessionContext(
+                  "cloze_passage",
+                  questions.length,
+                  Object.keys(answeredQuestions).length,
+                  questionResults.filter((r) => r.correct).length,
+                  sessionFinalized,
+                  currentPracticeSessionId || undefined,
+                  "Primary School"
+                )}
               />
             </div>
           </>

@@ -37,6 +37,13 @@ import {
 // Import our new reading comprehension components
 import ReadingComprehensionPassage from "@/components/Practice/ReadingComprehensionPassage";
 import ReadingComprehensionQuestions from "@/components/Practice/ReadingComprehensionQuestions";
+import {
+  AIAssistant,
+  createPassageContext,
+  createQuestionContext,
+  createSessionContext,
+  AIAssistantRef,
+} from "@/components/AILearningAssistant";
 
 // Interfaces (Consider moving to a shared types file: src/types/practice.ts)
 export interface OptionClient {
@@ -98,7 +105,7 @@ export default function ReadingComprehensionPassagePracticePage() {
   const [showHint, setShowHint] = useState(false);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState<boolean | string>(true);
-  const [splitPosition, setSplitPosition] = useState(65);
+  const [splitPosition, setSplitPosition] = useState(50); // Adjust for 3 panels
   const [answeredQuestions, setAnsweredQuestions] = useState<
     Record<number, string | Record<string, string>>
   >({});
@@ -121,6 +128,7 @@ export default function ReadingComprehensionPassagePracticePage() {
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const aiAssistantRef = useRef<AIAssistantRef>(null);
 
   const currentQuestion: QuestionClient | null =
     questions.length > 0 && currentQuestionIndex < questions.length
@@ -141,6 +149,10 @@ export default function ReadingComprehensionPassagePracticePage() {
       }
     }
   }, [authUser, authUserIsLoaded, router]);
+
+  const addTextToAI = (text: string) => {
+    aiAssistantRef.current?.addTextToInput(text);
+  };
 
   // --- createNewSession (can be a shared hook/util later) ---
   const createNewSession = useCallback(
@@ -446,7 +458,7 @@ export default function ReadingComprehensionPassagePracticePage() {
   );
 
   const onClozeOptionSelect = useCallback(
-    (optionId: string, optionText: string) => {
+    (optionId: string) => {
       if (!currentQuestion || selectedAnswer !== null) return;
       setSelectedAnswer(optionId);
       const correctAnswerId = String(
@@ -588,7 +600,7 @@ export default function ReadingComprehensionPassagePracticePage() {
               Reading Comprehension Complete: {passageTitle}
             </h1>
             <p className="text-indigo-200">
-              Well done! Here&apos;s your performance:
+              Well done! Here's your performance:
             </p>
           </div>
           <div className="p-6 md:p-8">
@@ -732,15 +744,34 @@ export default function ReadingComprehensionPassagePracticePage() {
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left side - Passage */}
+        {/* Left side - Passage & Questions */}
         <div
-          className="overflow-auto bg-white custom-scrollbar"
+          className="overflow-auto bg-gray-50 custom-scrollbar flex flex-col"
           style={{ width: `${splitPosition}%` }}
         >
-          <ReadingComprehensionPassage
-            passageTitle={passageTitle}
-            passageContent={passageContent}
-          />
+          <div className="flex-shrink-0">
+            <ReadingComprehensionPassage
+              passageTitle={passageTitle}
+              passageContent={passageContent}
+              onAddTextToAIContext={addTextToAI}
+            />
+          </div>
+          {currentQuestion && (
+            <div className="p-4 md:p-6 bg-white border-t flex-1">
+              <ReadingComprehensionQuestions
+                questions={questions}
+                currentQuestionIndex={currentQuestionIndex}
+                currentQuestion={currentQuestion}
+                selectedAnswer={selectedAnswer}
+                isAnswerCorrect={isAnswerCorrect}
+                showHint={showHint}
+                onAnswerSelect={(optionId: string) => onClozeOptionSelect(optionId)}
+                onShowHint={() => setShowHint(true)}
+                onNextQuestion={handleNextQuestion}
+                loading={loading}
+              />
+            </div>
+          )}
         </div>
 
         <div
@@ -750,24 +781,42 @@ export default function ReadingComprehensionPassagePracticePage() {
           <div className="h-8 w-0.5 bg-gray-400 rounded-full group-hover:bg-indigo-500 transition-colors duration-150"></div>
         </div>
 
-        {/* Right side - Questions */}
+        {/* Right side - AI Assistant */}
         <div
           className="bg-gray-50 flex flex-col overflow-hidden"
           style={{ width: `${100 - splitPosition - 0.5}%` }}
         >
-          <ReadingComprehensionQuestions
-            questions={questions}
-            currentQuestionIndex={currentQuestionIndex}
-            currentQuestion={currentQuestion}
-            selectedAnswer={selectedAnswer}
-            isAnswerCorrect={isAnswerCorrect}
-            showHint={showHint}
-            onAnswerSelect={(optionId: string) =>
-              onClozeOptionSelect(optionId, "")
+          <AIAssistant
+            ref={aiAssistantRef}
+            passageContext={
+              passageContent
+                ? createPassageContext(passageContent, passageTitle)
+                : undefined
             }
-            onShowHint={() => setShowHint(true)}
-            onNextQuestion={handleNextQuestion}
-            loading={loading}
+            questionContext={
+              currentQuestion
+                ? createQuestionContext(
+                    currentQuestion.id,
+                    currentQuestion.text,
+                    currentQuestion.questionType || "MULTIPLE_CHOICE",
+                    currentQuestion.options,
+                    currentQuestion.correctAnswer || undefined,
+                    currentQuestion.explanation || undefined,
+                    currentQuestion.hint,
+                    selectedAnswer || undefined,
+                    selectedAnswer !== null ? isAnswerCorrect || false : undefined
+                  )
+                : undefined
+            }
+            sessionContext={createSessionContext(
+              "question_group",
+              questions.length,
+              currentQuestionIndex + (selectedAnswer ? 1 : 0),
+              questionResults.filter((r) => r.correct).length,
+              sessionFinalized,
+              currentPracticeSessionId || undefined,
+              "Primary School"
+            )}
           />
         </div>
       </div>
