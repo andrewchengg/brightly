@@ -19,6 +19,7 @@ import {
   FaTimesCircle,
   FaLightbulb,
 } from "react-icons/fa";
+import ExplanationFormatter from '@/components/ExplanationFormatter';
 
 interface SessionDetails {
   id: string;
@@ -391,8 +392,8 @@ export default function ParentSessionDetailsPage() {
                           : "bg-red-100 border border-red-200"
                       }`}
                     >
-                      <div className="text-sm font-medium mb-1">
-                        Student's Answer
+                      <div className="text-base font-bold text-gray-800 mb-2">
+                        Your Answer:
                       </div>
                       <div className="text-sm">
                         {answer.submittedAnswer !== null &&
@@ -402,8 +403,8 @@ export default function ParentSessionDetailsPage() {
                       </div>
                     </div>
                     <div className="p-3 rounded-lg bg-blue-100 border border-blue-200">
-                      <div className="text-sm font-medium mb-1">
-                        Correct Answer
+                      <div className="text-base font-bold text-gray-800 mb-2">
+                        Correct Answer:
                       </div>
                       <div className="text-sm">
                         {answer.question.correctAnswer !== null &&
@@ -416,12 +417,12 @@ export default function ParentSessionDetailsPage() {
 
                   {answer.question.explanation && (
                     <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-                      <div className="flex items-center gap-2 text-sm font-medium mb-1">
+                      <div className="flex items-center gap-2 text-base font-bold text-gray-800 mb-2">
                         <FaLightbulb className="text-blue-600" />
-                        Explanation
+                        Explanation:
                       </div>
                       <div className="text-sm text-gray-700">
-                        {answer.question.explanation}
+                        <ExplanationFormatter explanation={answer.question.explanation} />
                       </div>
                     </div>
                   )}

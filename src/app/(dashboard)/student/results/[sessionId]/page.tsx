@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PracticeSessionType as PrismaPracticeSessionType, QuestionType as PrismaQuestionType } from '@/generated/prisma';
 import { toast } from 'react-toastify';
-import Image from 'next/image'; 
+import Image from 'next/image';
+import ExplanationFormatter from '@/components/ExplanationFormatter'; 
 
 const MOCK_EXAM_PAPER_CONFIG = {
     mathematics: {
@@ -291,7 +292,7 @@ export default function SessionReviewPage() {
               )}
 
               <div>
-                <p className="text-sm font-medium text-gray-700">Your Answer:</p>
+                <p className="text-base font-bold text-gray-800 mb-2">Your Answer:</p>
                 <div className={`p-2 rounded ${sa.isCorrect ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                   {renderAnswer(sa.question.questionType, sa.submittedAnswer, sa.question.options)}
                 </div>
@@ -299,7 +300,7 @@ export default function SessionReviewPage() {
 
               {!sa.isCorrect && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Correct Answer:</p>
+                  <p className="text-base font-bold text-gray-800 mb-2">Correct Answer:</p>
                   <div className="p-2 rounded bg-green-50 text-green-700">
                      {renderCorrectAnswerForDisplay(sa.question)}
                   </div>
@@ -308,8 +309,10 @@ export default function SessionReviewPage() {
 
               {sa.question.explanation && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Explanation:</p>
-                  <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded whitespace-pre-wrap">{sa.question.explanation}</p>
+                  <p className="text-base font-bold text-gray-800 mb-2">Explanation:</p>
+                  <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                    <ExplanationFormatter explanation={sa.question.explanation} />
+                  </div>
                 </div>
               )}
             </CardContent>
