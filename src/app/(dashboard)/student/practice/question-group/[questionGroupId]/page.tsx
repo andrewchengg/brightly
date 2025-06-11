@@ -14,6 +14,7 @@ import {
 import safeStorage from "@/lib/safeStorage";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
+import ExplanationFormatter from "@/components/ExplanationFormatter";
 import {
   AIAssistant,
   createSessionContext,
@@ -1440,12 +1441,13 @@ export default function QuestionGroupPracticePage() {
                         : "bg-blue-50 border-l-4 border-blue-400"
                     }`}>
                       <div>
-                        <p className="font-semibold text-gray-700 mb-2">
+                        <p className="font-semibold text-gray-700 mb-3">
                           Explanation:
                         </p>
-                        <p className="text-gray-600 whitespace-pre-wrap">
-                          {currentQuestion.explanation}
-                        </p>
+                        <ExplanationFormatter 
+                          explanation={currentQuestion.explanation}
+                          className="text-gray-700"
+                        />
                       </div>
                     </div>
                   )}
