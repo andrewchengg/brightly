@@ -147,7 +147,7 @@ export default function SignUpPage() {
                 href="/"
                 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
               >
-                Edcel
+                                  Brightly
               </Link>
             </div>
             <div className="flex items-center space-x-4">
@@ -185,7 +185,7 @@ export default function SignUpPage() {
         <div className="p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Join Edcel
+                                Join Brightly
             </h1>
             <p className="text-gray-600">
               Create your parent account to get started

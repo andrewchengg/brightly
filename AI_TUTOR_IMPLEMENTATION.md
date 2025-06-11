@@ -2,7 +2,7 @@
 
 ## Overview
 
-I've successfully implemented an "Ask AI Tutor" feature for students in the Edcel platform. This feature provides a ChatGPT-like interface where students can:
+I've successfully implemented an "Ask AI Tutor" feature for students in the Brightly platform. This feature provides a ChatGPT-like interface where students can:
 
 1. Upload images of questions/problems
 2. Ask text-based questions

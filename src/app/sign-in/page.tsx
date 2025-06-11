@@ -140,7 +140,7 @@ export default function SignInPage() {
                 href="/"
                 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
               >
-                Edcel
+                                  Brightly
               </Link>
             </div>
             <div className="flex items-center space-x-4">

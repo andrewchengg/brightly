@@ -29,7 +29,7 @@ export default async function DashboardLayout({
           className="flex items-center justify-center lg:justify-start gap-2 mb-4"
         >
           <Image src="/logo.png" alt="logo" width={32} height={32} />
-          <span className="hidden lg:block font-bold">Edcel</span>
+                      <span className="hidden lg:block font-bold">Brightly</span>
         </Link>
         <div className="flex-1 overflow-y-auto">
           <Menu />

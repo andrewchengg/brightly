@@ -452,7 +452,7 @@ const Menu = () => {
 
       <div className="hidden lg:block px-4 py-4 mt-6">
         <div className="border-t border-gray-200 pt-4">
-          <div className="text-xs text-center text-gray-400">Edcel v1.0</div>
+                          <div className="text-xs text-center text-gray-400">Brightly v1.0</div>
         </div>
       </div>
     </div>

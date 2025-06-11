@@ -1,6 +1,6 @@
 # Admin Setup Guide
 
-This guide walks you through creating an admin account for your EdCel application.
+This guide walks you through creating an admin account for your Brightly application.
 
 ## Prerequisites
 

@@ -92,7 +92,7 @@ const Homepage = () => {
           <div className="flex justify-between h-16 items-center">
             <div className="flex-shrink-0">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Edcel
+                Brightly
               </h1>
             </div>
             <div className="hidden md:flex items-center space-x-8">
@@ -688,7 +688,7 @@ const Homepage = () => {
               Trusted by Students & Parents
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              See what families across Singapore are saying about their Edcel
+              See what families across Singapore are saying about their Brightly
               experience.
             </p>
           </div>
@@ -706,7 +706,7 @@ const Homepage = () => {
                 </div>
               </div>
               <p className="text-gray-700 italic">
-                &ldquo;Edcel helped me improve my Math grade from B to A*! The
+                &ldquo;Brightly helped me improve my Math grade from B to A*! The
                 practice questions are exactly like the real PSLE.&rdquo;
               </p>
               <div className="flex mt-4">
@@ -766,7 +766,7 @@ const Homepage = () => {
               </div>
               <p className="text-gray-700 italic">
                 &ldquo;The mock exams are so realistic! I felt super prepared
-                when I took my actual PSLE. Thank you Edcel!&rdquo;
+                when I took my actual PSLE. Thank you Brightly!&rdquo;
               </p>
               <div className="flex mt-4">
                 {[...Array(5)].map((_, i) => (
@@ -822,7 +822,7 @@ const Homepage = () => {
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
             Join thousands of students who have transformed their PSLE
-            preparation with Edcel. Start your free trial today.
+            preparation with Brightly. Start your free trial today.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -864,7 +864,7 @@ const Homepage = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-lg font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Edcel
+                Brightly
               </h3>
               <p className="text-gray-400 text-sm">
                 Empowering Singapore students to excel in their PSLE journey.
@@ -941,7 +941,7 @@ const Homepage = () => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400 text-sm">
-            <p>&copy; 2024 Edcel. All rights reserved.</p>
+                            <p>&copy; 2024 Brightly. All rights reserved.</p>
           </div>
         </div>
       </footer>

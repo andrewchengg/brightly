@@ -28,7 +28,7 @@ const Pagination = ({ page, count }: { page: number; count: number }) => {
             <button
               key={i}
               className={`px-2 rounded-sm ${
-                page === i + 1 ? "bg-lamaPurple text-white" : ""
+                page === i + 1 ? "bg-brightPurple text-white" : ""
               }`}
               onClick={() => changePage(i + 1)}
             >

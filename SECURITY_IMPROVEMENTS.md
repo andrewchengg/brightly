@@ -2,7 +2,7 @@
 
 ## Overview
 
-We've implemented important security improvements to how environment variables are handled in the EdCel application, moving away from exposing sensitive information to the client-side code.
+We've implemented important security improvements to how environment variables are handled in the Brightly application, moving away from exposing sensitive information to the client-side code.
 
 ## What Changed
 

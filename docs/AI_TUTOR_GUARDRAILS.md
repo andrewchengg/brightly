@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the comprehensive guardrails and safety measures implemented for the AI tutor components in the Edcel learning platform. These measures ensure that AI interactions remain educational, appropriate, and aligned with the curriculum while protecting students from inappropriate content.
+This document outlines the comprehensive guardrails and safety measures implemented for the AI tutor components in the Brightly learning platform. These measures ensure that AI interactions remain educational, appropriate, and aligned with the curriculum while protecting students from inappropriate content.
 
 ## Implementation Architecture
 

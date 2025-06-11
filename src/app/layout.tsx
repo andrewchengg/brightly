@@ -4,7 +4,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export const metadata: Metadata = {
-  title: "Edcel - School Management Dashboard",
+      title: "Brightly - School Management Dashboard",
   description: "Next.js School Management System",
 };
 

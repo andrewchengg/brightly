@@ -15,7 +15,7 @@ export async function GET() {
     const timestamp = Math.round(new Date().getTime() / 1000);
     
     // The upload preset to use (should be created in your Cloudinary dashboard)
-    const uploadPreset = 'edcel_profile';
+    const uploadPreset = 'brightly_profile';
     
     // Generate the signature
     const signature = cloudinary.utils.api_sign_request(
