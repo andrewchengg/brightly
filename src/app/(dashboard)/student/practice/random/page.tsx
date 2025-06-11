@@ -1125,19 +1125,20 @@ export default function RandomPractice() {
               <div
                 className={`mt-3 p-3 rounded-md text-sm ${
                   isAnswerCorrect
-                    ? "bg-green-50 border-green-200 text-green-800"
-                    : "bg-red-50 border-red-200 text-red-800"
+                    ? "bg-green-50 border-l-4 border-green-400 text-green-800"
+                    : "bg-red-50 border-l-4 border-red-400 text-red-800"
                 }`}
               >
-                <p className="font-medium">
+                <p className="font-medium mb-2">
                   {isAnswerCorrect
                     ? "All parts correct!"
                     : "Some parts incorrect."}
                 </p>
-                {!isAnswerCorrect && currentQuestion.explanation && (
-                  <p className="mt-1">
-                    Explanation: {currentQuestion.explanation}
-                  </p>
+                {currentQuestion.explanation && (
+                  <div className="border-t pt-2">
+                    <p className="font-semibold mb-1">Explanation:</p>
+                    <p className="text-sm">{currentQuestion.explanation}</p>
+                  </div>
                 )}
               </div>
             )}
@@ -1426,39 +1427,22 @@ export default function RandomPractice() {
             )}
             {renderQuestionContent()}
             {/* Feedback and Explanation Area */}
-            {selectedAnswer !== null &&
-              (isAnswerCorrect === false || currentQuestion.explanation) && (
-                <div
-                  className={`mt-4 p-3 rounded-md text-sm ${
-                    isAnswerCorrect
-                      ? "bg-green-50 border-green-200"
-                      : "bg-red-50 border-red-200"
-                  }`}
-                >
-                  {isAnswerCorrect === false && (
-                    <p className="font-medium text-red-800 mb-1">
-                      Incorrect. Correct Answer:{" "}
-                      {Array.isArray(currentQuestion.correctAnswer)
-                        ? currentQuestion.correctAnswer.join(" or ")
-                        : typeof currentQuestion.correctAnswer === "object" &&
-                          currentQuestion.correctAnswer !== null &&
-                          !Array.isArray(currentQuestion.correctAnswer)
-                        ? Object.entries(currentQuestion.correctAnswer)
-                            .map(([k, v]) => `${k}: ${v}`)
-                            .join(", ")
-                        : String(currentQuestion.correctAnswer)}
+            {selectedAnswer !== null && 
+              currentQuestion.explanation && 
+              currentQuestion.questionType !== "MULTI_PART" && (
+                <div className={`mt-4 p-3 rounded-md text-sm ${
+                  isAnswerCorrect 
+                    ? "bg-green-50 border-l-4 border-green-400"
+                    : "bg-blue-50 border-l-4 border-blue-400"
+                }`}>
+                  <div>
+                    <p className="font-semibold text-gray-700 mb-2">
+                      Explanation:
                     </p>
-                  )}
-                  {currentQuestion.explanation && (
-                    <div>
-                      <p className="font-semibold text-gray-700 mt-2">
-                        Explanation:
-                      </p>
-                      <p className="text-gray-600 whitespace-pre-wrap">
-                        {currentQuestion.explanation}
-                      </p>
-                    </div>
-                  )}
+                    <p className="text-gray-600 whitespace-pre-wrap">
+                      {currentQuestion.explanation}
+                    </p>
+                  </div>
                 </div>
               )}
             <div className="mt-6 border-t border-gray-200 pt-5 flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
