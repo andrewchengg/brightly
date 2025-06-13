@@ -283,14 +283,14 @@ const Menu = () => {
 
   if (!isLoaded || !userRole) {
     return (
-      <div className="mt-8 p-4">
+      <div className="mt-8 p-6">
         <div className="flex flex-col gap-4">
           {Array(5)
             .fill(0)
             .map((_, idx) => (
               <div
                 key={idx}
-                className="h-4 bg-gray-200 rounded animate-pulse"
+                className="h-12 bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl animate-pulse shadow-sm"
               ></div>
             ))}
         </div>
@@ -302,37 +302,39 @@ const Menu = () => {
   const itemsToRender = userRole === "student" ? studentMenuItems : menuItems;
 
   return (
-    <div className="mt-2">
-      <div className="mx-3 mb-6">
+    <div className="mt-4 px-4">
+      <div className="mb-8">
         {userRole === "student" && studentInfo ? (
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 rounded-lg text-white shadow-md">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+          <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 p-6 rounded-2xl text-white shadow-xl border border-indigo-200">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center overflow-hidden border border-white/20 shadow-lg">
                 {studentInfo.img ? (
                   <Image
                     src={studentInfo.img}
                     alt={studentInfo.name}
-                    width={48}
-                    height={48}
-                    className="w-full h-full object-cover"
+                    width={56}
+                    height={56}
+                    className="w-full h-full object-cover rounded-2xl"
                   />
                 ) : (
-                  <span className="text-xl font-semibold">
+                  <span className="text-2xl font-bold text-white">
                     {studentInfo.name.charAt(0)}
                   </span>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium truncate">{studentInfo.name}</h3>
-                <p className="text-sm text-white/80">
+                <h3 className="font-bold text-lg truncate text-white">
+                  {studentInfo.name}
+                </h3>
+                <p className="text-sm text-indigo-100 font-medium">
                   Level {studentInfo.level}
                 </p>
               </div>
             </div>
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-lg text-white text-center shadow-md">
-            <span className="text-xs font-medium uppercase tracking-wider">
+          <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 p-4 rounded-2xl text-white text-center shadow-xl border border-indigo-200">
+            <span className="text-sm font-bold uppercase tracking-widest text-white">
               {userRole}
             </span>
           </div>
@@ -340,124 +342,143 @@ const Menu = () => {
       </div>
 
       {itemsToRender.map((group) => (
-        <div className="flex flex-col gap-1 mb-6" key={group.title}>
-          <span className="hidden lg:block text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-2">
+        <div className="flex flex-col gap-2 mb-8" key={group.title}>
+          <span className="hidden lg:block text-xs font-bold text-slate-500 uppercase tracking-widest px-2 py-3 border-b border-slate-200">
             {group.title}
           </span>
-          {group.items.map((item) => {
-            if (item.visible.includes(userRole)) {
-              let effectiveHref = item.href;
-              // Adjust "Dashboard" link based on actual role dynamically
-              if (item.label === "Dashboard" && userRole !== "student") {
-                effectiveHref = `/${userRole}`;
-              }
-              // Adjust "Profile" link for non-student roles
-              if (item.label === "Profile" && userRole !== "student") {
-                effectiveHref = `/profile/${userRole}`;
-              }
-              // Adjust "My Children" link for parents to show their children profile
-              if (item.label === "My Children" && userRole === "parent") {
-                effectiveHref = `/parent/children`;
-              }
-
-              // More precise isActive check
-              const isActive = (() => {
-                // For student Home page
-                if (userRole === "student" && item.label === "Home") {
-                  return pathname === "/student";
+          <div className="space-y-1 mt-2">
+            {group.items.map((item) => {
+              if (item.visible.includes(userRole)) {
+                let effectiveHref = item.href;
+                // Adjust "Dashboard" link based on actual role dynamically
+                if (item.label === "Dashboard" && userRole !== "student") {
+                  effectiveHref = `/${userRole}`;
+                }
+                // Adjust "Profile" link for non-student roles
+                if (item.label === "Profile" && userRole !== "student") {
+                  effectiveHref = `/profile/${userRole}`;
+                }
+                // Adjust "My Children" link for parents to show their children profile
+                if (item.label === "My Children" && userRole === "parent") {
+                  effectiveHref = `/parent/children`;
                 }
 
-                // For Dashboard pages (admin, teacher, parent)
-                if (item.label === "Dashboard" && userRole !== "student") {
+                // More precise isActive check
+                const isActive = (() => {
+                  // For student Home page
+                  if (userRole === "student" && item.label === "Home") {
+                    return pathname === "/student";
+                  }
+
+                  // For Dashboard pages (admin, teacher, parent)
+                  if (item.label === "Dashboard" && userRole !== "student") {
+                    return (
+                      pathname === `/${userRole}` ||
+                      (pathname === "/" && effectiveHref === "/")
+                    );
+                  }
+
+                  // For exact path matches
+                  if (pathname === effectiveHref) {
+                    return true;
+                  }
+
+                  // For sub-paths (but not for root paths to avoid false positives)
+                  if (
+                    effectiveHref !== "/" &&
+                    effectiveHref !== "/student" &&
+                    pathname.startsWith(effectiveHref + "/")
+                  ) {
+                    return true;
+                  }
+
+                  return false;
+                })();
+
+                if (item.isLogout) {
                   return (
-                    pathname === `/${userRole}` ||
-                    (pathname === "/" && effectiveHref === "/")
+                    <button
+                      key={item.label}
+                      onClick={handleSignOut}
+                      disabled={isLoading}
+                      className={`flex items-center gap-4 py-4 px-4 rounded-xl hover:bg-red-50 hover:shadow-md transition-all duration-300 w-full group border border-transparent hover:border-red-100
+                        ${
+                          isLoading
+                            ? "opacity-60 cursor-not-allowed"
+                            : "opacity-100"
+                        }`}
+                    >
+                      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 group-hover:bg-red-100 transition-colors duration-300">
+                        <item.icon size={20} className="text-red-600" />
+                      </div>
+                      <span className="hidden lg:block font-semibold text-slate-700 group-hover:text-red-600 transition-colors duration-300">
+                        {isLoading ? "Signing out..." : item.label}
+                      </span>
+                    </button>
                   );
                 }
 
-                // For exact path matches
-                if (pathname === effectiveHref) {
-                  return true;
-                }
-
-                // For sub-paths (but not for root paths to avoid false positives)
-                if (
-                  effectiveHref !== "/" &&
-                  effectiveHref !== "/student" &&
-                  pathname.startsWith(effectiveHref + "/")
-                ) {
-                  return true;
-                }
-
-                return false;
-              })();
-
-              if (item.isLogout) {
                 return (
-                  <button
+                  <Link
+                    href={effectiveHref}
                     key={item.label}
-                    onClick={handleSignOut}
-                    disabled={isLoading}
-                    className={`flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gradient-to-r hover:from-red-50 hover:to-red-100 hover:text-red-600 transition-all duration-200 w-full
+                    className={`flex items-center gap-4 py-4 px-4 rounded-xl transition-all duration-300 group border relative overflow-hidden
                       ${
-                        isLoading
-                          ? "opacity-60 cursor-not-allowed"
-                          : "opacity-100"
+                        isActive
+                          ? "bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 shadow-lg"
+                          : "border-transparent hover:bg-slate-50 hover:shadow-md hover:border-slate-200"
                       }`}
                   >
-                    <div className="flex items-center justify-center w-8 h-8">
-                      <item.icon size={18} className="text-red-500" />
+                    {/* Active indicator */}
+                    <div
+                      className={`absolute left-0 top-0 h-full w-1 rounded-r-full transition-all duration-300
+                        ${
+                          isActive
+                            ? "bg-gradient-to-b from-indigo-500 to-blue-600 shadow-lg"
+                            : "bg-transparent"
+                        }`}
+                    ></div>
+
+                    <div
+                      className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300 ${
+                        isActive
+                          ? "bg-gradient-to-br from-indigo-100 to-blue-100 shadow-md"
+                          : "bg-slate-100 group-hover:bg-slate-200"
+                      }`}
+                    >
+                      <item.icon
+                        size={20}
+                        className={`transition-colors duration-300 ${
+                          isActive
+                            ? "text-indigo-600"
+                            : "text-slate-600 group-hover:text-indigo-600"
+                        }`}
+                      />
                     </div>
-                    <span className="hidden lg:block font-medium">
-                      {isLoading ? "Signing out..." : item.label}
+
+                    <span
+                      className={`hidden lg:block font-semibold transition-colors duration-300 ${
+                        isActive
+                          ? "text-slate-800"
+                          : "text-slate-700 group-hover:text-indigo-600"
+                      }`}
+                    >
+                      {item.label}
                     </span>
-                  </button>
+                  </Link>
                 );
               }
-
-              return (
-                <Link
-                  href={effectiveHref}
-                  key={item.label}
-                  className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-all duration-200 relative group`}
-                >
-                  <div
-                    className={`absolute left-0 top-0 h-full w-1 rounded-r-md 
-                    ${
-                      isActive
-                        ? "bg-indigo-600"
-                        : "bg-transparent group-hover:bg-indigo-200"
-                    } transition-all duration-200`}
-                  ></div>
-                  <div
-                    className={`flex items-center justify-center w-8 h-8 ml-2 ${
-                      isActive
-                        ? "text-indigo-600"
-                        : "text-gray-500 group-hover:text-indigo-600"
-                    } transition-colors duration-200`}
-                  >
-                    <item.icon size={18} />
-                  </div>
-                  <span
-                    className={`hidden lg:block ${
-                      isActive
-                        ? "font-semibold text-indigo-700"
-                        : "text-gray-700 group-hover:text-indigo-600"
-                    } transition-colors duration-200`}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
-              );
-            }
-            return null;
-          })}
+              return null;
+            })}
+          </div>
         </div>
       ))}
 
-      <div className="hidden lg:block px-4 py-4 mt-6">
-        <div className="border-t border-gray-200 pt-4">
-          <div className="text-xs text-center text-gray-400">Brightly v1.0</div>
+      <div className="hidden lg:block px-2 py-6 mt-8">
+        <div className="border-t border-slate-200 pt-6">
+          <div className="text-xs text-center text-slate-400 font-medium">
+            Brightly v1.0
+          </div>
         </div>
       </div>
     </div>
