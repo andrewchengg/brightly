@@ -151,21 +151,22 @@ const menuItems = [
       {
         icon: FaUserGraduate,
         label: "Students",
-        href: "/list/students",
-        visible: ["admin", "teacher"],
+        href: "/admin/students",
+        visible: ["admin"],
       },
       {
         icon: FaUsers,
-        label: "Parents List",
-        href: "/list/parents",
-        visible: ["admin"],
-      }, // Admin view of all parents
-      {
-        icon: FaBookOpen,
-        label: "Subjects",
-        href: "/list/subjects",
+        label: "Parents",
+        href: "/admin/parents",
         visible: ["admin"],
       },
+      {
+        icon: FaUserGraduate,
+        label: "Students List",
+        href: "/list/students",
+        visible: ["teacher"],
+      },
+
       {
         icon: FaChartBar,
         label: "Children's Results",

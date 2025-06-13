@@ -13,16 +13,73 @@ export async function GET(request: NextRequest) {
     10
   );
   const subjectId = searchParams.get("subjectId");
+  const topicId = searchParams.get("topicId");
+  const difficulty = searchParams.get("difficulty");
+  const questionType = searchParams.get("questionType");
+  const productionReady = searchParams.get("productionReady");
+  const isRefactored = searchParams.get("isRefactored");
+  const questionGroupId = searchParams.get("questionGroupId");
+  const search = searchParams.get("search");
   const skip = (page - 1) * limit;
 
   try {
-    const whereCondition: any = {
-      productionReady: false,
-    };
+    const whereCondition: any = {};
 
-    // Add subject filter if provided
-    if (subjectId) {
+    // Add filters based on query parameters
+    if (
+      subjectId &&
+      subjectId !== "undefined" &&
+      !isNaN(parseInt(subjectId, 10))
+    ) {
       whereCondition.subjectId = parseInt(subjectId, 10);
+    }
+
+    if (topicId && topicId !== "undefined" && !isNaN(parseInt(topicId, 10))) {
+      whereCondition.topicId = parseInt(topicId, 10);
+    }
+
+    if (difficulty && difficulty !== "undefined") {
+      whereCondition.difficulty = difficulty;
+    }
+
+    if (questionType && questionType !== "undefined") {
+      whereCondition.questionType = questionType;
+    }
+
+    if (
+      productionReady !== null &&
+      productionReady !== undefined &&
+      productionReady !== "undefined"
+    ) {
+      whereCondition.productionReady = productionReady === "true";
+    }
+
+    if (
+      isRefactored !== null &&
+      isRefactored !== undefined &&
+      isRefactored !== "undefined"
+    ) {
+      whereCondition.isRefactored = isRefactored === "true";
+    }
+
+    if (
+      questionGroupId &&
+      questionGroupId !== "undefined" &&
+      !isNaN(parseInt(questionGroupId, 10))
+    ) {
+      whereCondition.questionGroupId = parseInt(questionGroupId, 10);
+    }
+
+    if (search) {
+      whereCondition.text = {
+        contains: search,
+        mode: "insensitive",
+      };
+    }
+
+    // If no specific filters are applied, default to showing questions that need review
+    if (Object.keys(whereCondition).length === 0) {
+      whereCondition.productionReady = false;
     }
 
     const questions = await prisma.question.findMany({

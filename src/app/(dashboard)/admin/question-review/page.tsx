@@ -2,12 +2,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
 import QuestionEditorForm, {
   type QuestionReviewData,
 } from "./QuestionEditorForm";
+import QuestionFilters from "@/components/QuestionFilters";
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -15,7 +15,17 @@ import {
   FaBook,
   FaChartBar,
   FaEye,
+  FaList,
+  FaCircle,
+  FaImage,
+  FaFilter,
+  FaLightbulb,
 } from "react-icons/fa";
+import Image from "next/image";
+import Pagination from "@/components/Pagination";
+import { QuestionType as PrismaQuestionType } from "@/generated/prisma";
+import QuestionTextFormatter from "@/components/QuestionTextFormatter";
+import ExplanationFormatter from "@/components/ExplanationFormatter";
 
 interface TopicStats {
   id: number;
@@ -30,22 +40,93 @@ interface SubjectStats {
   topics: TopicStats[];
 }
 
-type ViewMode = "subjects" | "statistics" | "review";
+interface TopicQuestionData {
+  id: number;
+  text: string;
+  productionReady: boolean;
+  isRefactored: boolean;
+  questionType: string;
+  difficulty: string;
+  subject: { id: number; name: string };
+  topic: { id: number; name: string; subjectId: number };
+  questionGroup: { id: number; name: string } | null;
+  options?: any;
+  correctAnswer?: any;
+  explanation?: string;
+  imageUrl?: string;
+  fullPageImageUrl?: string;
+}
+
+interface TopicInfo {
+  id: number;
+  name: string;
+  subject: { id: number; name: string };
+}
+
+type ViewMode =
+  | "subjects"
+  | "statistics"
+  | "topicQuestions"
+  | "questionDetail"
+  | "filteredQuestions";
+
+// Function to get status color based on productionReady and isRefactored
+const getStatusColor = (productionReady: boolean, isRefactored: boolean) => {
+  if (productionReady && isRefactored) {
+    return {
+      bg: "bg-green-100",
+      border: "border-green-300",
+      text: "text-green-800",
+      dot: "text-green-500",
+    };
+  } else if (productionReady && !isRefactored) {
+    return {
+      bg: "bg-orange-100",
+      border: "border-orange-300",
+      text: "text-orange-800",
+      dot: "text-orange-500",
+    };
+  } else {
+    return {
+      bg: "bg-red-100",
+      border: "border-red-300",
+      text: "text-red-800",
+      dot: "text-red-500",
+    };
+  }
+};
+
+// Function to get status text
+const getStatusText = (productionReady: boolean, isRefactored: boolean) => {
+  if (productionReady && isRefactored) {
+    return "Ready";
+  } else if (productionReady && !isRefactored) {
+    return "Production (Needs Refactor)";
+  } else {
+    return "Needs Review";
+  }
+};
 
 export default function QuestionReviewPage() {
-  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("subjects");
   const [subjects, setSubjects] = useState<SubjectStats[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<SubjectStats | null>(
     null
   );
-  const [questions, setQuestions] = useState<QuestionReviewData[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedTopic, setSelectedTopic] = useState<TopicInfo | null>(null);
+  const [topicQuestions, setTopicQuestions] = useState<TopicQuestionData[]>([]);
+  const [selectedQuestion, setSelectedQuestion] =
+    useState<QuestionReviewData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [totalPages, setTotalPages] = useState(1);
+  // Filtered questions state
+  const [filteredQuestions, setFilteredQuestions] = useState<
+    TopicQuestionData[]
+  >([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentFilters, setCurrentFilters] = useState<any>({});
 
   // Fetch subjects with statistics
   const fetchSubjects = useCallback(async () => {
@@ -67,35 +148,88 @@ export default function QuestionReviewPage() {
     }
   }, []);
 
-  // Fetch questions for review for a specific subject
-  const fetchQuestionsForReview = useCallback(
-    async (subjectId: number, page = 1) => {
+  // Fetch questions for a specific topic
+  const fetchTopicQuestions = useCallback(async (topicId: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/questions/topic/${topicId}`);
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(
+          errData.error?.message || "Failed to fetch topic questions"
+        );
+      }
+      const data = await response.json();
+      setSelectedTopic(data.topic);
+      setTopicQuestions(data.questions);
+    } catch (err: any) {
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch a single question for detailed review
+  const fetchQuestionDetail = useCallback(
+    async (questionId: number) => {
       setIsLoading(true);
       setError(null);
       try {
         const response = await fetch(
-          `/api/questions/review?page=${page}&limit=1&subjectId=${subjectId}`
+          `/api/questions/review?subjectId=${selectedSubject?.id}&limit=1000`
         );
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(
+            errData.error?.message || "Failed to fetch question details"
+          );
+        }
+        const data = await response.json();
+        const question = data.questions.find((q: any) => q.id === questionId);
+        if (question) {
+          setSelectedQuestion(question);
+        } else {
+          throw new Error("Question not found");
+        }
+      } catch (err: any) {
+        setError(err.message);
+        toast.error(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [selectedSubject]
+  );
+
+  // Fetch filtered questions
+  const fetchFilteredQuestions = useCallback(
+    async (filters: any, page: number = 1) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: "20",
+          ...filters,
+        });
+
+        const response = await fetch(`/api/questions/review?${params}`);
         if (!response.ok) {
           const errData = await response.json();
           throw new Error(
             errData.error?.message || "Failed to fetch questions"
           );
         }
+
         const data = await response.json();
-        if (data.questions.length > 0) {
-          setQuestions(data.questions);
-          setCurrentQuestionIndex(0);
-          setTotalPages(data.totalPages);
-          setCurrentPage(data.currentPage);
-        } else {
-          setQuestions([]);
-          toast.info("No questions to review for this subject!");
-        }
+        setFilteredQuestions(data.questions);
+        setTotalPages(Math.ceil(data.count / 20));
+        setCurrentPage(page);
       } catch (err: any) {
         setError(err.message);
         toast.error(err.message);
-        setQuestions([]);
       } finally {
         setIsLoading(false);
       }
@@ -114,73 +248,569 @@ export default function QuestionReviewPage() {
     setViewMode("statistics");
   };
 
-  const handleStartReview = () => {
-    if (selectedSubject) {
-      setViewMode("review");
-      fetchQuestionsForReview(selectedSubject.id, 1);
-    }
+  const handleTopicSelect = (topic: TopicStats) => {
+    setViewMode("topicQuestions");
+    fetchTopicQuestions(topic.id);
+  };
+
+  const handleQuestionSelect = (question: TopicQuestionData) => {
+    setViewMode("questionDetail");
+    fetchQuestionDetail(question.id);
   };
 
   const handleBackToSubjects = () => {
     setViewMode("subjects");
     setSelectedSubject(null);
-    setQuestions([]);
+    setSelectedTopic(null);
+    setTopicQuestions([]);
+    setSelectedQuestion(null);
   };
 
   const handleBackToStats = () => {
     setViewMode("statistics");
-    setQuestions([]);
+    setSelectedTopic(null);
+    setTopicQuestions([]);
+    setSelectedQuestion(null);
   };
 
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    } else if (currentPage < totalPages) {
-      fetchQuestionsForReview(selectedSubject!.id, currentPage + 1);
-    } else {
-      toast.info("You've reached the end of the questions for review!");
+  const handleBackToTopicQuestions = () => {
+    setViewMode("topicQuestions");
+    setSelectedQuestion(null);
+  };
+
+  const handleShowAllQuestions = () => {
+    setViewMode("filteredQuestions");
+    setCurrentFilters({});
+    fetchFilteredQuestions({}, 1);
+  };
+
+  const handleBackToFiltered = () => {
+    setViewMode("filteredQuestions");
+    setSelectedQuestion(null);
+  };
+
+  const handleFilterChange = useCallback(
+    (filters: any) => {
+      setCurrentFilters(filters);
+      setCurrentPage(1);
+      fetchFilteredQuestions(filters, 1);
+    },
+    [fetchFilteredQuestions]
+  );
+
+  const handlePageChange = (page: number) => {
+    fetchFilteredQuestions(currentFilters, page);
+  };
+
+  const handleQuestionUpdated = () => {
+    // Refresh the topic questions and go back to the list
+    if (selectedTopic) {
+      fetchTopicQuestions(selectedTopic.id);
+      setViewMode("topicQuestions");
+      setSelectedQuestion(null);
+      toast.success("Question updated successfully!");
     }
   };
 
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-    } else if (currentPage > 1) {
-      toast.info("At the beginning of the current batch.");
-    }
-  };
+  // Student answer state - matching practice page exactly
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [textAnswer, setTextAnswer] = useState("");
+  const [multiPartAnswers, setMultiPartAnswers] = useState<
+    Record<string, string>
+  >({});
+  const [multiPartResults, setMultiPartResults] = useState<
+    Record<string, boolean>
+  >({});
+  const [isAnswerCorrect, setIsAnswerCorrect] = useState(false);
+  const [showHint, setShowHint] = useState(false);
 
-  const handleQuestionUpdatedOrAccepted = () => {
-    if (questions.length <= 1 && currentPage >= totalPages) {
-      setQuestions([]);
-      toast.success("All questions in this subject reviewed!");
-      // Refresh subject statistics
-      fetchSubjects();
-      setViewMode("statistics");
-    } else if (questions.length <= 1 && currentPage < totalPages) {
-      fetchQuestionsForReview(selectedSubject!.id, currentPage + 1);
-    } else {
-      const updatedQuestions = questions.filter(
-        (_, idx) => idx !== currentQuestionIndex
+  // Reset answer state when question changes
+  useEffect(() => {
+    setSelectedAnswer(null);
+    setTextAnswer("");
+    setMultiPartAnswers({});
+    setMultiPartResults({});
+    setIsAnswerCorrect(false);
+    setShowHint(false);
+  }, [selectedQuestion?.id]);
+
+  // Answer handlers copied exactly from practice page
+  const handleAnswerMCQ = useCallback(
+    (optionId: string, optionText: string) => {
+      if (!selectedQuestion || selectedAnswer !== null) return;
+      setSelectedAnswer(optionId);
+      const correctAnswerId = String(
+        selectedQuestion.correctAnswer || ""
+      ).toLowerCase();
+      const isCorrect = optionId.toLowerCase() === correctAnswerId;
+      const correctOption = selectedQuestion.options?.find(
+        (opt: any) => opt.id?.toLowerCase() === correctAnswerId
       );
-      setQuestions(updatedQuestions);
-      if (updatedQuestions.length === 0 && currentPage < totalPages) {
-        fetchQuestionsForReview(selectedSubject!.id, currentPage + 1);
-      } else if (updatedQuestions.length === 0 && currentPage >= totalPages) {
-        toast.success("All questions reviewed!");
-        fetchSubjects();
-        setViewMode("statistics");
+      const correctAnswerDisplayText = correctOption
+        ? correctOption.text
+        : `ID: ${selectedQuestion.correctAnswer}`;
+
+      setIsAnswerCorrect(isCorrect);
+
+      if (isCorrect) {
+        toast.success("Great job! That's correct.");
+      } else {
+        toast.error(
+          `Not quite right. The correct answer is "${correctAnswerDisplayText}".`
+        );
       }
-      setCurrentQuestionIndex((prev) =>
-        Math.min(prev, Math.max(0, updatedQuestions.length - 1))
-      );
+    },
+    [selectedQuestion, selectedAnswer]
+  );
+
+  const handleTextAnswerSubmit = useCallback(() => {
+    if (!textAnswer.trim() || !selectedQuestion || selectedAnswer !== null)
+      return;
+    const userAnswer = textAnswer.trim();
+    setSelectedAnswer(userAnswer);
+    const cAns = selectedQuestion.correctAnswer;
+    const cAnsArr = Array.isArray(cAns)
+      ? cAns.map((cv) =>
+          String(cv ?? "")
+            .trim()
+            .toLowerCase()
+        )
+      : [
+          String(cAns ?? "")
+            .trim()
+            .toLowerCase(),
+        ];
+    const isCorrect = cAnsArr.includes(userAnswer.toLowerCase());
+    setIsAnswerCorrect(isCorrect);
+
+    const feedback = isCorrect
+      ? "Great job!"
+      : `Incorrect. Correct: "${cAnsArr.join(" or ")}".`;
+
+    if (isCorrect) {
+      toast.success(feedback);
+    } else {
+      toast.error(feedback);
     }
+  }, [textAnswer, selectedQuestion, selectedAnswer]);
+
+  const handleMultiPartSubmit = useCallback(() => {
+    if (
+      !selectedQuestion ||
+      typeof selectedQuestion.correctAnswer !== "object" ||
+      selectedQuestion.correctAnswer === null ||
+      Array.isArray(selectedQuestion.correctAnswer) ||
+      selectedAnswer !== null
+    )
+      return;
+    const correctAnswersMap = selectedQuestion.correctAnswer as Record<
+      string,
+      string
+    >;
+    let allPartsCorrect = true;
+    const currentPartResults: Record<string, boolean> = {};
+    for (const part in correctAnswersMap) {
+      const userAnswerPart = (multiPartAnswers[part] || "")
+        .trim()
+        .toLowerCase();
+      const correctAnswerTextPart = String(correctAnswersMap[part])
+        .trim()
+        .toLowerCase();
+      const isPartCorrect = userAnswerPart === correctAnswerTextPart;
+      currentPartResults[part] = isPartCorrect;
+      if (!isPartCorrect) allPartsCorrect = false;
+    }
+    setMultiPartResults(currentPartResults);
+    setSelectedAnswer(JSON.stringify(multiPartAnswers));
+    setIsAnswerCorrect(allPartsCorrect);
+
+    const feedback = allPartsCorrect
+      ? "All parts correct!"
+      : "Some parts incorrect.";
+
+    if (allPartsCorrect) {
+      toast.success(feedback);
+    } else {
+      toast.error(feedback);
+    }
+  }, [selectedQuestion, selectedAnswer, multiPartAnswers]);
+
+  const isMultiPartComplete = () => {
+    if (
+      !selectedQuestion ||
+      typeof selectedQuestion.correctAnswer !== "object" ||
+      selectedQuestion.correctAnswer === null ||
+      Array.isArray(selectedQuestion.correctAnswer)
+    )
+      return false;
+    const parts = Object.keys(selectedQuestion.correctAnswer);
+    return parts.length > 0 && parts.every((p) => multiPartAnswers[p]?.trim());
+  };
+
+  // Question content renderer copied exactly from practice page
+  const renderQuestionContent = () => {
+    if (!selectedQuestion)
+      return <p className="text-center text-gray-500">Loading question...</p>;
+
+    const questionTypeString = String(selectedQuestion.questionType) as
+      | keyof typeof PrismaQuestionType
+      | "UNKNOWN";
+
+    switch (questionTypeString) {
+      case PrismaQuestionType.MULTIPLE_CHOICE:
+        return (
+          <div className="space-y-3">
+            {selectedQuestion.options &&
+            Array.isArray(selectedQuestion.options) &&
+            selectedQuestion.options.length > 0 ? (
+              selectedQuestion.options.map((option: any, index: number) => {
+                const optionId = option.id;
+                const optionText = option.text;
+                const optionLetter = String.fromCharCode(65 + index);
+                const isThisSelected = selectedAnswer === optionId;
+                const isThisCorrectDB =
+                  String(selectedQuestion.correctAnswer || "").toLowerCase() ===
+                  optionId.toLowerCase();
+                let buttonClass =
+                  "bg-white hover:bg-gray-50 border border-gray-300";
+                if (selectedAnswer !== null) {
+                  if (isThisSelected) {
+                    buttonClass = isAnswerCorrect
+                      ? "bg-green-100 border-green-500 text-green-800 ring-2 ring-green-500"
+                      : "bg-red-100 border-red-500 text-red-800 ring-2 ring-red-500";
+                  } else if (isThisCorrectDB) {
+                    buttonClass =
+                      "bg-green-100 border-green-500 text-green-800";
+                  }
+                }
+                return (
+                  <button
+                    key={option.id || index}
+                    onClick={() => handleAnswerMCQ(optionId, optionText)}
+                    disabled={selectedAnswer !== null}
+                    className={`w-full text-left p-4 rounded-md transition-all duration-150 text-md ${buttonClass}`}
+                  >
+                    <span className="font-bold mr-2">{optionLetter}.</span>{" "}
+                    {optionText}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="p-4 bg-yellow-50 border rounded-md text-yellow-800 text-center">
+                <p>No options available for this MCQ.</p>
+              </div>
+            )}
+          </div>
+        );
+      case PrismaQuestionType.FILL_IN_THE_BLANK:
+      case PrismaQuestionType.OPEN_ENDED:
+        return (
+          <div className="mt-6">
+            <div className="mb-3">
+              <label
+                htmlFor="text-answer"
+                className="block text-gray-700 text-sm font-medium mb-1"
+              >
+                Your Answer:
+              </label>
+              <div className="flex">
+                <input
+                  id="text-answer"
+                  type="text"
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === "Enter" &&
+                      textAnswer.trim() &&
+                      selectedAnswer === null
+                    ) {
+                      e.preventDefault();
+                      handleTextAnswerSubmit();
+                    }
+                  }}
+                  placeholder="Type your answer..."
+                  disabled={selectedAnswer !== null}
+                  className={`w-full p-3 text-md rounded-l-md border ${
+                    selectedAnswer === null
+                      ? "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                      : isAnswerCorrect
+                      ? "border-green-500 bg-green-50 text-green-800"
+                      : "border-red-500 bg-red-50 text-red-800"
+                  }`}
+                />
+                <button
+                  onClick={handleTextAnswerSubmit}
+                  disabled={selectedAnswer !== null || !textAnswer.trim()}
+                  className={`px-5 rounded-r-md ${
+                    selectedAnswer === null && textAnswer.trim()
+                      ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                      : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      case PrismaQuestionType.MULTI_PART:
+        if (
+          typeof selectedQuestion.correctAnswer !== "object" ||
+          selectedQuestion.correctAnswer === null ||
+          Array.isArray(selectedQuestion.correctAnswer)
+        ) {
+          return (
+            <p className="text-red-500">
+              Error: Correct answer format for multi-part question is invalid.
+            </p>
+          );
+        }
+        const parts = Object.keys(selectedQuestion.correctAnswer);
+        return (
+          <div className="mt-6 space-y-4">
+            <div className="mb-4 p-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-md">
+              <p className="text-amber-800 font-medium text-sm">
+                Multi-part question. Enter answers for each part:
+              </p>
+            </div>
+            {parts.map((part) => (
+              <div key={part} className="mb-4">
+                <label
+                  htmlFor={`multipart-${part}`}
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Part {part.toUpperCase()}:
+                </label>
+                <div className="flex">
+                  <input
+                    type="text"
+                    id={`multipart-${part}`}
+                    value={multiPartAnswers[part] || ""}
+                    onChange={(e) =>
+                      setMultiPartAnswers({
+                        ...multiPartAnswers,
+                        [part]: e.target.value,
+                      })
+                    }
+                    placeholder={`Answer for part ${part.toUpperCase()}`}
+                    disabled={selectedAnswer !== null}
+                    className={`w-full p-3 text-md rounded-md border ${
+                      selectedAnswer !== null &&
+                      multiPartResults[part] !== undefined
+                        ? multiPartResults[part]
+                          ? "border-green-500 bg-green-50"
+                          : "border-red-500 bg-red-50"
+                        : "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    }`}
+                  />
+                </div>
+                {selectedAnswer !== null &&
+                  multiPartResults[part] !== undefined &&
+                  !multiPartResults[part] && (
+                    <p className="text-xs text-red-600 mt-1">
+                      Correct: "
+                      {
+                        (
+                          selectedQuestion.correctAnswer as Record<
+                            string,
+                            string
+                          >
+                        )[part]
+                      }
+                      "
+                    </p>
+                  )}
+              </div>
+            ))}
+            <Button
+              onClick={handleMultiPartSubmit}
+              disabled={selectedAnswer !== null || !isMultiPartComplete()}
+              className={`w-full py-3 ${
+                selectedAnswer === null && isMultiPartComplete()
+                  ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              Submit All Parts
+            </Button>
+            {selectedAnswer !== null && (
+              <div
+                className={`mt-3 p-3 rounded-md text-sm ${
+                  isAnswerCorrect
+                    ? "bg-green-50 border-l-4 border-green-400 text-green-800"
+                    : "bg-red-50 border-l-4 border-red-400 text-red-800"
+                }`}
+              >
+                <p className="font-medium mb-2">
+                  {isAnswerCorrect
+                    ? "All parts correct!"
+                    : "Some parts incorrect."}
+                </p>
+                {selectedQuestion.explanation && (
+                  <div className="border-t pt-2">
+                    <p className="font-semibold mb-2">Explanation:</p>
+                    <ExplanationFormatter
+                      explanation={selectedQuestion.explanation}
+                      className="text-gray-700"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      default:
+        return (
+          <div className="p-4 bg-yellow-50 border rounded-md text-yellow-800 text-center">
+            <p>
+              Unsupported question type:{" "}
+              {selectedQuestion.questionType || "Not specified"}
+            </p>
+          </div>
+        );
+    }
+  };
+
+  // Render question in "taking" format with student answer functionality - exact copy from practice
+  const renderQuestionPreview = (question: QuestionReviewData) => {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          Question Preview (Interactive)
+        </h3>
+
+        {/* Question badges */}
+        <div className="mb-3 flex justify-between items-center">
+          <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-full">
+            Topic: {question.topic?.name || "General"}
+          </span>
+          <span
+            className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+              question.difficulty === "HARD" ||
+              question.difficulty === "VERY_HARD"
+                ? "bg-red-100 text-red-700"
+                : question.difficulty === "MEDIUM"
+                ? "bg-yellow-100 text-yellow-700"
+                : "bg-green-100 text-green-700"
+            }`}
+          >
+            {question.difficulty || "MEDIUM"}
+          </span>
+        </div>
+
+        {/* Question Text with proper formatting */}
+        <h1 className="text-lg md:text-xl font-semibold text-gray-800 mb-4 leading-snug">
+          <QuestionTextFormatter text={question.text} />
+        </h1>
+
+        {/* Question Image */}
+        {question.imageUrl && (
+          <div className="mb-4 flex justify-center border border-gray-200 rounded-lg p-2 bg-gray-50 shadow-sm">
+            <img
+              src={question.imageUrl}
+              alt="Question diagram"
+              className="max-w-full h-auto max-h-80 rounded-md object-contain"
+            />
+          </div>
+        )}
+
+        {/* Question Content */}
+        {renderQuestionContent()}
+
+        {/* Explanation display after answer - copied from practice */}
+        {selectedAnswer !== null &&
+          question.explanation &&
+          question.questionType !== "MULTI_PART" && (
+            <div
+              className={`mt-4 p-3 rounded-md text-sm ${
+                isAnswerCorrect
+                  ? "bg-green-50 border-l-4 border-green-400"
+                  : "bg-blue-50 border-l-4 border-blue-400"
+              }`}
+            >
+              <div>
+                <p className="font-semibold text-gray-700 mb-3">Explanation:</p>
+                <ExplanationFormatter
+                  explanation={question.explanation}
+                  className="text-gray-700"
+                />
+              </div>
+            </div>
+          )}
+
+        {/* Reset button */}
+        {selectedAnswer !== null && (
+          <div className="mt-4 flex gap-3">
+            <Button
+              onClick={() => {
+                setSelectedAnswer(null);
+                setTextAnswer("");
+                setMultiPartAnswers({});
+                setMultiPartResults({});
+                setIsAnswerCorrect(false);
+                setShowHint(false);
+              }}
+              variant="outline"
+              className="border-gray-300"
+            >
+              Try Again
+            </Button>
+          </div>
+        )}
+
+        {/* Hint button */}
+        <div className="mt-6 border-t border-gray-200 pt-5 flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+          <Button
+            onClick={() => setShowHint(true)}
+            disabled={selectedAnswer !== null || showHint || !question.hint}
+            variant="outline"
+            className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 w-full sm:w-auto text-sm py-2"
+          >
+            <FaLightbulb className="mr-1.5" /> Get Hint
+          </Button>
+        </div>
+
+        {/* Hint display */}
+        {showHint && question.hint && (
+          <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-md text-yellow-800 shadow text-sm">
+            <div className="flex items-start">
+              <FaLightbulb className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
+              <div>
+                <p className="font-semibold mb-0.5 text-yellow-900">Hint:</p>
+                <p>{question.hint}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Question Info */}
+        <div className="flex flex-wrap gap-4 text-sm text-gray-600 border-t pt-4 mt-4">
+          <span className="flex items-center gap-1">
+            <FaBook />
+            {question.subject?.name}
+          </span>
+          <span>{question.topic?.name}</span>
+          <span
+            className={`px-2 py-1 rounded-full text-xs ${
+              question.difficulty === "EASY"
+                ? "bg-green-100 text-green-700"
+                : question.difficulty === "MEDIUM"
+                ? "bg-yellow-100 text-yellow-700"
+                : "bg-red-100 text-red-700"
+            }`}
+          >
+            {question.difficulty?.toLowerCase()}
+          </span>
+        </div>
+      </div>
+    );
   };
 
   if (
     isLoading &&
     (viewMode === "subjects" ||
-      (viewMode === "review" && questions.length === 0))
+      (viewMode === "questionDetail" && !selectedQuestion))
   ) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -188,7 +818,7 @@ export default function QuestionReviewPage() {
         <p className="ml-3 text-lg">
           {viewMode === "subjects"
             ? "Loading subjects..."
-            : "Loading questions for review..."}
+            : "Loading question..."}
         </p>
       </div>
     );
@@ -209,12 +839,20 @@ export default function QuestionReviewPage() {
   if (viewMode === "subjects") {
     return (
       <div className="max-w-4xl mx-auto p-4 md:p-8">
-        <h1 className="text-3xl font-bold mb-8 text-center text-gray-800">
-          Question Review
-        </h1>
-        <p className="text-center text-gray-600 mb-8">
-          Select a subject to review questions
-        </p>
+        <div className="flex items-center justify-between mb-8">
+          <div></div>
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-800">
+              Question Review
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Select a subject to review questions
+            </p>
+          </div>
+          <Button onClick={handleShowAllQuestions} variant="outline">
+            <FaFilter className="mr-2" /> Advanced Filters
+          </Button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {subjects.map((subject) => (
@@ -260,12 +898,7 @@ export default function QuestionReviewPage() {
           <h1 className="text-3xl font-bold text-gray-800">
             {selectedSubject.name} Statistics
           </h1>
-          <Button
-            onClick={handleStartReview}
-            className="bg-indigo-600 hover:bg-indigo-700"
-          >
-            <FaEye className="mr-2" /> Start Review
-          </Button>
+          <div></div>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -301,16 +934,17 @@ export default function QuestionReviewPage() {
               {selectedSubject.topics.map((topic) => (
                 <div
                   key={topic.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+                  onClick={() => handleTopicSelect(topic)}
                 >
                   <div className="flex items-center">
-                    <FaChartBar className="text-indigo-600 mr-3" />
+                    <FaList className="text-indigo-600 mr-3" />
                     <div>
                       <h3 className="font-medium text-gray-800">
                         {topic.name}
                       </h3>
                       <p className="text-sm text-gray-600">
-                        Topic ID: {topic.id}
+                        Click to view all questions
                       </p>
                     </div>
                   </div>
@@ -329,87 +963,288 @@ export default function QuestionReviewPage() {
     );
   }
 
-  // Question Review View
-  if (viewMode === "review" && selectedSubject) {
-    if (questions.length === 0 && !isLoading) {
-      return (
-        <div className="max-w-4xl mx-auto p-4 md:p-8">
-          <div className="flex items-center justify-between mb-8">
-            <Button onClick={handleBackToStats} variant="outline">
-              <FaArrowLeft className="mr-2" /> Back to Statistics
-            </Button>
-            <h1 className="text-2xl font-semibold text-gray-800">
-              {selectedSubject.name} Review
-            </h1>
-          </div>
-
-          <div className="p-6 text-center text-gray-700 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-4">
-              All Questions Reviewed!
-            </h2>
-            <p>
-              There are no more questions currently marked for review in{" "}
-              {selectedSubject.name}.
-            </p>
-            <div className="flex gap-4 justify-center mt-6">
-              <Button onClick={handleBackToStats} variant="outline">
-                Back to Statistics
-              </Button>
-              <Button onClick={handleBackToSubjects}>
-                Choose Another Subject
-              </Button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    const currentQuestion = questions[currentQuestionIndex];
-
+  // Topic Questions List View
+  if (viewMode === "topicQuestions" && selectedTopic) {
     return (
-      <div className="max-w-4xl mx-auto p-4 md:p-8">
+      <div className="max-w-6xl mx-auto p-4 md:p-8">
         <div className="flex items-center justify-between mb-8">
           <Button onClick={handleBackToStats} variant="outline">
             <FaArrowLeft className="mr-2" /> Back to Statistics
           </Button>
-          <h1 className="text-2xl font-semibold text-gray-800">
-            {selectedSubject.name} Review
-          </h1>
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-800">
+              {selectedTopic.name}
+            </h1>
+            <p className="text-gray-600">{selectedTopic.subject.name}</p>
+          </div>
+          <div></div>
         </div>
 
-        {currentQuestion ? (
+        {/* Color Legend */}
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <h3 className="font-semibold text-gray-800 mb-3">Status Legend:</h3>
+          <div className="flex flex-wrap gap-6">
+            <div className="flex items-center gap-2">
+              <FaCircle className="text-red-500" />
+              <span className="text-sm text-gray-700">Needs Review</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <FaCircle className="text-orange-500" />
+              <span className="text-sm text-gray-700">
+                Production (Needs Refactor)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <FaCircle className="text-green-500" />
+              <span className="text-sm text-gray-700">Ready</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {topicQuestions.map((question) => {
+            const statusColor = getStatusColor(
+              question.productionReady,
+              question.isRefactored
+            );
+            const statusText = getStatusText(
+              question.productionReady,
+              question.isRefactored
+            );
+
+            return (
+              <div
+                key={question.id}
+                className={`${statusColor.bg} ${statusColor.border} border-2 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow`}
+                onClick={() => handleQuestionSelect(question)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FaCircle className={`text-sm ${statusColor.dot}`} />
+                      <span
+                        className={`text-sm font-medium px-2 py-1 rounded ${statusColor.bg} ${statusColor.text}`}
+                      >
+                        {statusText}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        ID: {question.id}
+                      </span>
+                    </div>
+                    <p className="text-gray-800 font-medium line-clamp-2 mb-2">
+                      {question.text.substring(0, 150)}
+                      {question.text.length > 150 ? "..." : ""}
+                    </p>
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          question.difficulty === "EASY"
+                            ? "bg-green-100 text-green-700"
+                            : question.difficulty === "MEDIUM"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {question.difficulty?.toLowerCase()}
+                      </span>
+                      <span>{question.questionType}</span>
+                      {question.imageUrl && (
+                        <FaImage className="text-blue-500" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right text-sm text-gray-500">
+                    <div>
+                      Production: {question.productionReady ? "✓" : "✗"}
+                    </div>
+                    <div>Refactored: {question.isRefactored ? "✓" : "✗"}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {topicQuestions.length === 0 && !isLoading && (
+          <div className="text-center text-gray-500 mt-8">
+            <p>No questions found for this topic.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Question Detail View
+  if (viewMode === "questionDetail" && selectedQuestion) {
+    const backHandler = selectedTopic
+      ? handleBackToTopicQuestions
+      : handleBackToFiltered;
+    const backLabel = selectedTopic
+      ? "Back to Topic Questions"
+      : "Back to All Questions";
+
+    return (
+      <div className="max-w-4xl mx-auto p-4 md:p-8">
+        <div className="flex items-center justify-between mb-8">
+          <Button onClick={backHandler} variant="outline">
+            <FaArrowLeft className="mr-2" /> {backLabel}
+          </Button>
+          <h1 className="text-2xl font-semibold text-gray-800">
+            Question Review
+          </h1>
+          <div></div>
+        </div>
+
+        {/* Question Preview */}
+        {renderQuestionPreview(selectedQuestion)}
+
+        {/* Question Editor */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Edit Question Details
+          </h3>
           <QuestionEditorForm
-            key={currentQuestion.id}
-            questionData={currentQuestion}
-            onQuestionAccepted={handleQuestionUpdatedOrAccepted}
-            onQuestionUpdated={handleQuestionUpdatedOrAccepted}
+            key={selectedQuestion.id}
+            questionData={selectedQuestion}
+            onQuestionAccepted={handleQuestionUpdated}
+            onQuestionUpdated={handleQuestionUpdated}
           />
-        ) : (
-          <p className="text-center text-gray-500">No question loaded.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Filtered Questions View
+  if (viewMode === "filteredQuestions") {
+    return (
+      <div className="max-w-7xl mx-auto p-4 md:p-8">
+        <div className="flex items-center justify-between mb-8">
+          <Button onClick={handleBackToSubjects} variant="outline">
+            <FaArrowLeft className="mr-2" /> Back to Subjects
+          </Button>
+          <h1 className="text-3xl font-bold text-gray-800">
+            All Questions with Filters
+          </h1>
+          <div></div>
+        </div>
+
+        {/* Filters */}
+        <QuestionFilters
+          onFilterChange={handleFilterChange}
+          initialFilters={currentFilters}
+        />
+
+        {/* Color Legend */}
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <h3 className="font-semibold text-gray-800 mb-3">Status Legend:</h3>
+          <div className="flex flex-wrap gap-6">
+            <div className="flex items-center gap-2">
+              <FaCircle className="text-red-500" />
+              <span className="text-sm text-gray-700">Needs Review</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <FaCircle className="text-orange-500" />
+              <span className="text-sm text-gray-700">
+                Production (Needs Refactor)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <FaCircle className="text-green-500" />
+              <span className="text-sm text-gray-700">Ready</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Questions Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+          {filteredQuestions.map((question) => {
+            const statusColor = getStatusColor(
+              question.productionReady,
+              question.isRefactored
+            );
+            const statusText = getStatusText(
+              question.productionReady,
+              question.isRefactored
+            );
+
+            return (
+              <div
+                key={question.id}
+                className={`${statusColor.bg} ${statusColor.border} border-2 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow`}
+                onClick={() => handleQuestionSelect(question)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FaCircle className={`text-sm ${statusColor.dot}`} />
+                      <span
+                        className={`text-sm font-medium px-2 py-1 rounded ${statusColor.bg} ${statusColor.text}`}
+                      >
+                        {statusText}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        ID: {question.id}
+                      </span>
+                    </div>
+                    <p className="text-gray-800 font-medium line-clamp-2 mb-2">
+                      {question.text.substring(0, 120)}
+                      {question.text.length > 120 ? "..." : ""}
+                    </p>
+                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          question.difficulty === "EASY"
+                            ? "bg-green-100 text-green-700"
+                            : question.difficulty === "MEDIUM"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {question.difficulty?.toLowerCase()}
+                      </span>
+                      <span>{question.questionType}</span>
+                      {question.imageUrl && (
+                        <FaImage className="text-blue-500" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        {question.subject.name}
+                      </span>
+                      <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                        {question.topic.name}
+                      </span>
+                      {question.questionGroup && (
+                        <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                          {question.questionGroup.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right text-sm text-gray-500 ml-4">
+                    <div>
+                      Production: {question.productionReady ? "✓" : "✗"}
+                    </div>
+                    <div>Refactored: {question.isRefactored ? "✓" : "✗"}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center">
+            <Pagination page={currentPage} count={filteredQuestions.length} />
+          </div>
         )}
 
-        <div className="mt-8 flex justify-between items-center">
-          <Button
-            onClick={handlePreviousQuestion}
-            disabled={currentQuestionIndex === 0 && currentPage === 1}
-            variant="outline"
-          >
-            <FaArrowLeft className="mr-2" /> Previous
-          </Button>
-          <span className="text-sm text-gray-600">
-            Question {currentQuestionIndex + 1} of (approx) {questions.length}{" "}
-            on page {currentPage}/{totalPages}
-          </span>
-          <Button
-            onClick={handleNextQuestion}
-            disabled={
-              currentQuestionIndex >= questions.length - 1 &&
-              currentPage >= totalPages
-            }
-          >
-            Next <FaArrowRight className="ml-2" />
-          </Button>
-        </div>
+        {filteredQuestions.length === 0 && !isLoading && (
+          <div className="text-center text-gray-500 mt-8">
+            <p>No questions found matching the current filters.</p>
+          </div>
+        )}
       </div>
     );
   }
