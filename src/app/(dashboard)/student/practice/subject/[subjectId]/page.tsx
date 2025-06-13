@@ -27,6 +27,20 @@ import {
   FaFlask,
   FaLanguage,
   FaReadme, // Added FaReadme
+  FaBullseye,
+  FaPlay,
+  FaAtom,
+  FaSquareRootAlt,
+  FaRulerCombined,
+  FaChartBar,
+  FaCube,
+  FaMagnet,
+  FaLeaf,
+  FaMicroscope,
+  FaGraduationCap,
+  FaUsers,
+  FaGlobe,
+  FaHistory,
 } from "react-icons/fa";
 import { Topic, Subject as PrismaSubject } from "@/generated/prisma";
 import { toast } from "react-toastify";
@@ -294,6 +308,11 @@ export default function SubjectPracticePage({
     router.push(`/student/practice/random?subjectId=${numericSubjectId}`);
   };
 
+  const handleTargetPractice = () => {
+    // Navigate to target practice for this specific subject
+    router.push(`/student/practice/random?subjectId=${numericSubjectId}&mode=target`);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen p-4">
@@ -328,50 +347,72 @@ export default function SubjectPracticePage({
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6">
-      <div
-        className={`bg-gradient-to-r ${displayConfig.gradient} rounded-2xl p-6 md:p-8 mb-10 shadow-lg text-white`}
-      >
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-          <div>
-            <div className="flex items-center mb-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-white/80 hover:text-white hover:bg-white/10 -ml-2 md:-ml-3"
-                onClick={() => router.push("/student/practice")}
+      {/* Back to Subjects Button at Top */}
+      <div className="mb-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          onClick={() => router.push("/student/practice")}
+        >
+          <FaArrowLeft className="mr-1.5 md:mr-2 h-4 w-4" /> Back to Subjects
+        </Button>
+      </div>
+
+      {/* Random Practice Section */}
+      <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-600 mb-8">
+        <div className="p-6 md:p-8">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            <div className="text-white mb-6 md:mb-0">
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">
+                Random Practice
+                {numericSubjectId === 4 && " (华文练习)"}
+              </h1>
+              <p className="text-white/90 text-lg mb-4">
+                {numericSubjectId === 4
+                  ? "Get a randomized mix of Chinese practice questions."
+                  : `Get a randomized mix of ${pageTitle} questions across all topics.`}
+              </p>
+              <Button 
+                onClick={handleStartRandomPractice}
+                size="lg"
+                className="bg-white text-purple-600 hover:bg-purple-50 font-bold text-lg px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
               >
-                <FaArrowLeft className="mr-1.5 md:mr-2 h-4 w-4" /> Back to
-                Subjects
+                START +50 XP
+                <FaPlay className="ml-2" />
               </Button>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="p-2 sm:p-3 bg-white/20 rounded-xl hidden sm:flex">
-                <SubjectIcon className="w-6 h-6 sm:w-8 sm:h-8" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold">
-                  {pageTitle} Practice
-                  {numericSubjectId === 4 && " (华文练习)"}
-                </h1>
-                <p className="text-white/80 mt-1 text-sm md:text-base">
-                  {numericSubjectId === 4
-                    ? "Select a component to begin practicing for your Chinese examination."
-                    : `Select a topic for ${pageTitle} or try a randomized session.`}
-                </p>
-              </div>
+            <div className="w-32 h-32 md:w-40 md:h-40 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
+              <FaDice className="text-6xl md:text-7xl text-white" />
             </div>
           </div>
-
-          {numericSubjectId !== 4 && (
-            <Button
-              className="mt-4 md:mt-0 bg-white text-indigo-700 hover:bg-indigo-50 font-medium shadow-md hover:shadow-lg transition-all duration-300"
-              onClick={handleStartRandomPractice}
-            >
-              <FaDice className="mr-2" /> Random Practice for {pageTitle}
-            </Button>
-          )}
         </div>
-      </div>
+      </Card>
+
+      {/* Target Practice Section */}
+      <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-green-400 via-green-500 to-emerald-600 mb-8">
+        <div className="p-6 md:p-8">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            <div className="text-white mb-6 md:mb-0">
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">Target Practice</h2>
+              <p className="text-green-50 text-lg mb-4">
+                Tackle weak areas with this customized session for {pageTitle}
+              </p>
+              <Button 
+                onClick={handleTargetPractice}
+                size="lg"
+                className="bg-white text-green-600 hover:bg-green-50 font-bold text-lg px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                START +100 XP
+                <FaPlay className="ml-2" />
+              </Button>
+            </div>
+            <div className="w-32 h-32 md:w-40 md:h-40 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
+              <FaBullseye className="text-6xl md:text-7xl text-white" />
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {numericSubjectId === 4 ? (
         <div className="space-y-8">
@@ -411,6 +452,53 @@ interface TopicCardProps {
 }
 function TopicCard({ topic }: TopicCardProps) {
   const router = useRouter();
+  
+  // Function to get topic-specific icon based on topic name/subject
+  const getTopicIcon = (topicName: string, subjectId: number) => {
+    const name = topicName.toLowerCase();
+    
+    // Math topics
+    if (subjectId === 1) {
+      if (name.includes('algebra') || name.includes('equation')) return FaCalculator;
+      if (name.includes('geometry') || name.includes('shape')) return FaRulerCombined;
+      if (name.includes('fraction') || name.includes('decimal')) return FaSquareRootAlt;
+      if (name.includes('graph') || name.includes('chart')) return FaChartBar;
+      if (name.includes('volume') || name.includes('area')) return FaCube;
+      return FaCalculator;
+    }
+    
+    // Science topics
+    if (subjectId === 2) {
+      if (name.includes('physics') || name.includes('force')) return FaAtom;
+      if (name.includes('chemistry') || name.includes('element')) return FaFlask;
+      if (name.includes('biology') || name.includes('plant') || name.includes('animal')) return FaLeaf;
+      if (name.includes('magnet') || name.includes('electric')) return FaMagnet;
+      if (name.includes('microscope') || name.includes('cell')) return FaMicroscope;
+      return FaFlask;
+    }
+    
+    // English topics
+    if (subjectId === 3) {
+      if (name.includes('grammar') || name.includes('language')) return FaLanguage;
+      if (name.includes('reading') || name.includes('comprehension')) return FaBookOpen;
+      if (name.includes('writing') || name.includes('essay')) return FaPencilAlt;
+      if (name.includes('vocabulary') || name.includes('word')) return FaBook;
+      return FaLanguage;
+    }
+    
+    // Chinese topics
+    if (subjectId === 4) {
+      if (name.includes('pinyin')) return FaLanguage;
+      if (name.includes('writing') || name.includes('composition')) return FaPencilAlt;
+      if (name.includes('reading') || name.includes('comprehension')) return FaBookOpen;
+      if (name.includes('listening')) return FaHeadphones;
+      if (name.includes('speaking') || name.includes('oral')) return FaMicrophoneAlt;
+      return FaGlobe;
+    }
+    
+    return FaBook; // Default icon
+  };
+
   const getMasteryLevel = (percentage: number) => {
     if (percentage >= 80)
       return {
@@ -440,8 +528,10 @@ function TopicCard({ topic }: TopicCardProps) {
       progressColor: "bg-gray-500",
     };
   };
+  
   const mastery = getMasteryLevel(topic.masteryPercentage);
   const MasteryIcon = mastery.icon;
+  const TopicIcon = getTopicIcon(topic.name, topic.subject.id);
   const subjectConfig =
     subjectDisplayConfig[
       topic.subject.id.toString() as keyof typeof subjectDisplayConfig
@@ -460,10 +550,15 @@ function TopicCard({ topic }: TopicCardProps) {
     >
       <div className={`p-5 bg-gradient-to-br ${cardGradient}`}>
         <div className="flex items-start justify-between">
-          <h2 className="text-xl font-bold text-gray-800 line-clamp-2 flex-grow mr-2">
-            {topic.name}
-          </h2>
-          <div className="bg-white rounded-full h-10 w-10 flex items-center justify-center shadow-sm flex-shrink-0">
+          <div className="flex items-center gap-3 flex-grow">
+            <div className="bg-white rounded-full h-12 w-12 flex items-center justify-center shadow-sm flex-shrink-0">
+              <TopicIcon className="text-gray-700 text-xl" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 line-clamp-2 flex-grow">
+              {topic.name}
+            </h2>
+          </div>
+          <div className="bg-white rounded-full h-10 w-10 flex items-center justify-center shadow-sm flex-shrink-0 ml-2">
             <MasteryIcon className={`${mastery.color} text-lg`} />
           </div>
         </div>
@@ -489,10 +584,9 @@ function TopicCard({ topic }: TopicCardProps) {
             progressClassName={`${mastery.progressColor} transition-all duration-500 ease-out`}
           />
           <div className="flex justify-end mt-4">
-            <span className="text-indigo-600 group-hover:text-indigo-800 text-sm font-medium flex items-center">
-              Start Practice{" "}
-              <FaArrowRight className="ml-1 h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
-            </span>
+            <div className="bg-indigo-100 group-hover:bg-indigo-200 rounded-full p-2 transition-colors duration-200">
+              <FaArrowRight className="text-indigo-600 group-hover:text-indigo-800 h-4 w-4 group-hover:translate-x-0.5 transition-all duration-200" />
+            </div>
           </div>
         </div>
       </div>
