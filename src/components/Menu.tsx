@@ -1,10 +1,11 @@
 // src/components/Menu.tsx
 "use client";
 
-import { useUserRole, useSignOut } from "@/lib/hooks/auth";
+import { useUserRole, useSignOut, useSupabaseUser } from "@/lib/hooks/auth";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation"; // Import useRouter
+import Image from "next/image";
 import {
   FaHome,
   FaBook,
@@ -31,6 +32,12 @@ import {
   FaQuestionCircle,
   FaRobot,
 } from "react-icons/fa";
+
+interface StudentInfo {
+  name: string;
+  level: number;
+  img?: string;
+}
 
 const studentMenuItems = [
   {
@@ -249,8 +256,10 @@ const menuItems = [
 
 const Menu = () => {
   const { role, isLoaded } = useUserRole();
+  const { user } = useSupabaseUser();
   const { signOut } = useSignOut();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const pathname = usePathname();
   const router = useRouter(); // For logout redirect
   const [isLoading, setIsLoading] = useState(false);
@@ -259,6 +268,22 @@ const Menu = () => {
     if (isLoaded) {
       if (role) {
         setUserRole(role);
+
+        // Fetch student info if role is student
+        if (role === "student" && user?.id) {
+          const fetchStudentInfo = async () => {
+            try {
+              const response = await fetch(`/api/student/${user.id}`);
+              if (response.ok) {
+                const data = await response.json();
+                setStudentInfo(data);
+              }
+            } catch (error) {
+              console.error("Error fetching student info:", error);
+            }
+          };
+          fetchStudentInfo();
+        }
 
         // Adjust dashboard and profile links dynamically based on role
         // This modification happens on a mutable copy if menuItems is defined inside useEffect or passed appropriately
@@ -290,7 +315,7 @@ const Menu = () => {
         );
       }
     }
-  }, [role, isLoaded]);
+  }, [role, isLoaded, user?.id]);
 
   const handleSignOut = async () => {
     try {
@@ -327,11 +352,37 @@ const Menu = () => {
   return (
     <div className="mt-2">
       <div className="mx-3 mb-6">
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-lg text-white text-center shadow-md">
-          <span className="text-xs font-medium uppercase tracking-wider">
-            {userRole}
-          </span>
-        </div>
+        {userRole === "student" && studentInfo ? (
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 rounded-lg text-white shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+                {studentInfo.img ? (
+                  <Image
+                    src={studentInfo.img}
+                    alt={studentInfo.name}
+                    width={48}
+                    height={48}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xl font-semibold">
+                    {studentInfo.name.charAt(0)}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium truncate">{studentInfo.name}</h3>
+                <p className="text-sm text-white/80">Level {studentInfo.level}</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-lg text-white text-center shadow-md">
+            <span className="text-xs font-medium uppercase tracking-wider">
+              {userRole}
+            </span>
+          </div>
+        )}
       </div>
 
       {itemsToRender.map((group) => (
