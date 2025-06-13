@@ -25,8 +25,15 @@ import {
   FaGem,
   FaBullseye,
   FaBookOpen,
-  FaPlay
+  FaPlay,
+  FaSync
 } from "react-icons/fa";
+
+import { 
+  WeeklyQuest, 
+  getCurrentWeeklyQuests, 
+  generateWeeklyQuests 
+} from './weekly-quests-config';
 
 // Define the subjects we want to display
 const subjects = [
@@ -68,42 +75,17 @@ const subjects = [
   }
 ];
 
-const dailyQuests = [
-  {
-    id: 1,
-    title: "Earn 50 XP",
-    description: "Complete practice sessions to gain experience",
-    progress: 50,
-    target: 50,
-    xpReward: 10,
-    icon: FaTrophy,
-    color: "amber"
-  },
-  {
-    id: 2,
-    title: "Score 90% or higher in 3 lessons",
-    description: "Achieve high accuracy in your practice sessions",
-    progress: 3,
-    target: 3,
-    xpReward: 15,
-    icon: FaBullseye,
-    color: "green"
-  },
-  {
-    id: 3,
-    title: "Earn 20 Combo Bonus XP",
-    description: "Answer questions correctly in a row",
-    progress: 20,
-    target: 20,
-    xpReward: 20,
-    icon: FaFire,
-    color: "orange"
-  }
-];
-
 export default function PracticePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [weeklyQuests, setWeeklyQuests] = useState<WeeklyQuest[]>([]);
+  const [playerLevel, setPlayerLevel] = useState(1); // Mock player level
+  
+  // Initialize weekly quests on component mount
+  useEffect(() => {
+    const quests = getCurrentWeeklyQuests(playerLevel);
+    setWeeklyQuests(quests);
+  }, [playerLevel]);
   
   // Mock mistakes count - replace with actual data source
   const mistakesCount = 0; // This would come from your data source
@@ -126,13 +108,20 @@ export default function PracticePage() {
     router.push('/student/review');
   };
 
+  // Function to generate new weekly quests
+  const generateNewWeeklyQuests = () => {
+    const newQuests = generateWeeklyQuests(playerLevel, 5);
+    setWeeklyQuests(newQuests);
+    // Here you would also save to your backend/localStorage
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-4 md:p-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Today's Review</h1>
-          <p className="text-gray-600">Keep up your learning streak and master new skills!</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">This Week's Learning</h1>
+          <p className="text-gray-600">Complete your weekly quests and master new skills!</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -181,44 +170,27 @@ export default function PracticePage() {
               </Card>
             </div>
 
-            {/* League Info */}
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-500 to-indigo-600">
-              <CardContent className="p-6 text-white">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold">Pearl League</h3>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-white hover:bg-white/20 text-xs"
-                  >
-                    VIEW LEAGUE
-                  </Button>
-                </div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    <FaCrown className="text-xl text-yellow-300" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-lg">You're ranked #1</p>
-                    <p className="text-purple-100 text-sm">Keep it up to stay in the top 3!</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Daily Quests */}
+
+            {/* Weekly Quests */}
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-bold text-gray-900">Daily Quests</CardTitle>
-                  <Button variant="ghost" size="sm" className="text-xs text-indigo-600">
-                    VIEW ALL
+                  <CardTitle className="text-lg font-bold text-gray-900">Weekly Quests</CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs text-indigo-600 hover:text-indigo-800"
+                    onClick={generateNewWeeklyQuests}
+                  >
+                    <FaSync className="mr-1" />
+                    NEW QUESTS
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {dailyQuests.map((quest) => (
-                  <QuestCard key={quest.id} quest={quest} />
+                {weeklyQuests.map((quest) => (
+                  <WeeklyQuestCard key={quest.id} quest={quest} />
                 ))}
               </CardContent>
             </Card>
@@ -328,6 +300,66 @@ function QuestCard({ quest }: QuestCardProps) {
               <div className="bg-yellow-500 text-white px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
                 <FaGem className="text-xs" />
                 {quest.xpReward}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <ProgressBar
+        value={quest.progress}
+        max={quest.target}
+        className="h-2 bg-gray-200"
+        progressClassName={`${config.progress} transition-all duration-500 ease-out`}
+      />
+    </div>
+  );
+}
+
+interface WeeklyQuestCardProps {
+  quest: WeeklyQuest;
+}
+
+function WeeklyQuestCard({ quest }: WeeklyQuestCardProps) {
+  const IconComponent = quest.icon;
+  const isCompleted = quest.progress >= quest.target;
+  const progressPercentage = Math.min((quest.progress / quest.target) * 100, 100);
+
+  const colorConfig = {
+    amber: { bg: "bg-amber-50", icon: "text-amber-600", progress: "bg-amber-500" },
+    green: { bg: "bg-green-50", icon: "text-green-600", progress: "bg-green-500" },
+    orange: { bg: "bg-orange-50", icon: "text-orange-600", progress: "bg-orange-500" },
+    purple: { bg: "bg-purple-50", icon: "text-purple-600", progress: "bg-purple-500" },
+    blue: { bg: "bg-blue-50", icon: "text-blue-600", progress: "bg-blue-500" },
+    indigo: { bg: "bg-indigo-50", icon: "text-indigo-600", progress: "bg-indigo-500" },
+    teal: { bg: "bg-teal-50", icon: "text-teal-600", progress: "bg-teal-500" },
+    yellow: { bg: "bg-yellow-50", icon: "text-yellow-600", progress: "bg-yellow-500" },
+    pink: { bg: "bg-pink-50", icon: "text-pink-600", progress: "bg-pink-500" },
+    red: { bg: "bg-red-50", icon: "text-red-600", progress: "bg-red-500" },
+    cyan: { bg: "bg-cyan-50", icon: "text-cyan-600", progress: "bg-cyan-500" },
+    emerald: { bg: "bg-emerald-50", icon: "text-emerald-600", progress: "bg-emerald-500" },
+    violet: { bg: "bg-violet-50", icon: "text-violet-600", progress: "bg-violet-500" },
+    gold: { bg: "bg-yellow-50", icon: "text-yellow-700", progress: "bg-gradient-to-r from-yellow-400 to-yellow-600" },
+    slate: { bg: "bg-slate-50", icon: "text-slate-600", progress: "bg-slate-500" },
+    lime: { bg: "bg-lime-50", icon: "text-lime-600", progress: "bg-lime-500" }
+  };
+
+  const config = colorConfig[quest.color as keyof typeof colorConfig] || colorConfig.amber;
+
+  return (
+    <div className="group">
+      <div className="flex items-center gap-3 mb-2">
+        <div className={`w-8 h-8 ${config.bg} rounded-lg flex items-center justify-center`}>
+          <IconComponent className={`text-sm ${config.icon}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-gray-800 text-sm">{quest.title}</h4>
+          <p className="text-xs text-gray-500 mb-1">{quest.description}</p>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">{quest.progress} / {quest.target}</span>
+            {isCompleted && (
+              <div className="bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
+                <FaTrophy className="text-xs" />
+                COMPLETE
               </div>
             )}
           </div>

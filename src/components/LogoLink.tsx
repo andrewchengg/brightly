@@ -24,9 +24,9 @@ const LogoLink = () => {
   return (
     <Link
       href={getDashboardUrl()}
-      className="flex items-center justify-center lg:justify-start gap-2"
+      className="flex items-center justify-center gap-2"
     >
-      <span className="hidden lg:block font-bold">Brightly</span>
+      <span className="hidden lg:block font-bold text-2xl">Brightly</span>
     </Link>
   );
 };

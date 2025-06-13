@@ -31,6 +31,8 @@ import {
   FaTasks,
   FaQuestionCircle,
   FaRobot,
+  FaChevronDown,
+  FaChevronUp,
 } from "react-icons/fa";
 
 interface StudentInfo {
@@ -216,6 +218,7 @@ const Menu = () => {
   const pathname = usePathname();
   const router = useRouter(); // For logout redirect
   const [isLoading, setIsLoading] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (isLoaded) {
@@ -298,181 +301,182 @@ const Menu = () => {
     );
   }
 
-  // Determine which menu set to use
+  // Determine which menu set to use and flatten the items
   const itemsToRender = userRole === "student" ? studentMenuItems : menuItems;
+  const allItems = itemsToRender.flatMap(group => group.items);
+  
+  // Prioritize important items like "My Results" to always be visible
+  const priorityItems = ["Home", "Practice", "Ask", "Weekly Challenge", "Mock Exams", "My Results"];
+  const prioritizedItems = allItems.sort((a, b) => {
+    const aIndex = priorityItems.indexOf(a.label);
+    const bIndex = priorityItems.indexOf(b.label);
+    if (aIndex === -1 && bIndex === -1) return 0;
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+    return aIndex - bIndex;
+  });
+  
+  // Split items into main menu (first 6 prioritized) and more items
+  const mainItems = prioritizedItems.slice(0, 6);
+  const moreItems = prioritizedItems.slice(6);
+
+  const renderMenuItem = (item: any) => {
+    if (item.visible.includes(userRole)) {
+      let effectiveHref = item.href;
+      // Adjust "Dashboard" link based on actual role dynamically
+      if (item.label === "Dashboard" && userRole !== "student") {
+        effectiveHref = `/${userRole}`;
+      }
+      // Adjust "Profile" link for non-student roles
+      if (item.label === "Profile" && userRole !== "student") {
+        effectiveHref = `/profile/${userRole}`;
+      }
+      // Adjust "My Children" link for parents to show their children profile
+      if (item.label === "My Children" && userRole === "parent") {
+        effectiveHref = `/parent/children`;
+      }
+
+      // More precise isActive check
+      const isActive = (() => {
+        // For student Home page
+        if (userRole === "student" && item.label === "Home") {
+          return pathname === "/student";
+        }
+
+        // For Dashboard pages (admin, teacher, parent)
+        if (item.label === "Dashboard" && userRole !== "student") {
+          return (
+            pathname === `/${userRole}` ||
+            (pathname === "/" && effectiveHref === "/")
+          );
+        }
+
+        // For exact path matches
+        if (pathname === effectiveHref) {
+          return true;
+        }
+
+        // For sub-paths (but not for root paths to avoid false positives)
+        if (
+          effectiveHref !== "/" &&
+          effectiveHref !== "/student" &&
+          pathname.startsWith(effectiveHref + "/")
+        ) {
+          return true;
+        }
+
+        return false;
+      })();
+
+      if (item.isLogout) {
+        return (
+          <button
+            key={item.label}
+            onClick={handleSignOut}
+            disabled={isLoading}
+            className={`flex items-center gap-4 py-2 px-4 rounded-lg hover:bg-red-50 hover:shadow-md transition-all duration-300 w-full group border border-transparent hover:border-red-100
+              ${
+                isLoading
+                  ? "opacity-60 cursor-not-allowed"
+                  : "opacity-100"
+              }`}
+          >
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 group-hover:bg-red-100 transition-colors duration-300">
+              <item.icon size={20} className="text-red-600" />
+            </div>
+            <span className="hidden lg:block font-semibold text-slate-700 group-hover:text-red-600 transition-colors duration-300">
+              {isLoading ? "Signing out..." : item.label}
+            </span>
+          </button>
+        );
+      }
+
+      return (
+        <Link
+          href={effectiveHref}
+          key={item.label}
+          className={`flex items-center gap-4 py-2 px-4 rounded-lg transition-all duration-300 group border relative overflow-hidden
+            ${
+              isActive
+                ? "bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 shadow-lg"
+                : "border-transparent hover:bg-slate-50 hover:shadow-md hover:border-slate-200"
+            }`}
+        >
+          {/* Active indicator */}
+          <div
+            className={`absolute left-0 top-0 h-full w-1 rounded-r-full transition-all duration-300
+              ${
+                isActive
+                  ? "bg-gradient-to-b from-indigo-500 to-blue-600 shadow-lg"
+                  : "bg-transparent"
+              }`}
+          ></div>
+
+          <div
+            className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300 ${
+              isActive
+                ? "bg-gradient-to-br from-indigo-100 to-blue-100 shadow-md"
+                : "bg-slate-100 group-hover:bg-slate-200"
+            }`}
+          >
+            <item.icon
+              size={20}
+              className={`transition-colors duration-300 ${
+                isActive
+                  ? "text-indigo-600"
+                  : "text-slate-600 group-hover:text-indigo-600"
+              }`}
+            />
+          </div>
+
+          <span
+            className={`hidden lg:block font-semibold transition-colors duration-300 ${
+              isActive
+                ? "text-slate-800"
+                : "text-slate-700 group-hover:text-indigo-600"
+            }`}
+          >
+            {item.label}
+          </span>
+        </Link>
+      );
+    }
+    return null;
+  };
 
   return (
-    <div className="mt-4 px-4">
-      <div className="mb-8">
-        {userRole === "student" && studentInfo ? (
-          <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 p-6 rounded-2xl text-white shadow-xl border border-indigo-200">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center overflow-hidden border border-white/20 shadow-lg">
-                {studentInfo.img ? (
-                  <Image
-                    src={studentInfo.img}
-                    alt={studentInfo.name}
-                    width={56}
-                    height={56}
-                    className="w-full h-full object-cover rounded-2xl"
-                  />
-                ) : (
-                  <span className="text-2xl font-bold text-white">
-                    {studentInfo.name.charAt(0)}
-                  </span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg truncate text-white">
-                  {studentInfo.name}
-                </h3>
-                <p className="text-sm text-indigo-100 font-medium">
-                  Level {studentInfo.level}
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 p-4 rounded-2xl text-white text-center shadow-xl border border-indigo-200">
-            <span className="text-sm font-bold uppercase tracking-widest text-white">
-              {userRole}
-            </span>
-          </div>
-        )}
+    <div className="mt-4 px-4 w-full max-w-md">
+      {/* Main menu items */}
+      <div className="space-y-1">
+        {mainItems.map((item) => renderMenuItem(item))}
       </div>
 
-      {itemsToRender.map((group) => (
-        <div className="flex flex-col gap-2 mb-8" key={group.title}>
-          <span className="hidden lg:block text-xs font-bold text-slate-500 uppercase tracking-widest px-2 py-3 border-b border-slate-200">
-            {group.title}
-          </span>
-          <div className="space-y-1 mt-2">
-            {group.items.map((item) => {
-              if (item.visible.includes(userRole)) {
-                let effectiveHref = item.href;
-                // Adjust "Dashboard" link based on actual role dynamically
-                if (item.label === "Dashboard" && userRole !== "student") {
-                  effectiveHref = `/${userRole}`;
-                }
-                // Adjust "Profile" link for non-student roles
-                if (item.label === "Profile" && userRole !== "student") {
-                  effectiveHref = `/profile/${userRole}`;
-                }
-                // Adjust "My Children" link for parents to show their children profile
-                if (item.label === "My Children" && userRole === "parent") {
-                  effectiveHref = `/parent/children`;
-                }
-
-                // More precise isActive check
-                const isActive = (() => {
-                  // For student Home page
-                  if (userRole === "student" && item.label === "Home") {
-                    return pathname === "/student";
-                  }
-
-                  // For Dashboard pages (admin, teacher, parent)
-                  if (item.label === "Dashboard" && userRole !== "student") {
-                    return (
-                      pathname === `/${userRole}` ||
-                      (pathname === "/" && effectiveHref === "/")
-                    );
-                  }
-
-                  // For exact path matches
-                  if (pathname === effectiveHref) {
-                    return true;
-                  }
-
-                  // For sub-paths (but not for root paths to avoid false positives)
-                  if (
-                    effectiveHref !== "/" &&
-                    effectiveHref !== "/student" &&
-                    pathname.startsWith(effectiveHref + "/")
-                  ) {
-                    return true;
-                  }
-
-                  return false;
-                })();
-
-                if (item.isLogout) {
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={handleSignOut}
-                      disabled={isLoading}
-                      className={`flex items-center gap-4 py-4 px-4 rounded-xl hover:bg-red-50 hover:shadow-md transition-all duration-300 w-full group border border-transparent hover:border-red-100
-                        ${
-                          isLoading
-                            ? "opacity-60 cursor-not-allowed"
-                            : "opacity-100"
-                        }`}
-                    >
-                      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 group-hover:bg-red-100 transition-colors duration-300">
-                        <item.icon size={20} className="text-red-600" />
-                      </div>
-                      <span className="hidden lg:block font-semibold text-slate-700 group-hover:text-red-600 transition-colors duration-300">
-                        {isLoading ? "Signing out..." : item.label}
-                      </span>
-                    </button>
-                  );
-                }
-
-                return (
-                  <Link
-                    href={effectiveHref}
-                    key={item.label}
-                    className={`flex items-center gap-4 py-4 px-4 rounded-xl transition-all duration-300 group border relative overflow-hidden
-                      ${
-                        isActive
-                          ? "bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 shadow-lg"
-                          : "border-transparent hover:bg-slate-50 hover:shadow-md hover:border-slate-200"
-                      }`}
-                  >
-                    {/* Active indicator */}
-                    <div
-                      className={`absolute left-0 top-0 h-full w-1 rounded-r-full transition-all duration-300
-                        ${
-                          isActive
-                            ? "bg-gradient-to-b from-indigo-500 to-blue-600 shadow-lg"
-                            : "bg-transparent"
-                        }`}
-                    ></div>
-
-                    <div
-                      className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300 ${
-                        isActive
-                          ? "bg-gradient-to-br from-indigo-100 to-blue-100 shadow-md"
-                          : "bg-slate-100 group-hover:bg-slate-200"
-                      }`}
-                    >
-                      <item.icon
-                        size={20}
-                        className={`transition-colors duration-300 ${
-                          isActive
-                            ? "text-indigo-600"
-                            : "text-slate-600 group-hover:text-indigo-600"
-                        }`}
-                      />
-                    </div>
-
-                    <span
-                      className={`hidden lg:block font-semibold transition-colors duration-300 ${
-                        isActive
-                          ? "text-slate-800"
-                          : "text-slate-700 group-hover:text-indigo-600"
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                  </Link>
-                );
-              }
-              return null;
-            })}
-          </div>
+      {/* More button and additional items */}
+      {moreItems.length > 0 && (
+        <div className="mt-4">
+          <button
+            onClick={() => setShowMore(!showMore)}
+            className="flex items-center gap-4 py-2 px-4 rounded-lg hover:bg-slate-50 hover:shadow-md transition-all duration-300 w-full group border border-transparent hover:border-slate-200"
+          >
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-slate-200 transition-all duration-300">
+              {showMore ? (
+                <FaChevronUp size={20} className="text-slate-600 group-hover:text-indigo-600 transition-colors duration-300" />
+              ) : (
+                <FaChevronDown size={20} className="text-slate-600 group-hover:text-indigo-600 transition-colors duration-300" />
+              )}
+            </div>
+            <span className="hidden lg:block font-semibold text-slate-700 group-hover:text-indigo-600 transition-colors duration-300">
+              More
+            </span>
+          </button>
+          
+          {showMore && (
+            <div className="space-y-1 mt-2">
+              {moreItems.map((item) => renderMenuItem(item))}
+            </div>
+          )}
         </div>
-      ))}
+      )}
 
       <div className="hidden lg:block px-2 py-6 mt-8">
         <div className="border-t border-slate-200 pt-6">
