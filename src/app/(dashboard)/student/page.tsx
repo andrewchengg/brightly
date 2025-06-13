@@ -10,7 +10,7 @@ import {
   Student as PrismaStudentType,
 } from "@/generated/prisma";
 
-import StudentSetupCheck from "@/components/StudentSetupCheck";
+
 import StudentCalendar from "@/components/StudentCalendar";
 import { Button } from "@/components/ui/button";
 import XPBar from "@/components/XPBar";
@@ -292,7 +292,6 @@ const StudentPage = async () => {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          <StudentSetupCheck />
           <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
             <StudentCalendar />
           </div>

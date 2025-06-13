@@ -47,6 +47,9 @@ export default function SignUpPage() {
   const router = useRouter();
   const supabase = createClient();
   const [currentStep, setCurrentStep] = useState(1);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationDirection, setAnimationDirection] = useState<'forward' | 'backward' | null>(null);
   const [referralSource, setReferralSource] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -55,14 +58,34 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleNext = () => {
-    if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1);
+    if (currentStep < steps.length && !isAnimating) {
+      setIsAnimating(true);
+      setAnimationDirection('forward');
+      setSlideDirection('left');
+      setTimeout(() => {
+        setCurrentStep(currentStep + 1);
+        setSlideDirection(null);
+        setTimeout(() => {
+          setIsAnimating(false);
+          setAnimationDirection(null);
+        }, 100);
+      }, 300); // Half the total animation time for slide-out
     }
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+    if (currentStep > 1 && !isAnimating) {
+      setIsAnimating(true);
+      setAnimationDirection('backward');
+      setSlideDirection('right');
+      setTimeout(() => {
+        setCurrentStep(currentStep - 1);
+        setSlideDirection(null);
+        setTimeout(() => {
+          setIsAnimating(false);
+          setAnimationDirection(null);
+        }, 100);
+      }, 300); // Half the total animation time for slide-out
     }
   };
 
@@ -98,8 +121,10 @@ export default function SignUpPage() {
             {
               id: signUpResponseData.user.id,
               name: name,
+              username: email.split('@')[0] || `parent${Date.now().toString().slice(-5)}`,
               email: email,
               referralSource: referralSource,
+              createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },
             { onConflict: "id" }
@@ -294,53 +319,158 @@ export default function SignUpPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Navigation */}
-      <nav className="fixed w-full bg-white/80 backdrop-blur-md shadow-sm z-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex-shrink-0">
-              <Link
-                href="/"
-                className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-              >
-                Brightly
-              </Link>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link
-                href="/"
-                className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center"
-              >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+  // Add these styles for the sliding animations
+  const styles = `
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideLeft {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+    }
+
+    @keyframes slideRight {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+
+    @keyframes slideInLeft {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    .animate-fade-in-up {
+      animation: fadeInUp 0.5s ease-out;
+    }
+
+    .animate-fade-in-up-delayed {
+      animation: fadeInUp 0.5s ease-out 0.2s both;
+    }
+
+    .animate-slide-left {
+      animation: slideLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .animate-slide-right {
+      animation: slideRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .animate-slide-in-left {
+      animation: slideInLeft 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .animate-slide-in-right {
+      animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+  `;
+
+  // Add this right after the styles constant
+  if (typeof document !== 'undefined') {
+    const styleSheet = document.createElement("style");
+    styleSheet.textContent = styles;
+    if (!document.head.querySelector('style[data-sign-up-animations]')) {
+      styleSheet.setAttribute('data-sign-up-animations', 'true');
+      document.head.appendChild(styleSheet);
+    }
+  }
+
+      return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        {/* Navigation */}
+        <nav className="fixed w-full bg-white/80 backdrop-blur-md shadow-sm z-50 border-b border-gray-100 animate-fade-in">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16 items-center">
+              <div className="flex-shrink-0">
+                <Link
+                  href="/"
+                  className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-                Back to Home
-              </Link>
-              <Link
-                href="/sign-in"
-                className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-              >
-                Sign In
-              </Link>
+                  Brightly
+                </Link>
+              </div>
+              <div className="flex items-center space-x-4">
+                <Link
+                  href="/"
+                  className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center"
+                >
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    />
+                  </svg>
+                  Back to Home
+                </Link>
+                <Link
+                  href="/sign-in"
+                  className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                >
+                  Sign In
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      <div className="flex items-center justify-center min-h-screen pt-16">
-        <div className="p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
+        <div className="flex items-center justify-center min-h-screen pt-16">
+          <div className="p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl w-full max-w-md border border-gray-100 animate-fade-in-up">
           {/* Progress bar */}
           <div className="mb-8">
             <div className="flex justify-between mb-2">
@@ -355,56 +485,65 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          {/* Step content */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {steps[currentStep - 1].title}
-            </h1>
-            <p className="text-gray-600">{steps[currentStep - 1].description}</p>
-          </div>
+                      <div className={`${
+              slideDirection === 'left' ? 'animate-slide-left' : 
+              slideDirection === 'right' ? 'animate-slide-right' : 
+              slideDirection === null && isAnimating && animationDirection === 'forward' ? 'animate-slide-in-left' :
+              slideDirection === null && isAnimating && animationDirection === 'backward' ? 'animate-slide-in-right' :
+              ''
+            }`}>
+              {/* Step content */}
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  {steps[currentStep - 1].title}
+                </h1>
+                <p className="text-gray-600">{steps[currentStep - 1].description}</p>
+              </div>
 
-          <form onSubmit={currentStep === steps.length ? handleSignUp : (e) => { e.preventDefault(); handleNext(); }} className="space-y-6">
-            {renderStepContent()}
+              <form onSubmit={currentStep === steps.length ? handleSignUp : (e) => { e.preventDefault(); handleNext(); }} className="space-y-6">
+                {renderStepContent()}
 
-            {error && (
-              <div className="text-red-600 text-sm text-center">{error}</div>
-            )}
-
-            <div className="flex justify-between pt-4">
-              {currentStep > 1 && (
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="px-6 py-3 text-gray-600 hover:text-blue-600 font-medium transition-colors duration-200"
-                >
-                  Back
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={!isStepValid() || isLoading}
-                className={`ml-auto px-8 py-3 rounded-xl font-medium transition-all duration-200 ${
-                  isStepValid()
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg transform hover:scale-105"
-                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                }`}
-              >
-                {isLoading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing...
-                  </span>
-                ) : currentStep === steps.length ? (
-                  "Get Started"
-                ) : (
-                  "Continue"
+                {error && (
+                  <div className="text-red-600 text-sm text-center">{error}</div>
                 )}
-              </button>
+
+                <div className="flex justify-between pt-4">
+                  {currentStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      className="px-6 py-3 text-gray-600 hover:text-blue-600 font-medium transition-colors duration-200"
+                      disabled={isAnimating}
+                    >
+                      Back
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={!isStepValid() || isLoading || isAnimating}
+                    className={`ml-auto px-8 py-3 rounded-xl font-medium transition-all duration-200 ${
+                      isStepValid() && !isAnimating
+                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg transform hover:scale-105"
+                        : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    }`}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing...
+                      </span>
+                    ) : currentStep === steps.length ? (
+                      "Get Started"
+                    ) : (
+                      "Continue"
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
         </div>
       </div>
     </div>

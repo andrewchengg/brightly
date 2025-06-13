@@ -81,8 +81,36 @@ export default function SignInPage() {
       }
 
       if (authSuccessful) {
-        console.log(`[REDIRECT] Auth successful. Redirecting to /${userRole}`);
-        router.push(`/${userRole}`);
+        console.log(`[REDIRECT] Auth successful. Checking setup status for role: ${userRole}`);
+        
+        // For students, check if they need to complete setup before redirecting
+        if (userRole === "student") {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: student, error: studentError } = await supabase
+              .from('Student')
+              .select('initialSetupComplete')
+              .eq('id', user.id)
+              .single();
+
+            if (studentError) {
+              console.error("[SIGN_IN] Error checking student setup status:", studentError);
+              // If error checking status, go to student dashboard and let StudentSetupCheck handle it
+              router.push('/student');
+            } else if (student && !student.initialSetupComplete) {
+              console.log("[SIGN_IN] Student setup incomplete, redirecting to complete-setup");
+              router.push('/student/complete-setup');
+            } else {
+              console.log("[SIGN_IN] Student setup complete, redirecting to dashboard");
+              router.push('/student');
+            }
+          } else {
+            router.push('/student');
+          }
+        } else {
+          // For non-students, redirect to their role dashboard directly
+          router.push(`/${userRole}`);
+        }
         router.refresh();
       }
     } catch (err: any) {
