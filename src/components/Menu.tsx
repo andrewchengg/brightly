@@ -149,12 +149,6 @@ const menuItems = [
         visible: ["parent"],
       },
       {
-        icon: FaChalkboardTeacher,
-        label: "Teachers",
-        href: "/list/teachers",
-        visible: ["admin"],
-      },
-      {
         icon: FaUserGraduate,
         label: "Students",
         href: "/list/students",
@@ -173,52 +167,10 @@ const menuItems = [
         visible: ["admin"],
       },
       {
-        icon: FaGraduationCap,
-        label: "Classes",
-        href: "/list/classes",
-        visible: ["admin", "teacher"],
-      },
-      {
-        icon: FaBook,
-        label: "Lessons",
-        href: "/list/lessons",
-        visible: ["admin", "teacher"],
-      },
-      {
-        icon: FaFileAlt,
-        label: "Exams",
-        href: "/list/exams",
-        visible: ["admin", "teacher"],
-      },
-      {
-        icon: FaClipboardList,
-        label: "Assignments",
-        href: "/list/assignments",
-        visible: ["admin", "teacher"],
-      },
-      {
-        icon: FaChartBar,
-        label: "Overall Results",
-        href: "/list/results",
-        visible: ["admin", "teacher"],
-      },
-      {
         icon: FaChartBar,
         label: "Children's Results",
         href: "/parent/results",
         visible: ["parent"],
-      },
-      {
-        icon: FaCheckSquare,
-        label: "Attendance",
-        href: "/list/attendance",
-        visible: ["admin", "teacher"],
-      },
-      {
-        icon: FaBullhorn,
-        label: "Announcements",
-        href: "/list/announcements",
-        visible: ["admin", "teacher", "student"],
       },
     ],
   },
@@ -371,7 +323,9 @@ const Menu = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium truncate">{studentInfo.name}</h3>
-                <p className="text-sm text-white/80">Level {studentInfo.level}</p>
+                <p className="text-sm text-white/80">
+                  Level {studentInfo.level}
+                </p>
               </div>
             </div>
           </div>
@@ -502,7 +456,7 @@ const Menu = () => {
 
       <div className="hidden lg:block px-4 py-4 mt-6">
         <div className="border-t border-gray-200 pt-4">
-                          <div className="text-xs text-center text-gray-400">Brightly v1.0</div>
+          <div className="text-xs text-center text-gray-400">Brightly v1.0</div>
         </div>
       </div>
     </div>

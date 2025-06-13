@@ -209,6 +209,7 @@ model Question {
   sourceSchool         String?
   sourceYear           Int?
   productionReady      Boolean                   @default(false)
+  isRefactored         Boolean                   @default(false)
   reviewedAt           DateTime?
   archivedVersion      ArchivedOriginalQuestion?
   questionGroup        QuestionGroup?            @relation("QuestionGroupQuestions", fields: [questionGroupId], references: [id])
