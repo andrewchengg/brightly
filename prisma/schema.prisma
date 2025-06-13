@@ -74,6 +74,7 @@ model Parent {
   phone                    String?           @unique
   email                    String?           @unique
   address                  String?
+  referralSource           String?
   createdAt                DateTime          @default(now())
   updatedAt                DateTime          @updatedAt
   assignedPracticeSessions PracticeSession[] @relation("AssignedSessionsByParent")

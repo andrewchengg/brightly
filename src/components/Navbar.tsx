@@ -78,7 +78,14 @@ const Navbar = () => {
           </div>
         )}
         <button 
-          onClick={() => signOut()}
+          onClick={async () => {
+            try {
+              await signOut();
+              // The signOut function will handle the navigation
+            } catch (error) {
+              console.error("Error during logout:", error);
+            }
+          }}
           className="bg-white rounded-full w-8 h-8 flex items-center justify-center cursor-pointer"
         >
           <Image src="/logout.png" alt="Sign Out" width={20} height={20} />

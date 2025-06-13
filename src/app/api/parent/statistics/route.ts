@@ -247,7 +247,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Overall family stats with improved time calculation
-    const totalTodayTimeSeconds = todaysSessions.reduce((total, session) => {
+    const totalTodayTimeSeconds = todaysSessions.length > 0 ? todaysSessions.reduce((total, session) => {
       if (session.status === "COMPLETED" && session.durationSeconds) {
         return total + session.durationSeconds;
       } else if (session.status === "IN_PROGRESS" && session.startTime) {
@@ -259,7 +259,7 @@ export async function GET(request: NextRequest) {
         return total + Math.max(0, elapsedSeconds);
       }
       return total;
-    }, 0);
+    }, 0) : 0;
 
     const overallStats = {
       totalChildren: children.length,

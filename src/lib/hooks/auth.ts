@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation" // Import if useSignOut needs it
 import { createClient } from "@/lib/supabase/client" // Uses the browser client from @supabase/ssr
-import { type User } from "@supabase/supabase-js"
+import { type User, type Session } from "@supabase/supabase-js"
+import safeStorage from '@/lib/safeStorage';
 
 export const useSupabaseUser = () => {
   const supabase = createClient();
@@ -70,14 +71,17 @@ export const useUserRole = () => {
 export const useSignOut = () => {
   const supabase = createClient();
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter(); // Assuming you might want to redirect after sign out
+  const router = useRouter();
 
   const signOut = async () => {
     setIsLoading(true);
     try {
       await supabase.auth.signOut();
-      // Optionally redirect here or where the hook is used
-      // router.push('/sign-in'); 
+      // Clear any local storage items
+      safeStorage.removeItem('userId', 'local');
+      // Use router for proper navigation
+      router.push('/');
+      router.refresh();
     } catch (error) {
       console.error("Error signing out:", error);
     } finally {

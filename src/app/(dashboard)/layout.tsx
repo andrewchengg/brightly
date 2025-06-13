@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import LogoLink from "@/components/LogoLink";
 
 export default async function DashboardLayout({
   children,
@@ -23,12 +24,9 @@ export default async function DashboardLayout({
     <div className="h-screen flex overflow-hidden">
       {/* LEFT */}
       <div className="w-[14%] md:w-[8%] lg:w-[16%] xl:w-[14%] p-4 flex flex-col h-full">
-        <Link
-          href="/"
-          className="flex items-center justify-center lg:justify-start gap-2 mb-4"
-        >
-          <span className="hidden lg:block font-bold">Brightly</span>
-        </Link>
+        <div className="flex items-center justify-center lg:justify-start gap-2 mb-4">
+          <LogoLink />
+        </div>
         <div className="flex-1 overflow-y-auto">
           <Menu />
         </div>

@@ -320,9 +320,8 @@ const Menu = () => {
   const handleSignOut = async () => {
     try {
       setIsLoading(true);
-      await signOut(); // This already clears client-side session
-      // Force immediate redirect without waiting
-      window.location.href = "/sign-in"; // Use window.location for immediate redirect
+      await signOut();
+      // The signOut function will handle the navigation
     } catch (error) {
       console.error("Error during logout:", error);
       setIsLoading(false);
