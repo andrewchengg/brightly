@@ -14,6 +14,7 @@ import safeStorage from "@/lib/safeStorage";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification"; // Import LevelUpNotification
 import ExplanationFormatter from "@/components/ExplanationFormatter";
+import QuestionTextFormatter from "@/components/QuestionTextFormatter";
 import {
   AIAssistant,
   createSessionContext,
@@ -1418,7 +1419,7 @@ export default function RandomPractice() {
               </span>
             </div>
             <h1 className="text-lg md:text-xl font-semibold text-gray-800 mb-4 leading-snug">
-              {currentQuestion?.text}
+              <QuestionTextFormatter text={currentQuestion?.text} />
             </h1>
             {currentQuestion?.imageUrl && (
               <div className="mb-4 flex justify-center border border-gray-200 rounded-lg p-2 bg-gray-50 shadow-sm">

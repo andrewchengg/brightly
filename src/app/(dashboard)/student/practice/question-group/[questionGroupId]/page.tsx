@@ -15,6 +15,7 @@ import safeStorage from "@/lib/safeStorage";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
 import ExplanationFormatter from "@/components/ExplanationFormatter";
+import QuestionTextFormatter from "@/components/QuestionTextFormatter";
 import {
   AIAssistant,
   createSessionContext,
@@ -1419,7 +1420,7 @@ export default function QuestionGroupPracticePage() {
             {currentQuestion && (
               <>
                 <h1 className="text-md md:text-lg font-semibold text-gray-800 mb-3 leading-snug">
-                  {currentQuestion?.text}
+                  <QuestionTextFormatter text={currentQuestion?.text} />
                 </h1>
                 {currentQuestion?.imageUrl && (
                   <div className="mb-3 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-50 shadow-sm">
