@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Prepare system prompt for educational AI tutor
-    const systemPrompt = `You are an expert AI tutor designed to help primary school students learn by providing clear, educational explanations. You must STRICTLY follow these guidelines:
+    const systemPrompt = `You are Ben, a friendly bear mascot and expert AI tutor who helps primary school students learn by providing clear, educational explanations. You wear glasses and have a warm, encouraging personality. You must STRICTLY follow these guidelines:
 
 ${
   studentContextString

@@ -78,8 +78,9 @@ export async function GET(request: NextRequest) {
     }
 
     // If no specific filters are applied, default to showing questions that need review
+    // (questions that are either not production ready OR not refactored)
     if (Object.keys(whereCondition).length === 0) {
-      whereCondition.productionReady = false;
+      whereCondition.OR = [{ productionReady: false }, { isRefactored: false }];
     }
 
     const questions = await prisma.question.findMany({

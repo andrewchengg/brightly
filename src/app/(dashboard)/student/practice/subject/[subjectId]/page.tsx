@@ -310,7 +310,9 @@ export default function SubjectPracticePage({
 
   const handleTargetPractice = () => {
     // Navigate to target practice for this specific subject
-    router.push(`/student/practice/random?subjectId=${numericSubjectId}&mode=target`);
+    router.push(
+      `/student/practice/random?subjectId=${numericSubjectId}&mode=target`
+    );
   };
 
   if (loading) {
@@ -359,60 +361,72 @@ export default function SubjectPracticePage({
         </Button>
       </div>
 
-      {/* Random Practice Section */}
-      <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-600 mb-8">
-        <div className="p-6 md:p-8">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="text-white mb-6 md:mb-0">
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">
-                Random Practice
-                {numericSubjectId === 4 && " (华文练习)"}
-              </h1>
-              <p className="text-white/90 text-lg mb-4">
-                {numericSubjectId === 4
-                  ? "Get a randomized mix of Chinese practice questions."
-                  : `Get a randomized mix of ${pageTitle} questions across all topics.`}
-              </p>
-              <Button 
-                onClick={handleStartRandomPractice}
-                size="lg"
-                className="bg-white text-purple-600 hover:bg-purple-50 font-bold text-lg px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
-              >
-                START +50 XP
-                <FaPlay className="ml-2" />
-              </Button>
-            </div>
-            <div className="w-32 h-32 md:w-40 md:h-40 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
-              <FaDice className="text-6xl md:text-7xl text-white" />
-            </div>
-          </div>
-        </div>
-      </Card>
+      {/* Random Practice Section - Only show for non-Chinese subjects */}
+      {numericSubjectId !== 4 && (
+        <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-purple-800 via-purple-700 to-violet-800 mb-8 relative">
+          {/* Background decorations */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full transform translate-x-16 -translate-y-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12"></div>
 
-      {/* Target Practice Section */}
-      <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-green-400 via-green-500 to-emerald-600 mb-8">
-        <div className="p-6 md:p-8">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="text-white mb-6 md:mb-0">
-              <h2 className="text-2xl md:text-3xl font-bold mb-2">Target Practice</h2>
-              <p className="text-green-50 text-lg mb-4">
-                Tackle weak areas with this customized session for {pageTitle}
-              </p>
-              <Button 
-                onClick={handleTargetPractice}
-                size="lg"
-                className="bg-white text-green-600 hover:bg-green-50 font-bold text-lg px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
-              >
-                START +100 XP
-                <FaPlay className="ml-2" />
-              </Button>
-            </div>
-            <div className="w-32 h-32 md:w-40 md:h-40 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
-              <FaBullseye className="text-6xl md:text-7xl text-white" />
+          <div className="p-6 md:p-8 relative z-10">
+            <div className="flex flex-col md:flex-row items-center justify-between">
+              <div className="text-white mb-6 md:mb-0">
+                <h1 className="text-2xl md:text-3xl font-bold mb-2">
+                  Random Practice
+                </h1>
+                <p className="text-purple-100 text-lg mb-4">
+                  Get a randomized mix of {pageTitle} questions across all
+                  topics.
+                </p>
+                <Button
+                  onClick={handleStartRandomPractice}
+                  size="lg"
+                  className="bg-white/20 text-white hover:bg-white/30 font-bold text-lg px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 backdrop-blur-sm border border-white/20"
+                >
+                  START +50 XP
+                  <FaPlay className="ml-2" />
+                </Button>
+              </div>
+              <div className="w-32 h-32 md:w-40 md:h-40 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/20">
+                <FaDice className="text-6xl md:text-7xl text-white" />
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
+
+      {/* Target Practice Section - Only show for non-Chinese subjects */}
+      {numericSubjectId !== 4 && (
+        <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-slate-700 via-blue-800 to-indigo-900 mb-8 relative">
+          {/* Background decorations */}
+          <div className="absolute top-0 left-0 w-28 h-28 bg-white/5 rounded-full transform -translate-x-14 -translate-y-14"></div>
+          <div className="absolute bottom-0 right-0 w-20 h-20 bg-white/5 rounded-full transform translate-x-10 translate-y-10"></div>
+
+          <div className="p-6 md:p-8 relative z-10">
+            <div className="flex flex-col md:flex-row items-center justify-between">
+              <div className="text-white mb-6 md:mb-0">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2">
+                  Target Practice
+                </h2>
+                <p className="text-blue-100 text-lg mb-4">
+                  Tackle weak areas with this customized session for {pageTitle}
+                </p>
+                <Button
+                  onClick={handleTargetPractice}
+                  size="lg"
+                  className="bg-white/20 text-white hover:bg-white/30 font-bold text-lg px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 backdrop-blur-sm border border-white/20"
+                >
+                  START +100 XP
+                  <FaPlay className="ml-2" />
+                </Button>
+              </div>
+              <div className="w-32 h-32 md:w-40 md:h-40 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/20">
+                <FaBullseye className="text-6xl md:text-7xl text-white" />
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {numericSubjectId === 4 ? (
         <div className="space-y-8">
@@ -452,50 +466,66 @@ interface TopicCardProps {
 }
 function TopicCard({ topic }: TopicCardProps) {
   const router = useRouter();
-  
+
   // Function to get topic-specific icon based on topic name/subject
   const getTopicIcon = (topicName: string, subjectId: number) => {
     const name = topicName.toLowerCase();
-    
+
     // Math topics
     if (subjectId === 1) {
-      if (name.includes('algebra') || name.includes('equation')) return FaCalculator;
-      if (name.includes('geometry') || name.includes('shape')) return FaRulerCombined;
-      if (name.includes('fraction') || name.includes('decimal')) return FaSquareRootAlt;
-      if (name.includes('graph') || name.includes('chart')) return FaChartBar;
-      if (name.includes('volume') || name.includes('area')) return FaCube;
+      if (name.includes("algebra") || name.includes("equation"))
+        return FaCalculator;
+      if (name.includes("geometry") || name.includes("shape"))
+        return FaRulerCombined;
+      if (name.includes("fraction") || name.includes("decimal"))
+        return FaSquareRootAlt;
+      if (name.includes("graph") || name.includes("chart")) return FaChartBar;
+      if (name.includes("volume") || name.includes("area")) return FaCube;
       return FaCalculator;
     }
-    
+
     // Science topics
     if (subjectId === 2) {
-      if (name.includes('physics') || name.includes('force')) return FaAtom;
-      if (name.includes('chemistry') || name.includes('element')) return FaFlask;
-      if (name.includes('biology') || name.includes('plant') || name.includes('animal')) return FaLeaf;
-      if (name.includes('magnet') || name.includes('electric')) return FaMagnet;
-      if (name.includes('microscope') || name.includes('cell')) return FaMicroscope;
+      if (name.includes("physics") || name.includes("force")) return FaAtom;
+      if (name.includes("chemistry") || name.includes("element"))
+        return FaFlask;
+      if (
+        name.includes("biology") ||
+        name.includes("plant") ||
+        name.includes("animal")
+      )
+        return FaLeaf;
+      if (name.includes("magnet") || name.includes("electric")) return FaMagnet;
+      if (name.includes("microscope") || name.includes("cell"))
+        return FaMicroscope;
       return FaFlask;
     }
-    
+
     // English topics
     if (subjectId === 3) {
-      if (name.includes('grammar') || name.includes('language')) return FaLanguage;
-      if (name.includes('reading') || name.includes('comprehension')) return FaBookOpen;
-      if (name.includes('writing') || name.includes('essay')) return FaPencilAlt;
-      if (name.includes('vocabulary') || name.includes('word')) return FaBook;
+      if (name.includes("grammar") || name.includes("language"))
+        return FaLanguage;
+      if (name.includes("reading") || name.includes("comprehension"))
+        return FaBookOpen;
+      if (name.includes("writing") || name.includes("essay"))
+        return FaPencilAlt;
+      if (name.includes("vocabulary") || name.includes("word")) return FaBook;
       return FaLanguage;
     }
-    
+
     // Chinese topics
     if (subjectId === 4) {
-      if (name.includes('pinyin')) return FaLanguage;
-      if (name.includes('writing') || name.includes('composition')) return FaPencilAlt;
-      if (name.includes('reading') || name.includes('comprehension')) return FaBookOpen;
-      if (name.includes('listening')) return FaHeadphones;
-      if (name.includes('speaking') || name.includes('oral')) return FaMicrophoneAlt;
+      if (name.includes("pinyin")) return FaLanguage;
+      if (name.includes("writing") || name.includes("composition"))
+        return FaPencilAlt;
+      if (name.includes("reading") || name.includes("comprehension"))
+        return FaBookOpen;
+      if (name.includes("listening")) return FaHeadphones;
+      if (name.includes("speaking") || name.includes("oral"))
+        return FaMicrophoneAlt;
       return FaGlobe;
     }
-    
+
     return FaBook; // Default icon
   };
 
@@ -528,7 +558,7 @@ function TopicCard({ topic }: TopicCardProps) {
       progressColor: "bg-gray-500",
     };
   };
-  
+
   const mastery = getMasteryLevel(topic.masteryPercentage);
   const MasteryIcon = mastery.icon;
   const TopicIcon = getTopicIcon(topic.name, topic.subject.id);

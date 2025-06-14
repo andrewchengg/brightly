@@ -10,7 +10,6 @@ import {
   Student as PrismaStudentType,
 } from "@/generated/prisma";
 
-
 import StudentCalendar from "@/components/StudentCalendar";
 import { Button } from "@/components/ui/button";
 import XPBar from "@/components/XPBar";
@@ -130,15 +129,19 @@ const StudentPage = async () => {
 
   return (
     <div className="p-4 md:p-6 flex gap-6 flex-col">
-      {/* Hero Section (remains the same) */}
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 md:p-8 rounded-2xl shadow-lg text-white">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+      {/* Hero Section - Dark Purple Theme */}
+      <div className="bg-gradient-to-br from-purple-800 via-purple-700 to-violet-800 p-6 md:p-8 rounded-3xl shadow-2xl text-white relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full transform translate-x-16 -translate-y-16"></div>
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12"></div>
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">
-              Welcome back, {student?.name || "Student"}!
+              This Week's Learning
             </h1>
-            <p className="mt-1 text-indigo-100 text-sm md:text-base">
-              Ready to continue your learning journey today?
+            <p className="mt-1 text-purple-100 text-sm md:text-base">
+              Complete your weekly quests and master new skills!
             </p>
 
             <div className="flex flex-wrap items-center gap-3 md:gap-4 mt-5">
@@ -179,7 +182,7 @@ const StudentPage = async () => {
             </div>
           </div>
           <Link href="/student/practice" className="mt-6 md:mt-0 shrink-0">
-            <button className="bg-white text-indigo-700 hover:bg-indigo-50 px-5 py-2.5 md:px-6 md:py-3 rounded-xl font-semibold transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-sm md:text-base">
+            <button className="bg-white text-purple-700 hover:bg-purple-50 px-5 py-2.5 md:px-6 md:py-3 rounded-xl font-semibold transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-sm md:text-base">
               Explore Practice
             </button>
           </Link>
@@ -193,11 +196,11 @@ const StudentPage = async () => {
           <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg md:text-xl font-semibold text-gray-800 flex items-center">
-                <FaTasks className="mr-2 md:mr-3 text-indigo-600" />
+                <FaTasks className="mr-2 md:mr-3 text-gray-600" />
                 Homework from Parents
               </h2>
               {assignedTasks.length > 0 && (
-                <div className="bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-xs font-medium">
+                <div className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
                   {assignedTasks.length} pending
                 </div>
               )}
@@ -207,11 +210,11 @@ const StudentPage = async () => {
                 {assignedTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="p-3 border rounded-lg hover:shadow-md transition-shadow bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200"
+                    className="p-3 border rounded-lg hover:shadow-md transition-shadow bg-gray-50 border-gray-200"
                   >
                     <div className="flex justify-between items-start gap-2 mb-2">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-indigo-800 text-sm leading-tight">
+                        <h3 className="font-semibold text-gray-800 text-sm leading-tight">
                           {task.title}
                         </h3>
                         <p className="text-xs text-gray-600 mt-1">
@@ -258,7 +261,7 @@ const StudentPage = async () => {
                         )}
                       </div>
                       <Link href={getTaskPath(task)} passHref>
-                        <button className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-2 rounded-md inline-flex items-center font-medium transition-colors">
+                        <button className="bg-gray-600 text-white px-3 py-1 rounded-md text-xs font-medium hover:bg-gray-700 transition-colors">
                           {task.status === PracticeSessionStatus.IN_PROGRESS
                             ? "Continue"
                             : "Start"}{" "}
@@ -270,22 +273,9 @@ const StudentPage = async () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-6">
-                <FaTasks className="mx-auto text-3xl text-gray-400 mb-2" />
-                <p className="text-sm text-gray-500 mb-1">
-                  No homework assigned yet
-                </p>
-                <p className="text-xs text-gray-400">
-                  Your parents can assign practice tasks for you
-                </p>
-              </div>
-            )}
-            {assignedTasks.length > 0 && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-xs text-blue-800">
-                  💡 <strong>Tip:</strong> Complete your homework to earn XP and
-                  keep your parents happy! 🎉
-                </p>
+              <div className="text-center py-8 text-gray-500">
+                <FaTasks className="mx-auto text-4xl mb-3" />
+                <p className="text-sm">No assignments yet</p>
               </div>
             )}
           </div>

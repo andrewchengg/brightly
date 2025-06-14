@@ -28,9 +28,12 @@ export async function GET(
       return NextResponse.json({ error: "Topic not found" }, { status: 404 });
     }
 
-    // Get all questions for this topic
+    // Get all questions for this topic that need review
     const questions = await prisma.question.findMany({
-      where: { topicId },
+      where: {
+        topicId,
+        OR: [{ productionReady: false }, { isRefactored: false }],
+      },
       include: {
         topic: { select: { id: true, name: true, subjectId: true } },
         subject: { select: { id: true, name: true } },
@@ -38,8 +41,6 @@ export async function GET(
         tags: { include: { tag: true } },
       },
       orderBy: [
-        { productionReady: "asc" }, // false first (needs review)
-        { isRefactored: "asc" }, // false first (needs refactoring)
         { createdAt: "asc" }, // oldest first
       ],
     });

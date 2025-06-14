@@ -15,6 +15,7 @@ import {
   FaLightbulb,
   FaExclamationTriangle,
 } from "react-icons/fa";
+import Image from "next/image";
 import {
   ChatMessage,
   AIAssistantProps,
@@ -22,6 +23,7 @@ import {
   AIAssistantRef,
 } from "./types";
 import { moderateUserContent } from "@/lib/ai-moderation";
+import { toast } from "react-toastify";
 
 const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
   (
@@ -66,6 +68,33 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
         }, 100);
       }
     }, [chatHistory, isLoading]);
+
+    // Handle paste events with length validation
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const pastedText = e.clipboardData.getData("text");
+      const currentText = userMessage;
+      const newText = currentText + pastedText;
+
+      if (newText.length > 1000) {
+        e.preventDefault();
+        toast.error(
+          "Your message is too long! Please keep it under 1000 characters."
+        );
+        return;
+      }
+    };
+
+    // Handle input change with length validation
+    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      if (value.length <= 1000) {
+        setUserMessage(value);
+      } else {
+        toast.error(
+          "Your message is too long! Please keep it under 1000 characters."
+        );
+      }
+    };
 
     // Build context for the AI based on current session
     const buildContextString = useCallback(() => {
@@ -156,8 +185,10 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
       }
 
       try {
-        console.log("AIAssistant: Sending message", { message: sanitizedMessage });
-        
+        console.log("AIAssistant: Sending message", {
+          message: sanitizedMessage,
+        });
+
         // Create a default session context if none is provided
         const defaultSessionContext = {
           sessionType: "text_highlight",
@@ -165,7 +196,7 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
           answeredQuestions: 0,
           correctAnswers: 0,
           isCompleted: false,
-          studentLevel: "Primary School"
+          studentLevel: "Primary School",
         };
 
         const requestBody: AITutorRequest = {
@@ -174,7 +205,7 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
             question: questionContext,
             passage: passageContext,
             session: sessionContext || defaultSessionContext,
-            selectedText: selectedContext || undefined
+            selectedText: selectedContext || undefined,
           },
         };
 
@@ -258,30 +289,44 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
 
     const getWelcomeMessage = () => {
       if (sessionContext.sessionType === "cloze_passage") {
-        return "Hi! I'm here to help you understand this passage and answer questions. Ask me about vocabulary, context clues, or anything you're unsure about!";
+        return "Hi! I'm Ben, your friendly AI tutor! 🐻👓 I'm here to help you understand this passage and answer questions. Ask me about vocabulary, context clues, or anything you're unsure about!";
       }
-      return "Hi! I'm your learning assistant. Ask me questions about the material, and I'll help guide you to the answers!";
+      return "Hi there! I'm Ben, your AI learning assistant! 🐻👓 Ask me questions about the material, and I'll help guide you to the answers!";
     };
 
     const shouldShowWelcome = chatHistory.length === 0 && !isLoading;
 
     return (
       <div
-        className={`flex flex-col bg-white rounded-lg shadow-lg ${className}`}
-        style={{ height: isExpanded ? "600px" : "400px" }}
+        className={`flex flex-col bg-indigo-50 ${className}`}
+        style={{ height: "100%" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+        <div className="flex items-center justify-between p-3 border-b border-indigo-200 bg-indigo-100 shadow-sm">
           <div className="flex items-center">
-            <FaCommentDots className="text-indigo-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-800">AI Assistant</h3>
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mr-2.5 shadow-sm border border-indigo-200">
+              <Image
+                src="/benthemascot.png"
+                alt="Ben the AI Tutor"
+                width={24}
+                height={24}
+                className="rounded-full"
+                title="Hi! I'm Ben, your AI tutor!"
+              />
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold text-indigo-800 text-sm">
+                Ben - Your AI Learning Assistant
+              </div>
+              <div className="text-xs text-indigo-600">
+                Ask me about this material!
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
-          >
-            {isExpanded ? "Minimize" : "Expand"}
-          </button>
+          <div className="text-xs text-indigo-600 flex items-center">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1 border border-indigo-100 shadow-sm"></span>
+            Online
+          </div>
         </div>
 
         {/* Pinned Selected Text */}
@@ -310,31 +355,62 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
         {/* Chat Content */}
         <div
           ref={chatContentRef}
-          className="flex-1 overflow-auto p-4 space-y-4"
+          className="flex-1 overflow-auto p-3 space-y-3 custom-scrollbar"
         >
           {shouldShowWelcome ? (
-            <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 p-4">
-              <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-3 text-2xl text-indigo-500">
-                <FaLightbulb />
+            <div className="flex items-start space-x-2">
+              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-indigo-200 flex-shrink-0">
+                <Image
+                  src="/benthemascot.png"
+                  alt="Ben the AI Tutor"
+                  width={24}
+                  height={24}
+                  className="rounded-full"
+                />
               </div>
-              <p className="text-sm text-gray-600">{getWelcomeMessage()}</p>
+              <div className="bg-white rounded-lg p-3 shadow-sm border border-indigo-200 max-w-[80%]">
+                <p className="text-sm text-gray-700">{getWelcomeMessage()}</p>
+              </div>
             </div>
           ) : (
             chatHistory.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
+                className={`flex items-start space-x-2 ${
+                  message.role === "user"
+                    ? "flex-row-reverse space-x-reverse"
+                    : ""
                 }`}
               >
                 <div
-                  className={`max-w-[85%] rounded-xl p-2.5 shadow-sm text-sm ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm flex-shrink-0 ${
                     message.role === "user"
-                      ? "bg-indigo-500 text-white rounded-br-none"
-                      : "bg-white text-gray-800 border border-gray-200 rounded-bl-none"
+                      ? "bg-indigo-500 text-white"
+                      : "bg-white border border-indigo-200"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  {message.role === "user" ? (
+                    <span className="text-xs font-bold">You</span>
+                  ) : (
+                    <Image
+                      src="/benthemascot.png"
+                      alt="Ben the AI Tutor"
+                      width={24}
+                      height={24}
+                      className="rounded-full"
+                    />
+                  )}
+                </div>
+                <div
+                  className={`rounded-lg p-3 shadow-sm max-w-[80%] ${
+                    message.role === "user"
+                      ? "bg-indigo-500 text-white"
+                      : "bg-white border border-indigo-200"
+                  }`}
+                >
+                  <p className="text-sm whitespace-pre-wrap">
+                    {message.content}
+                  </p>
                   {message.timestamp && (
                     <div
                       className={`text-xs mt-1 ${
@@ -356,21 +432,30 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
 
           {/* Loading indicator */}
           {isLoading && (
-            <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-xl p-2.5 shadow-sm text-sm bg-white text-gray-800 border border-gray-200 rounded-bl-none">
-                <div className="flex space-x-1 items-center">
+            <div className="flex items-start space-x-2">
+              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-indigo-200 flex-shrink-0">
+                <Image
+                  src="/ben_the_bear_thinking.gif"
+                  alt="Ben the AI Tutor"
+                  width={24}
+                  height={24}
+                  className="rounded-full"
+                />
+              </div>
+              <div className="bg-white rounded-lg p-3 shadow-sm border border-indigo-200">
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
                   <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0ms" }}
+                    className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
                   ></div>
                   <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "150ms" }}
+                    className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
                   ></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "300ms" }}
-                  ></div>
+                  <span className="text-sm text-gray-600 ml-2">
+                    Ben is thinking...
+                  </span>
                 </div>
               </div>
             </div>
@@ -384,12 +469,13 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
               <textarea
                 ref={textareaRef}
                 value={userMessage}
-                onChange={(e) => setUserMessage(e.target.value)}
+                onChange={handleInputChange}
+                onPaste={handlePaste}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   disabled
-                    ? "Assistant is disabled"
-                    : "Ask a question about your studies..."
+                    ? "Ben is taking a break..."
+                    : "Ask Ben a question about your studies..."
                 }
                 disabled={disabled || isLoading}
                 rows={1}
@@ -406,12 +492,9 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
             </button>
           </div>
 
-          {/* Character count and guidelines */}
-          <div className="flex justify-between items-center mt-1 text-xs text-gray-500">
-            <span>Keep questions focused on your learning</span>
-            <span className={userMessage.length > 800 ? "text-red-500" : ""}>
-              {userMessage.length}/1000
-            </span>
+          {/* Guidelines only */}
+          <div className="mt-1 text-xs text-gray-500 text-center">
+            Keep questions focused on your learning
           </div>
         </div>
       </div>

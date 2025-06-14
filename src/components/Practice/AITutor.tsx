@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { FaCommentDots, FaLightbulb, FaPaperPlane } from "react-icons/fa";
+import Image from "next/image";
 
 interface QuestionContext {
   id: number;
@@ -182,14 +183,23 @@ Respond helpfully to the student's question while following the guidelines above
     <div className="bg-indigo-50 flex flex-col overflow-hidden custom-scrollbar h-full">
       {/* Header */}
       <div className="p-3 border-b border-indigo-200 bg-indigo-100 flex items-center shadow-sm">
-        <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white mr-2.5 text-md font-bold">
-          <FaCommentDots />
+        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mr-2.5 shadow-sm border border-indigo-200">
+          <Image
+            src="/benthemascot.png"
+            alt="Ben the AI Tutor"
+            width={24}
+            height={24}
+            className="rounded-full"
+            title="Hi! I'm Ben, your AI tutor!"
+          />
         </div>
         <div className="flex-1">
           <div className="font-semibold text-indigo-800 text-sm">
-            AI Learning Assistant
+            Ben - Your AI Learning Assistant
           </div>
-          <div className="text-xs text-indigo-600">Ask about this passage!</div>
+          <div className="text-xs text-indigo-600">
+            Ask me about this passage!
+          </div>
         </div>
         <div className="text-xs text-indigo-600 flex items-center">
           <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1 border border-indigo-100 shadow-sm"></span>
@@ -200,57 +210,95 @@ Respond helpfully to the student's question while following the guidelines above
       {/* Chat Content */}
       <div
         ref={aiContentRef}
-        className="flex-1 overflow-y-auto p-3 space-y-3 bg-indigo-25 custom-scrollbar"
+        className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar"
       >
-        {chatHistory.length > 0 ? (
-          chatHistory.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              <div
-                className={`max-w-[85%] rounded-xl p-2.5 shadow-sm text-sm ${
-                  message.role === "user"
-                    ? "ml-auto bg-indigo-500 text-white rounded-br-none"
-                    : "mr-auto bg-white text-gray-800 border border-gray-200 rounded-bl-none"
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-              </div>
+        {/* Welcome Message */}
+        {chatHistory.length === 0 && (
+          <div className="flex items-start space-x-2">
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-indigo-200 flex-shrink-0">
+              <Image
+                src="/benthemascot.png"
+                alt="Ben the AI Tutor"
+                width={24}
+                height={24}
+                className="rounded-full"
+              />
             </div>
-          ))
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 p-6">
-            <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mb-3 text-3xl text-indigo-500">
-              <FaLightbulb />
+            <div className="bg-white rounded-lg p-3 shadow-sm border border-indigo-200 max-w-[80%]">
+              <p className="text-sm text-gray-700">
+                Hi there! I'm Ben, your AI learning assistant. 👋 I'm here to
+                help you understand this passage and answer any questions you
+                have about it. Feel free to ask me anything!
+              </p>
             </div>
-            <p className="text-sm mb-2">Ask me anything about this passage!</p>
-            <p className="text-xs text-gray-400">
-              Try: &ldquo;What does Q1 mean?&rdquo; or &ldquo;Explain the
-              story&rdquo;
-            </p>
           </div>
         )}
 
-        {/* Loading indicator */}
+        {/* Chat Messages */}
+        {chatHistory.map((message, index) => (
+          <div
+            key={index}
+            className={`flex items-start space-x-2 ${
+              message.role === "user" ? "flex-row-reverse space-x-reverse" : ""
+            }`}
+          >
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm flex-shrink-0 ${
+                message.role === "user"
+                  ? "bg-indigo-500 text-white"
+                  : "bg-white border border-indigo-200"
+              }`}
+            >
+              {message.role === "user" ? (
+                <span className="text-xs font-bold">You</span>
+              ) : (
+                <Image
+                  src="/benthemascot.png"
+                  alt="Ben the AI Tutor"
+                  width={24}
+                  height={24}
+                  className="rounded-full"
+                />
+              )}
+            </div>
+            <div
+              className={`rounded-lg p-3 shadow-sm max-w-[80%] ${
+                message.role === "user"
+                  ? "bg-indigo-500 text-white"
+                  : "bg-white border border-indigo-200"
+              }`}
+            >
+              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            </div>
+          </div>
+        ))}
+
+        {/* Loading State */}
         {isLoadingAI && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-xl p-2.5 shadow-sm text-sm mr-auto bg-white text-gray-800 border border-gray-200 rounded-bl-none">
-              <div className="flex space-x-1 items-center">
+          <div className="flex items-start space-x-2">
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-indigo-200 flex-shrink-0">
+              <Image
+                src="/ben_the_bear_thinking.gif"
+                alt="Ben the AI Tutor"
+                width={24}
+                height={24}
+                className="rounded-full"
+              />
+            </div>
+            <div className="bg-white rounded-lg p-3 shadow-sm border border-indigo-200">
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
                 <div
-                  className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "0ms" }}
+                  className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "0.1s" }}
                 ></div>
                 <div
-                  className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "150ms" }}
+                  className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "0.2s" }}
                 ></div>
-                <div
-                  className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "300ms" }}
-                ></div>
+                <span className="text-sm text-gray-600 ml-2">
+                  Ben is thinking...
+                </span>
               </div>
             </div>
           </div>

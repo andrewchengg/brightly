@@ -87,6 +87,7 @@ export default function RandomPractice() {
     typeof window !== "undefined" ? window.location.search : ""
   );
   const existingSessionId = searchParams.get("sessionId");
+  const urlSubjectId = searchParams.get("subjectId"); // Get subjectId from URL
   const [questions, setQuestions] = useState<QuestionClient[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -117,7 +118,9 @@ export default function RandomPractice() {
   const { user: authUser, isLoaded: authUserIsLoaded } = useSupabaseUser();
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [currentSubjectId, setCurrentSubjectId] = useState<number | null>(null);
+  const [currentSubjectId, setCurrentSubjectId] = useState<number | null>(
+    urlSubjectId ? parseInt(urlSubjectId, 10) : null // Initialize from URL parameter
+  );
   const [currentTopicId, setCurrentTopicId] = useState<number | null>(null);
 
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -190,7 +193,8 @@ export default function RandomPractice() {
           questionsUrl = `/api/questions/random?topicId=${sessionData.topicId}&limit=10`;
           setCurrentTopicId(sessionData.topicId);
         }
-        if (sessionData.subjectId) {
+        // Only set subjectId from session if not already set from URL
+        if (sessionData.subjectId && !currentSubjectId) {
           setCurrentSubjectId(sessionData.subjectId);
         }
 
@@ -240,9 +244,12 @@ export default function RandomPractice() {
       const subjectIdForSession = firstQuestion?.topic?.subjectId;
       const topicIdForSession = firstQuestion?.topic?.id;
 
-      setCurrentSubjectId(
-        subjectIdForSession ? Number(subjectIdForSession) : null
-      );
+      // Only update subjectId if it's not already set from URL
+      if (!currentSubjectId) {
+        setCurrentSubjectId(
+          subjectIdForSession ? Number(subjectIdForSession) : null
+        );
+      }
       setCurrentTopicId(topicIdForSession ? Number(topicIdForSession) : null);
 
       try {
@@ -294,7 +301,13 @@ export default function RandomPractice() {
     setCurrentPracticeSessionId(null);
 
     try {
-      const response = await fetch("/api/questions/random?limit=10");
+      // Build the API URL with subjectId if available
+      let apiUrl = "/api/questions/random?limit=10";
+      if (currentSubjectId) {
+        apiUrl += `&subjectId=${currentSubjectId}`;
+      }
+
+      const response = await fetch(apiUrl);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           error: { message: `API error: ${response.status}` },
@@ -324,7 +337,7 @@ export default function RandomPractice() {
     } finally {
       setLoading(false);
     }
-  }, [userId, createNewPracticeSession]);
+  }, [userId, createNewPracticeSession, currentSubjectId]);
 
   useEffect(() => {
     if (!userId) {
@@ -356,7 +369,14 @@ export default function RandomPractice() {
       try {
         const progress: LocalStoragePracticeProgress =
           JSON.parse(savedProgressString);
-        if (
+
+        // Check if the saved progress matches the requested subjectId
+        const subjectIdMismatch =
+          currentSubjectId && progress.subjectId !== currentSubjectId;
+
+        if (subjectIdMismatch) {
+          safeStorage.removeItem(`randomPracticeProgress_${userId}`, "local");
+        } else if (
           progress.questions?.length > 0 &&
           !progress.sessionFinalized &&
           progress.practiceSessionId
@@ -372,7 +392,10 @@ export default function RandomPractice() {
           ); // Cast here
           setQuestionResults(progress.questionResults || []);
           setCurrentPracticeSessionId(progress.practiceSessionId);
-          setCurrentSubjectId(progress.subjectId || null);
+          // Keep the URL subjectId if present, otherwise use saved progress
+          if (!currentSubjectId) {
+            setCurrentSubjectId(progress.subjectId || null);
+          }
           setCurrentTopicId(progress.topicId || null);
           setSessionFinalized(false);
           if (progress.currentQuestionIndex >= progress.questions.length) {
@@ -1139,7 +1162,7 @@ export default function RandomPractice() {
                 {currentQuestion.explanation && (
                   <div className="border-t pt-2">
                     <p className="font-semibold mb-2">Explanation:</p>
-                    <ExplanationFormatter 
+                    <ExplanationFormatter
                       explanation={currentQuestion.explanation}
                       className="text-gray-700"
                     />
@@ -1432,19 +1455,21 @@ export default function RandomPractice() {
             )}
             {renderQuestionContent()}
             {/* Feedback and Explanation Area */}
-            {selectedAnswer !== null && 
-              currentQuestion.explanation && 
+            {selectedAnswer !== null &&
+              currentQuestion.explanation &&
               currentQuestion.questionType !== "MULTI_PART" && (
-                <div className={`mt-4 p-3 rounded-md text-sm ${
-                  isAnswerCorrect 
-                    ? "bg-green-50 border-l-4 border-green-400"
-                    : "bg-blue-50 border-l-4 border-blue-400"
-                }`}>
+                <div
+                  className={`mt-4 p-3 rounded-md text-sm ${
+                    isAnswerCorrect
+                      ? "bg-green-50 border-l-4 border-green-400"
+                      : "bg-blue-50 border-l-4 border-blue-400"
+                  }`}
+                >
                   <div>
                     <p className="font-semibold text-gray-700 mb-3">
                       Explanation:
                     </p>
-                    <ExplanationFormatter 
+                    <ExplanationFormatter
                       explanation={currentQuestion.explanation}
                       className="text-gray-700"
                     />

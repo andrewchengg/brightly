@@ -30,7 +30,7 @@ const AskAITutor = () => {
       id: "welcome",
       type: "ai",
       content:
-        "Hello! I'm your AI tutor. I can help you solve problems by analyzing images of questions you upload. Just upload an image of your question or type your question directly!",
+        "Hi there! I'm Ben, your friendly AI tutor! 🐻👓 I love helping students like you solve problems and understand concepts better. You can upload images of your questions, paste them, or just type them out - I'm here to help however works best for you!",
       timestamp: new Date(),
     },
   ]);
@@ -41,9 +41,11 @@ const AskAITutor = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<ChatHistoryRef>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,22 +54,6 @@ const AskAITutor = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  // Show a welcome tip about paste functionality
-  useEffect(() => {
-    const hasShownTip = localStorage.getItem("askAI_pasteTipShown");
-    if (!hasShownTip) {
-      setTimeout(() => {
-        toast.info(
-          "💡 Tip: You can now paste images directly with Ctrl+V or drag & drop them!",
-          {
-            autoClose: 5000,
-          }
-        );
-        localStorage.setItem("askAI_pasteTipShown", "true");
-      }, 2000);
-    }
-  }, []);
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -161,6 +147,26 @@ const AskAITutor = () => {
 
       toast.success("Image dropped successfully!");
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInputText(value);
+
+    // Show typing animation when user is typing
+    if (value.trim() && !isTyping) {
+      setIsTyping(true);
+    }
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set new timeout to hide typing animation
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 1000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -281,7 +287,7 @@ const AskAITutor = () => {
           id: "welcome",
           type: "ai",
           content:
-            "Hello! I'm your AI tutor. I can help you solve problems by analyzing images of questions you upload. Just upload an image of your question or type your question directly!",
+            "Hi there! I'm Ben, your friendly AI tutor! 🐻👓 I love helping students like you solve problems and understand concepts better. You can upload images of your questions, paste them, or just type them out - I'm here to help however works best for you!",
           timestamp: new Date(),
         },
       ]);
@@ -300,49 +306,6 @@ const AskAITutor = () => {
 
   return (
     <div className="flex h-screen w-full bg-white">
-      {/* Sidebar for Chat History */}
-      <div
-        className={`${
-          showHistory ? "translate-x-0" : "-translate-x-full"
-        } fixed md:relative md:translate-x-0 z-30 w-80 h-full bg-gray-50 border-r border-gray-200 transition-transform duration-300`}
-      >
-        <div className="h-full overflow-hidden">
-          <div className="p-4 border-b border-gray-200 bg-white">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Chat History
-              </h2>
-              <button
-                onClick={() => setShowHistory(false)}
-                className="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-              >
-                <FaTimes />
-              </button>
-            </div>
-            <button
-              onClick={startNewConversation}
-              className="w-full mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
-            >
-              New Conversation
-            </button>
-          </div>
-          <div className="h-full overflow-y-auto">
-            <ChatHistory
-              ref={chatHistoryRef}
-              onSessionSelect={handleSessionSelect}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Overlay for mobile */}
-      {showHistory && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
-          onClick={() => setShowHistory(false)}
-        />
-      )}
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen">
         {/* Header */}
@@ -355,12 +318,19 @@ const AskAITutor = () => {
               <FaBars />
             </button>
             <div className="p-2 bg-white bg-opacity-20 rounded-lg">
-              <FaRobot className="text-2xl" />
+              <Image
+                src="/benthemascot.png"
+                alt="Ben the AI Tutor"
+                width={32}
+                height={32}
+                className="rounded-lg"
+                title="Hi! I'm Ben, ready to help you learn!"
+              />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold">AI Tutor</h1>
+                  <h1 className="text-2xl font-bold">Ben - Your AI Tutor</h1>
                   <p className="text-indigo-100 text-sm">
                     Upload, paste, or drag images of your questions for instant
                     help!
@@ -381,7 +351,7 @@ const AskAITutor = () => {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-gradient-to-br from-gray-50 to-blue-50">
           <div className="max-w-4xl mx-auto w-full space-y-6">
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <div
                 key={message.id}
                 className={`flex items-start gap-4 ${
@@ -389,13 +359,23 @@ const AskAITutor = () => {
                 }`}
               >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm shadow-md ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md ${
                     message.type === "user"
                       ? "bg-gradient-to-br from-indigo-600 to-indigo-700"
-                      : "bg-gradient-to-br from-purple-500 to-indigo-600"
+                      : "bg-white border-2 border-purple-200"
                   }`}
                 >
-                  {message.type === "user" ? <FaUser /> : <FaRobot />}
+                  {message.type === "user" ? (
+                    <FaUser className="text-white" />
+                  ) : (
+                    <Image
+                      src="/benthemascot.png"
+                      alt="Ben the AI Tutor"
+                      width={32}
+                      height={32}
+                      className="rounded-full"
+                    />
+                  )}
                 </div>
                 <div
                   className={`max-w-[75%] rounded-2xl p-5 shadow-md ${
@@ -433,8 +413,14 @@ const AskAITutor = () => {
 
             {isLoading && (
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-sm shadow-md">
-                  <FaRobot />
+                <div className="w-10 h-10 rounded-full bg-white border-2 border-purple-200 flex items-center justify-center shadow-md">
+                  <Image
+                    src="/ben_the_bear_thinking.gif"
+                    alt="Ben the AI Tutor"
+                    width={32}
+                    height={32}
+                    className="rounded-full"
+                  />
                 </div>
                 <div className="bg-white border border-gray-200 shadow-md rounded-2xl p-5">
                   <div className="flex items-center gap-3">
@@ -450,7 +436,7 @@ const AskAITutor = () => {
                       ></div>
                     </div>
                     <span className="text-sm text-gray-600">
-                      AI is thinking...
+                      Ben is analyzing your question...
                     </span>
                   </div>
                 </div>
@@ -494,7 +480,7 @@ const AskAITutor = () => {
               >
                 <textarea
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  onChange={handleInputChange}
                   onPaste={handlePaste}
                   placeholder="Type your question here, paste an image (Ctrl+V), or drag & drop..."
                   className={`w-full px-5 py-4 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm leading-relaxed shadow-sm transition-all duration-200 ${
@@ -544,9 +530,68 @@ const AskAITutor = () => {
               📷 Upload, paste (Ctrl+V), or drag & drop images of your questions
               • Get instant help from AI tutor
             </p>
+
+            {/* Ben typing indicator */}
+            {isTyping && (
+              <div className="flex items-center justify-center gap-2 mt-2 text-xs text-indigo-600">
+                <div className="w-5 h-5 rounded-full bg-white border border-indigo-200 flex items-center justify-center shadow-sm">
+                  <Image
+                    src="/ben_the_bear_thinking.gif"
+                    alt="Ben is listening"
+                    width={16}
+                    height={16}
+                    className="rounded-full"
+                  />
+                </div>
+                <span className="animate-pulse">Ben is listening...</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Sidebar for Chat History - Now on the RIGHT */}
+      <div
+        className={`${
+          showHistory ? "translate-x-0" : "translate-x-full"
+        } fixed md:relative md:translate-x-0 z-30 w-80 h-full bg-gray-50 border-l border-gray-200 transition-transform duration-300`}
+      >
+        <div className="h-full overflow-hidden">
+          <div className="p-4 border-b border-gray-200 bg-white">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Chat History
+              </h2>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <button
+              onClick={startNewConversation}
+              className="w-full mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+            >
+              New Conversation
+            </button>
+          </div>
+          <div className="h-full overflow-y-auto">
+            <ChatHistory
+              ref={chatHistoryRef}
+              onSessionSelect={handleSessionSelect}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Overlay for mobile */}
+      {showHistory && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+          onClick={() => setShowHistory(false)}
+        />
+      )}
     </div>
   );
 };

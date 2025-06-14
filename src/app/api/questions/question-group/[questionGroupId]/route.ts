@@ -76,7 +76,7 @@ export async function GET(
       where: { id: questionGroupId },
       include: {
         questions: {
-          where: { productionReady: false }, // Only fetch production-ready questions for students
+          where: { productionReady: true }, // Only fetch production-ready questions for students
           orderBy: { questionNumberOnPage: "asc" }, // Or some other logical order
           include: {
             topic: {

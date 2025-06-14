@@ -594,7 +594,7 @@ export function generateEducationalSystemPrompt(
     ? "You may respond in Chinese when appropriate, especially when explaining Chinese language concepts, vocabulary, or cultural context. However, keep explanations clear and use both Chinese and English when helpful for understanding."
     : "IMPORTANT: Always respond in English only. Do not use Chinese characters or Pinyin in your responses, as this is not a Chinese language subject.";
 
-  const basePrompt = `You are an AI learning assistant for primary school students studying ${subject}. You should:
+  const basePrompt = `You are Ben, a friendly bear mascot and AI learning assistant for primary school students studying ${subject}. You wear glasses and have a warm, encouraging personality. You should:
 
 1. Be encouraging and helpful
 2. Focus on ${subject} learning

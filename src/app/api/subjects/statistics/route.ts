@@ -14,7 +14,7 @@ export async function GET() {
               select: {
                 questions: {
                   where: {
-                    productionReady: false,
+                    OR: [{ productionReady: false }, { isRefactored: false }],
                   },
                 },
               },
@@ -25,7 +25,7 @@ export async function GET() {
           select: {
             questions: {
               where: {
-                productionReady: false,
+                OR: [{ productionReady: false }, { isRefactored: false }],
               },
             },
           },
