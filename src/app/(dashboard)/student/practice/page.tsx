@@ -26,9 +26,16 @@ import {
   FaBullseye,
   FaBookOpen,
   FaPlay,
-  FaLaptop,
+  FaLaptop, // Kept from update-subjects-page
+  FaSync,   // Kept from main
 } from "react-icons/fa";
 import { LuCalculator } from "react-icons/lu";
+
+import {
+  WeeklyQuest,
+  getCurrentWeeklyQuests,
+  generateWeeklyQuests,
+} from "./weekly-quests-config";
 
 // Define the subjects we want to display
 const subjects = [
@@ -78,42 +85,17 @@ const subjects = [
   },
 ];
 
-const dailyQuests = [
-  {
-    id: 1,
-    title: "Earn 50 XP",
-    description: "Complete practice sessions to gain experience",
-    progress: 50,
-    target: 50,
-    xpReward: 10,
-    icon: FaTrophy,
-    color: "amber",
-  },
-  {
-    id: 2,
-    title: "Score 90% or higher in 3 lessons",
-    description: "Achieve high accuracy in your practice sessions",
-    progress: 3,
-    target: 3,
-    xpReward: 15,
-    icon: FaBullseye,
-    color: "green",
-  },
-  {
-    id: 3,
-    title: "Earn 20 Combo Bonus XP",
-    description: "Answer questions correctly in a row",
-    progress: 20,
-    target: 20,
-    xpReward: 20,
-    icon: FaFire,
-    color: "orange",
-  },
-];
-
 export default function PracticePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [weeklyQuests, setWeeklyQuests] = useState<WeeklyQuest[]>([]);
+  const [playerLevel, setPlayerLevel] = useState(1); // Mock player level
+
+  // Initialize weekly quests on component mount
+  useEffect(() => {
+    const quests = getCurrentWeeklyQuests(playerLevel);
+    setWeeklyQuests(quests);
+  }, [playerLevel]);
 
   // Mock mistakes count - replace with actual data source
   const mistakesCount = 0; // This would come from your data source
@@ -136,16 +118,23 @@ export default function PracticePage() {
     router.push("/student/review");
   };
 
+  // Function to generate new weekly quests
+  const generateNewWeeklyQuests = () => {
+    const newQuests = generateWeeklyQuests(playerLevel, 5);
+    setWeeklyQuests(newQuests);
+    // Here you would also save to your backend/localStorage
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-4 md:p-6">
-        {/* Header */}
+        {/* Header - Using 'main' branch's text */}
         <div className="mb-8">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-            Today's Review
+            This Week's Learning
           </h1>
           <p className="text-gray-600">
-            Keep up your learning streak and master new skills!
+            Complete your weekly quests and master new skills!
           </p>
         </div>
 
@@ -200,7 +189,7 @@ export default function PracticePage() {
               </Card>
             </div>
 
-            {/* League Info */}
+            {/* League Info - Kept from 'update-subjects-page' branch */}
             <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-500 to-indigo-600">
               <CardContent className="p-6 text-white">
                 <div className="flex items-center justify-between mb-4">
@@ -227,25 +216,27 @@ export default function PracticePage() {
               </CardContent>
             </Card>
 
-            {/* Daily Quests */}
+            {/* Weekly Quests - Using 'main' branch's implementation */}
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-bold text-gray-900">
-                    Daily Quests
+                    Weekly Quests
                   </CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-xs text-indigo-600"
+                    className="text-xs text-indigo-600 hover:text-indigo-800"
+                    onClick={generateNewWeeklyQuests}
                   >
-                    VIEW ALL
+                    <FaSync className="mr-1" />
+                    NEW QUESTS
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {dailyQuests.map((quest) => (
-                  <QuestCard key={quest.id} quest={quest} />
+                {weeklyQuests.map((quest) => (
+                  <WeeklyQuestCard key={quest.id} quest={quest} />
                 ))}
               </CardContent>
             </Card>
@@ -256,6 +247,7 @@ export default function PracticePage() {
   );
 }
 
+// ... (SubjectPracticeCard component remains the same) ...
 interface SubjectProps {
   id: number;
   name: string;
@@ -282,38 +274,21 @@ function SubjectPracticeCard({ subject, onClick }: SubjectPracticeCardProps) {
       onClick={onClick}
     >
       <CardContent className="p-6 relative">
-        {/* Lock icon in top right if needed */}
         {subject.lockIcon && (
           <div className="absolute top-4 right-4">
             <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                className="text-white"
-              >
-                <path
-                  d="M3 5V3.5C3 2.11929 4.11929 1 5.5 1H6.5C7.88071 1 9 2.11929 9 3.5V5M2 5H10C10.5523 5 11 5.44772 11 6V9.5C11 10.0523 10.5523 10.5 10 10.5H2C1.44772 10.5 1 10.0523 1 9.5V6C1 5.44772 1.44772 5 2 5Z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-white">
+                <path d="M3 5V3.5C3 2.11929 4.11929 1 5.5 1H6.5C7.88071 1 9 2.11929 9 3.5V5M2 5H10C10.5523 5 11 5.44772 11 6V9.5C11 10.0523 10.5523 10.5 10 10.5H2C1.44772 10.5 1 10.0523 1 9.5V6C1 5.44772 1.44772 5 2 5Z" stroke="currentColor" strokeWidth="1.5" />
               </svg>
             </div>
           </div>
         )}
-
         <div className="flex flex-col items-center text-center pt-8 pb-4">
-          {/* Icon */}
           <div className="mb-6">
             <IconComponent className={`text-6xl ${subject.iconColor}`} />
           </div>
-
-          {/* Title and Subtitle */}
           <div className="space-y-1">
-            <h3 className={`text-xl font-bold ${subject.textColor}`}>
-              {subject.name}
-            </h3>
+            <h3 className={`text-xl font-bold ${subject.textColor}`}>{subject.name}</h3>
             <p className="text-gray-500 text-sm">{subject.subtitle}</p>
           </div>
         </div>
@@ -322,22 +297,14 @@ function SubjectPracticeCard({ subject, onClick }: SubjectPracticeCardProps) {
   );
 }
 
-interface Quest {
-  id: number;
-  title: string;
-  description: string;
-  progress: number;
-  target: number;
-  xpReward: number;
-  icon: any;
-  color: string;
+
+// Using the 'WeeklyQuestCard' component from the 'main' branch
+// The old 'QuestCard' is removed as it's no longer needed.
+interface WeeklyQuestCardProps {
+  quest: WeeklyQuest;
 }
 
-interface QuestCardProps {
-  quest: Quest;
-}
-
-function QuestCard({ quest }: QuestCardProps) {
+function WeeklyQuestCard({ quest }: WeeklyQuestCardProps) {
   const IconComponent = quest.icon;
   const isCompleted = quest.progress >= quest.target;
   const progressPercentage = Math.min(
@@ -346,21 +313,22 @@ function QuestCard({ quest }: QuestCardProps) {
   );
 
   const colorConfig = {
-    amber: {
-      bg: "bg-amber-50",
-      icon: "text-amber-600",
-      progress: "bg-amber-500",
-    },
-    green: {
-      bg: "bg-green-50",
-      icon: "text-green-600",
-      progress: "bg-green-500",
-    },
-    orange: {
-      bg: "bg-orange-50",
-      icon: "text-orange-600",
-      progress: "bg-orange-500",
-    },
+    amber: { bg: "bg-amber-50", icon: "text-amber-600", progress: "bg-amber-500" },
+    green: { bg: "bg-green-50", icon: "text-green-600", progress: "bg-green-500" },
+    orange: { bg: "bg-orange-50", icon: "text-orange-600", progress: "bg-orange-500" },
+    purple: { bg: "bg-purple-50", icon: "text-purple-600", progress: "bg-purple-500" },
+    blue: { bg: "bg-blue-50", icon: "text-blue-600", progress: "bg-blue-500" },
+    indigo: { bg: "bg-indigo-50", icon: "text-indigo-600", progress: "bg-indigo-500" },
+    teal: { bg: "bg-teal-50", icon: "text-teal-600", progress: "bg-teal-500" },
+    yellow: { bg: "bg-yellow-50", icon: "text-yellow-600", progress: "bg-yellow-500" },
+    pink: { bg: "bg-pink-50", icon: "text-pink-600", progress: "bg-pink-500" },
+    red: { bg: "bg-red-50", icon: "text-red-600", progress: "bg-red-500" },
+    cyan: { bg: "bg-cyan-50", icon: "text-cyan-600", progress: "bg-cyan-500" },
+    emerald: { bg: "bg-emerald-50", icon: "text-emerald-600", progress: "bg-emerald-500" },
+    violet: { bg: "bg-violet-50", icon: "text-violet-600", progress: "bg-violet-500" },
+    gold: { bg: "bg-yellow-50", icon: "text-yellow-700", progress: "bg-gradient-to-r from-yellow-400 to-yellow-600" },
+    slate: { bg: "bg-slate-50", icon: "text-slate-600", progress: "bg-slate-500" },
+    lime: { bg: "bg-lime-50", icon: "text-lime-600", progress: "bg-lime-500" },
   };
 
   const config =
@@ -369,21 +337,18 @@ function QuestCard({ quest }: QuestCardProps) {
   return (
     <div className="group">
       <div className="flex items-center gap-3 mb-2">
-        <div
-          className={`w-8 h-8 ${config.bg} rounded-lg flex items-center justify-center`}
-        >
+        <div className={`w-8 h-8 ${config.bg} rounded-lg flex items-center justify-center`}>
           <IconComponent className={`text-sm ${config.icon}`} />
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-gray-800 text-sm">{quest.title}</h4>
+          <p className="text-xs text-gray-500 mb-1">{quest.description}</p>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">
-              {quest.progress} / {quest.target}
-            </span>
+            <span className="text-xs text-gray-500">{quest.progress} / {quest.target}</span>
             {isCompleted && (
-              <div className="bg-yellow-500 text-white px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
-                <FaGem className="text-xs" />
-                {quest.xpReward}
+              <div className="bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
+                <FaTrophy className="text-xs" />
+                COMPLETE
               </div>
             )}
           </div>
