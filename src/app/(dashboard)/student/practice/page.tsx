@@ -122,11 +122,15 @@ export default function PracticePage() {
     try {
       const response = await fetch('/api/weekly-quests');
       if (response.ok) {
-        const quests = await response.json();
-        setWeeklyQuests(quests);
+        const data = await response.json();
+        setWeeklyQuests(data.quests || []);
+      } else {
+        console.error('Failed to fetch weekly quests:', response.status);
+        setWeeklyQuests([]);
       }
     } catch (error) {
       console.error('Error fetching weekly quests:', error);
+      setWeeklyQuests([]);
     }
   };
 
@@ -161,11 +165,15 @@ export default function PracticePage() {
         body: JSON.stringify({ action: 'refresh' })
       });
       if (response.ok) {
-        const quests = await response.json();
-        setWeeklyQuests(quests);
+        const data = await response.json();
+        setWeeklyQuests(data.quests || []);
+      } else {
+        console.error('Failed to refresh weekly quests:', response.status);
+        setWeeklyQuests([]);
       }
     } catch (error) {
       console.error('Error refreshing weekly quests:', error);
+      setWeeklyQuests([]);
     } finally {
       setLoading(false);
     }
@@ -237,9 +245,16 @@ export default function PracticePage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {weeklyQuests.map((quest) => (
-                  <WeeklyQuestCard key={quest.id} quest={quest} />
-                ))}
+                {weeklyQuests && weeklyQuests.length > 0 ? (
+                  weeklyQuests.map((quest) => (
+                    <WeeklyQuestCard key={quest.id} quest={quest} />
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    <p>No weekly quests available</p>
+                    <p className="text-sm">Click "NEW QUESTS" to generate some!</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
