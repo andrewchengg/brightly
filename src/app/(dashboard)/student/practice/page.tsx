@@ -27,7 +27,6 @@ import {
   FaBookOpen,
   FaPlay,
   FaLaptop, // Kept from update-subjects-page
-  FaSync, // Kept from main
 } from "react-icons/fa";
 import { LuCalculator } from "react-icons/lu";
 
@@ -109,9 +108,12 @@ const subjects = [
 
 export default function PracticePage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [questsLoading, setQuestsLoading] = useState(true); // Loading state for quest fetch
   const [weeklyQuests, setWeeklyQuests] = useState<WeeklyQuest[]>([]);
-  const [playerLevel, setPlayerLevel] = useState(1); // Mock player level
+  const [questsLocked, setQuestsLocked] = useState(false); // New state for locked quests
+  const [studentLevel, setStudentLevel] = useState(1); // Student level
+  const [requiredLevel, setRequiredLevel] = useState(2); // Required level for quests
+  const [lockMessage, setLockMessage] = useState(''); // Lock message
 
   // Initialize weekly quests on component mount
   useEffect(() => {
@@ -120,19 +122,37 @@ export default function PracticePage() {
 
   const fetchWeeklyQuests = async () => {
     try {
+      setQuestsLoading(true); // Set loading to true when fetching
       const response = await fetch('/api/weekly-quests');
       if (response.ok) {
         const data = await response.json();
-        setWeeklyQuests(data.quests || []);
+        
+        // Check if quests are locked
+        if (data.locked) {
+          setQuestsLocked(true);
+          setStudentLevel(data.level);
+          setRequiredLevel(data.requiredLevel);
+          setLockMessage(data.message);
+          setWeeklyQuests([]);
+        } else {
+          setQuestsLocked(false);
+          setWeeklyQuests(data.quests || []);
+        }
       } else {
         console.error('Failed to fetch weekly quests:', response.status);
         setWeeklyQuests([]);
+        setQuestsLocked(false);
       }
     } catch (error) {
       console.error('Error fetching weekly quests:', error);
       setWeeklyQuests([]);
+      setQuestsLocked(false);
+    } finally {
+      setQuestsLoading(false); // Set loading to false when done
     }
   };
+
+
 
   // Mock mistakes count - replace with actual data source
   const mistakesCount = 0; // This would come from your data source
@@ -155,29 +175,7 @@ export default function PracticePage() {
     router.push("/student/review");
   };
 
-  // Function to refresh weekly quests
-  const refreshWeeklyQuests = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/weekly-quests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'refresh' })
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setWeeklyQuests(data.quests || []);
-      } else {
-        console.error('Failed to refresh weekly quests:', response.status);
-        setWeeklyQuests([]);
-      }
-    } catch (error) {
-      console.error('Error refreshing weekly quests:', error);
-      setWeeklyQuests([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -228,33 +226,45 @@ export default function PracticePage() {
             {/* Weekly Quests - Using 'main' branch's implementation */}
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-bold text-gray-900">
-                    Weekly Quests
-                  </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-indigo-600 hover:text-indigo-800"
-                    onClick={refreshWeeklyQuests}
-                    disabled={loading}
-                  >
-                    <FaSync className="mr-1" />
-                    NEW QUESTS
-                  </Button>
-                </div>
+                <CardTitle className="text-lg font-bold text-gray-900">
+                  Weekly Quests
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {weeklyQuests && weeklyQuests.length > 0 ? (
+                {questsLoading ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <p className="text-sm">Loading weekly quests...</p>
+                  </div>
+                ) : questsLocked ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <div className="mb-4">
+                      <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-2xl">🔒</span>
+                      </div>
+                      <h3 className="font-semibold text-gray-600 mb-2">Weekly Quests Locked</h3>
+                      <p className="text-sm mb-2">{lockMessage}</p>
+                      <div className="bg-gray-100 rounded-lg p-3 text-xs">
+                        <div className="flex items-center justify-center space-x-2">
+                          <span>Current Level: {studentLevel}</span>
+                          <span>•</span>
+                          <span>Required: Level {requiredLevel}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : weeklyQuests && weeklyQuests.length > 0 ? (
                   weeklyQuests.map((quest) => (
                     <WeeklyQuestCard key={quest.id} quest={quest} />
                   ))
                 ) : (
                   <div className="text-center py-4 text-gray-500">
                     <p>No weekly quests available</p>
-                    <p className="text-sm">Click "NEW QUESTS" to generate some!</p>
+                    <p className="text-sm">Your weekly quests will be generated automatically on Monday!</p>
                   </div>
                 )}
+
+                
               </CardContent>
             </Card>
           </div>

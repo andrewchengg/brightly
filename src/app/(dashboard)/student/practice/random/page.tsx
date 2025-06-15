@@ -668,13 +668,12 @@ export default function RandomPractice() {
       const correctCount = questionResults.filter((r) => r.correct).length;
 
       const response = await fetch(
-        `/api/practice-sessions/${currentPracticeSessionId}`,
+        `/api/practice-session/complete`,
         {
-          method: "PATCH",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            status: "COMPLETED",
-            endTime: new Date().toISOString(),
+            sessionId: currentPracticeSessionId,
             score: calculatedScore,
             correctAnswers: correctCount,
             xpEarned: calculatedScore,
@@ -767,7 +766,17 @@ export default function RandomPractice() {
       const correctAnswerId = String(
         currentQuestion.correctAnswer || ""
       ).toLowerCase();
-      const isCorrect = optionId.toLowerCase() === correctAnswerId;
+      
+      // Find the selected option index
+      const selectedOptionIndex = currentQuestion.options.findIndex(opt => opt.id === optionId);
+      const selectedOptionLetter = String.fromCharCode(65 + selectedOptionIndex).toLowerCase();
+      
+      // Check correctness using multiple methods to handle different formats
+      const isCorrect = 
+        optionId.toLowerCase() === correctAnswerId || // Direct ID match
+        selectedOptionLetter === correctAnswerId || // Letter-based match (c for option C)
+        String.fromCharCode(65 + selectedOptionIndex) === String(currentQuestion.correctAnswer) || // Uppercase letter match
+        (selectedOptionIndex + 1).toString() === String(currentQuestion.correctAnswer); // 1-based index match
 
       const correctOption = currentQuestion.options.find(
         (opt) => opt.id.toLowerCase() === correctAnswerId
@@ -952,9 +961,14 @@ export default function RandomPractice() {
                 const optionText = option.text;
                 const optionLetter = String.fromCharCode(65 + index);
                 const isThisSelected = selectedAnswer === optionId;
-                const isThisCorrectDB =
-                  String(currentQuestion.correctAnswer || "").toLowerCase() ===
-                  optionId.toLowerCase();
+                // Use the same robust checking logic as handleAnswerMCQ
+                const correctAnswerId = String(currentQuestion.correctAnswer || "").toLowerCase();
+                const thisOptionLetter = String.fromCharCode(65 + index).toLowerCase();
+                const isThisCorrectDB = 
+                  optionId.toLowerCase() === correctAnswerId || // Direct ID match
+                  thisOptionLetter === correctAnswerId || // Letter-based match (c for option C)
+                  String.fromCharCode(65 + index) === String(currentQuestion.correctAnswer) || // Uppercase letter match
+                  (index + 1).toString() === String(currentQuestion.correctAnswer); // 1-based index match
 
                 let buttonClass =
                   "bg-white hover:bg-gray-50 border border-gray-300";

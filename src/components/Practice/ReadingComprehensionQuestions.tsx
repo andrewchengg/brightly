@@ -112,9 +112,14 @@ const ReadingComprehensionQuestions: React.FC<
         <div className="space-y-3 mb-6">
           {currentQuestion.options.map((option, index) => {
             const isSelected = selectedAnswer === option.id;
-            const isCorrectOption =
-              String(currentQuestion.correctAnswer).toLowerCase() ===
-              option.id.toLowerCase();
+            // Use robust checking logic to handle different answer formats
+            const correctAnswerId = String(currentQuestion.correctAnswer).toLowerCase();
+            const thisOptionLetter = String.fromCharCode(65 + index).toLowerCase();
+            const isCorrectOption = 
+              option.id.toLowerCase() === correctAnswerId || // Direct ID match
+              thisOptionLetter === correctAnswerId || // Letter-based match (c for option C)
+              String.fromCharCode(65 + index) === String(currentQuestion.correctAnswer) || // Uppercase letter match
+              (index + 1).toString() === String(currentQuestion.correctAnswer); // 1-based index match
 
             let buttonStyle =
               "border-2 text-left p-4 rounded-lg transition-all duration-200 w-full";

@@ -583,13 +583,12 @@ export default function QuestionGroupPracticePage() {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
       const response = await fetch(
-        `/api/practice-sessions/${currentPracticeSessionId}`,
+        `/api/practice-session/complete`,
         {
-          method: "PATCH",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            status: "COMPLETED",
-            endTime: new Date().toISOString(),
+            sessionId: currentPracticeSessionId,
             score: calculatedScore,
             correctAnswers: correctCount,
             xpEarned: calculatedScore,

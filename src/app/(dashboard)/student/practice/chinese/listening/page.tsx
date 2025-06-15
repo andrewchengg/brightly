@@ -496,9 +496,9 @@ export default function ListeningComprehensionPage() {
     setLoading('submitting');
     try {
       const correctCount = questionResults.filter(r => r.correct).length;
-      const response = await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'COMPLETED', endTime: new Date().toISOString(), score, correctAnswers: correctCount, xpEarned: score }),
+      const response = await fetch(`/api/practice-session/complete`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: currentPracticeSessionId, score, correctAnswers: correctCount, xpEarned: score }),
       });
       if (!response.ok) throw new Error('Failed to finalize session');
       setSessionFinalized(true);

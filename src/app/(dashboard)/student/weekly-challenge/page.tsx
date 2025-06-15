@@ -448,13 +448,12 @@ export default function WeeklyChallengePage() {
 
     try {
       const response = await fetch(
-        `/api/practice-sessions/${practiceSessionId}`,
+        `/api/practice-session/complete`,
         {
-          method: "PATCH",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            status: "COMPLETED",
-            endTime: new Date().toISOString(),
+            sessionId: practiceSessionId,
             score: finalCalculatedScore,
             correctAnswers: finalCalculatedQuestionResults.filter(
               (r) => r.correct
