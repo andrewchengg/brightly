@@ -372,7 +372,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             });
             setShowAddModal(true);
           }}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700"
+          className="flex items-center gap-2 bg-purple-800 hover:bg-purple-900 text-white"
         >
           <FaCalendarPlus size={14} />
           <span>Add Event</span>

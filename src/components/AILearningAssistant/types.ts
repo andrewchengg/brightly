@@ -5,6 +5,7 @@ export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp?: Date;
+  shouldAnimate?: boolean; // Flag for new AI messages to animate
 }
 
 export interface QuestionContext {

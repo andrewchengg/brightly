@@ -25,15 +25,13 @@ const getOpenRouterClient = () => {
     baseURL: "https://openrouter.ai/api/v1",
     defaultHeaders: {
       "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
-              "X-Title": "Brightly - Educational Learning Platform",
+      "X-Title": "Brightly - Educational Learning Platform",
     },
   });
 };
 
 export async function POST(req: NextRequest) {
   try {
-    console.log("AI Tutor API: Request received");
-
     // Authenticate user
     const supabase = createClient();
     const {
@@ -42,18 +40,14 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      console.error("AI Tutor API: Authentication failed", { authError });
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
 
-    console.log("AI Tutor API: User authenticated", { userId: user.id });
-
     // Check rate limiting
     if (!checkRateLimit(user.id, 50, 60 * 60 * 1000)) {
-      console.log("AI Tutor API: Rate limit exceeded", { userId: user.id });
       return NextResponse.json(
         {
           error:
@@ -67,18 +61,7 @@ export async function POST(req: NextRequest) {
     const requestBody: AITutorRequest = await req.json();
     const { messages, context } = requestBody;
 
-    // Debug logging to see what we're receiving
-    console.log("AI Tutor API: Request details", {
-      messages: messages?.length || 0,
-      hasContext: !!context,
-      hasSession: !!context?.session,
-      sessionType: context?.session?.sessionType,
-      hasSelectedText: !!context?.selectedText,
-      requestBody: JSON.stringify(requestBody, null, 2),
-    });
-
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      console.error("AI Tutor API: Messages validation failed", { messages });
       return NextResponse.json(
         { error: "Messages array is required" },
         { status: 400 }
@@ -86,7 +69,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (!context || !context.session) {
-      console.error("AI Tutor API: Context validation failed", { context });
       return NextResponse.json(
         { error: "Session context is required" },
         { status: 400 }
@@ -96,18 +78,7 @@ export async function POST(req: NextRequest) {
     // Moderate the latest user message
     const lastUserMessage = messages[messages.length - 1];
     if (lastUserMessage && lastUserMessage.role === "user") {
-      console.log("AI Tutor API: Moderating user message", {
-        originalMessage: lastUserMessage.content,
-        selectedText: context.selectedText,
-      });
-
       const moderation = moderateUserContent(lastUserMessage.content);
-
-      console.log("AI Tutor API: User message moderation result", {
-        isAllowed: moderation.isAllowed,
-        reason: moderation.reason,
-        sanitizedContent: moderation.sanitizedContent,
-      });
 
       if (!moderation.isAllowed) {
         return NextResponse.json(
@@ -129,11 +100,7 @@ export async function POST(req: NextRequest) {
     let openai;
     try {
       openai = getOpenRouterClient();
-      console.log("AI Tutor API: OpenRouter client initialized");
     } catch (error) {
-      console.error("AI Tutor API: OpenRouter client initialization failed", {
-        error,
-      });
       return NextResponse.json(
         {
           error:
@@ -217,20 +184,11 @@ export async function POST(req: NextRequest) {
 
     const fullSystemPrompt = `${enhancedSystemPrompt}\n\nCURRENT CONTEXT:\n${contextString}`;
 
-    // Log the full system prompt for debugging
-    console.log("AI Tutor API: Full system prompt", {
-      systemPrompt: fullSystemPrompt,
-      selectedText: context.selectedText,
-      hasSelectedText: !!context.selectedText,
-    });
-
     // Prepare messages for OpenAI
     const openAIMessages = [
       { role: "system" as const, content: fullSystemPrompt },
       ...messages.slice(-10), // Only send last 10 messages to avoid token limits
     ];
-
-    console.log("AI Tutor API: Sending request to OpenRouter");
 
     // Call OpenRouter API with safety parameters
     const response = await openai.chat.completions.create({
@@ -241,8 +199,6 @@ export async function POST(req: NextRequest) {
       // Remove frequency_penalty and presence_penalty as they may not be supported by all models
     });
 
-    console.log("AI Tutor API: Received response from OpenRouter");
-
     // Extract and moderate AI response
     const rawAIMessage =
       response.choices[0]?.message?.content ||
@@ -251,13 +207,10 @@ export async function POST(req: NextRequest) {
     // Moderate the AI response
     const moderatedMessage = moderateAIResponse(rawAIMessage);
 
-    console.log("AI Tutor API: Request completed successfully");
-
     return NextResponse.json({
       message: moderatedMessage,
     });
   } catch (error) {
-    console.error("AI Tutor API: Unexpected error", { error });
     return NextResponse.json(
       {
         error: "An unexpected error occurred. Please try again.",

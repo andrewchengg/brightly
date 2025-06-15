@@ -45,6 +45,38 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
     const [isExpanded, setIsExpanded] = useState(false);
     const [selectedContext, setSelectedContext] = useState<string | null>(null);
 
+    // Function to split text into logical chunks for smooth display
+    const splitIntoSentences = (text: string): string[] => {
+      // First, split by double line breaks (paragraph breaks)
+      const paragraphs = text
+        .split(/\n\s*\n/)
+        .filter((chunk) => chunk.trim().length > 0);
+
+      const chunks: string[] = [];
+
+      paragraphs.forEach((paragraph) => {
+        const trimmed = paragraph.trim();
+
+        // If paragraph contains numbered lists or bullet points, keep it as one chunk
+        if (/^\d+\.|\n\d+\.|-\s+/.test(trimmed)) {
+          chunks.push(trimmed);
+        }
+        // If paragraph is short (less than 150 chars), keep it as one chunk
+        else if (trimmed.length < 150) {
+          chunks.push(trimmed);
+        }
+        // Otherwise, split by sentence endings but be more careful
+        else {
+          const sentences = trimmed
+            .split(/(?<=[.!?])\s+(?=[A-Z])/)
+            .filter((sentence) => sentence.trim().length > 0);
+          chunks.push(...sentences);
+        }
+      });
+
+      return chunks.filter((chunk) => chunk.trim().length > 0);
+    };
+
     const chatContentRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -236,13 +268,22 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
         const data = await response.json();
         console.log("AIAssistant: API response data", { data });
 
-        const aiMessage: ChatMessage = {
-          role: "assistant",
-          content: data.message,
-          timestamp: new Date(),
-        };
+        // Split the AI response into sentences for separate messages
+        const sentences = splitIntoSentences(data.message);
 
-        setChatHistory((prev) => [...prev, aiMessage]);
+        // Add each sentence as a separate message with delays
+        sentences.forEach((sentence, index) => {
+          setTimeout(() => {
+            const aiMessage: ChatMessage = {
+              role: "assistant",
+              content: sentence.trim(),
+              timestamp: new Date(),
+              shouldAnimate: true, // Flag to animate this new message
+            };
+
+            setChatHistory((prev) => [...prev, aiMessage]);
+          }, index * 1200); // 1200ms delay between each chunk for better readability
+        });
 
         // Notify parent component
         if (onResponseReceived) {
@@ -289,9 +330,9 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
 
     const getWelcomeMessage = () => {
       if (sessionContext.sessionType === "cloze_passage") {
-        return "Hi! I'm Ben, your friendly AI tutor! 🐻👓 I'm here to help you understand this passage and answer questions. Ask me about vocabulary, context clues, or anything you're unsure about!";
+        return "Hi! I'm Ben, your friendly AI tutor! 🐻 I'm here to help you understand this passage and answer questions. Ask me about vocabulary, context clues, or anything you're unsure about!";
       }
-      return "Hi there! I'm Ben, your AI learning assistant! 🐻👓 Ask me questions about the material, and I'll help guide you to the answers!";
+      return "Hi there! I'm Ben, your AI learning assistant! 🐻 Ask me questions about the material, and I'll help guide you to the answers!";
     };
 
     const shouldShowWelcome = chatHistory.length === 0 && !isLoading;
@@ -304,19 +345,19 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-indigo-200 bg-indigo-100 shadow-sm">
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mr-2.5 shadow-sm border border-indigo-200">
+            <div className="w-10 h-10 flex items-center justify-center mr-2.5">
               <Image
-                src="/benthemascot.png"
+                src="/benthemascot-removebg-preview.png"
                 alt="Ben the AI Tutor"
-                width={24}
-                height={24}
-                className="rounded-full"
+                width={40}
+                height={40}
+                className="object-contain"
                 title="Hi! I'm Ben, your AI tutor!"
               />
             </div>
             <div className="flex-1">
               <div className="font-semibold text-indigo-800 text-sm">
-                Ben - Your AI Learning Assistant
+                Bright Ben
               </div>
               <div className="text-xs text-indigo-600">
                 Ask me about this material!
@@ -359,13 +400,13 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
         >
           {shouldShowWelcome ? (
             <div className="flex items-start space-x-2">
-              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-indigo-200 flex-shrink-0">
+              <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
                 <Image
-                  src="/benthemascot.png"
+                  src="/benthemascot-removebg-preview.png"
                   alt="Ben the AI Tutor"
-                  width={24}
-                  height={24}
-                  className="rounded-full"
+                  width={48}
+                  height={48}
+                  className="object-contain"
                 />
               </div>
               <div className="bg-white rounded-lg p-3 shadow-sm border border-indigo-200 max-w-[80%]">
@@ -380,24 +421,28 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
                   message.role === "user"
                     ? "flex-row-reverse space-x-reverse"
                     : ""
+                } ${
+                  message.role === "assistant" && message.shouldAnimate
+                    ? "animate-fadeIn"
+                    : ""
                 }`}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm flex-shrink-0 ${
+                  className={`flex items-center justify-center flex-shrink-0 ${
                     message.role === "user"
-                      ? "bg-indigo-500 text-white"
-                      : "bg-white border border-indigo-200"
+                      ? "w-8 h-8 rounded-full bg-indigo-500 text-white shadow-sm"
+                      : "w-12 h-12"
                   }`}
                 >
                   {message.role === "user" ? (
                     <span className="text-xs font-bold">You</span>
                   ) : (
                     <Image
-                      src="/benthemascot.png"
+                      src="/benthemascot-removebg-preview.png"
                       alt="Ben the AI Tutor"
-                      width={24}
-                      height={24}
-                      className="rounded-full"
+                      width={48}
+                      height={48}
+                      className="object-contain"
                     />
                   )}
                 </div>
@@ -433,13 +478,13 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex items-start space-x-2">
-              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-indigo-200 flex-shrink-0">
+              <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
                 <Image
                   src="/ben_the_bear_thinking.gif"
                   alt="Ben the AI Tutor"
-                  width={24}
-                  height={24}
-                  className="rounded-full"
+                  width={48}
+                  height={48}
+                  className="object-contain"
                 />
               </div>
               <div className="bg-white rounded-lg p-3 shadow-sm border border-indigo-200">
@@ -490,11 +535,6 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
             >
               <FaPaperPlane className="w-4 h-4" />
             </button>
-          </div>
-
-          {/* Guidelines only */}
-          <div className="mt-1 text-xs text-gray-500 text-center">
-            Keep questions focused on your learning
           </div>
         </div>
       </div>

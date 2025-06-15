@@ -15,6 +15,10 @@ import Image from "next/image";
 import { validateUserInput, sanitizeUserInput } from "@/lib/client-validation";
 import { toast } from "react-toastify";
 import { ChatHistory, ChatHistoryRef } from "@/components/ChatHistory";
+import {
+  AIAssistant,
+  createSessionContext,
+} from "@/components/AILearningAssistant";
 
 interface Message {
   id: string;
@@ -22,7 +26,27 @@ interface Message {
   content: string;
   image?: string;
   timestamp: Date;
+  shouldAnimate?: boolean; // Flag for new AI messages to animate
 }
+
+const MessageTimestamp: React.FC<{ timestamp: Date; isUser: boolean }> = ({
+  timestamp,
+  isUser,
+}) => {
+  const [timeString, setTimeString] = useState("");
+
+  useEffect(() => {
+    setTimeString(timestamp.toLocaleTimeString());
+  }, [timestamp]);
+
+  return (
+    <p
+      className={`text-xs mt-3 ${isUser ? "text-indigo-100" : "text-gray-500"}`}
+    >
+      {timeString}
+    </p>
+  );
+};
 
 const AskAITutor = () => {
   const [messages, setMessages] = useState<Message[]>([
@@ -30,7 +54,7 @@ const AskAITutor = () => {
       id: "welcome",
       type: "ai",
       content:
-        "Hi there! I'm Ben, your friendly AI tutor! 🐻👓 I love helping students like you solve problems and understand concepts better. You can upload images of your questions, paste them, or just type them out - I'm here to help however works best for you!",
+        "Hi there! I'm Ben, your friendly AI tutor! 🐻 I love helping students like you solve problems and understand concepts better. You can upload images of your questions, paste them, or just type them out - I'm here to help however works best for you!",
       timestamp: new Date(),
     },
   ]);
@@ -49,6 +73,15 @@ const AskAITutor = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Function to split text into sentences
+  const splitIntoSentences = (text: string): string[] => {
+    // Split by sentence endings, but keep the punctuation
+    const sentences = text
+      .split(/(?<=[.!?])\s+/)
+      .filter((sentence) => sentence.trim().length > 0);
+    return sentences;
   };
 
   useEffect(() => {
@@ -228,14 +261,23 @@ const AskAITutor = () => {
         setCurrentSessionId(data.sessionId);
       }
 
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: "ai",
-        content: data.response,
-        timestamp: new Date(),
-      };
+      // Split the AI response into sentences for separate messages
+      const sentences = splitIntoSentences(data.response);
 
-      setMessages((prev) => [...prev, aiMessage]);
+      // Add each sentence as a separate message with delays
+      sentences.forEach((sentence, index) => {
+        setTimeout(() => {
+          const aiMessage: Message = {
+            id: `${Date.now() + index + 1}`,
+            type: "ai",
+            content: sentence.trim(),
+            timestamp: new Date(),
+            shouldAnimate: true, // Flag to animate this new message
+          };
+
+          setMessages((prev) => [...prev, aiMessage]);
+        }, index * 1600); // 800ms delay between each sentence message
+      });
     } catch (error) {
       console.error("Error getting AI response:", error);
       const errorMessage: Message = {
@@ -307,7 +349,11 @@ const AskAITutor = () => {
   return (
     <div className="flex h-screen w-full bg-white">
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen">
+      <div
+        className={`flex-1 flex flex-col h-screen transition-all duration-300 ${
+          showHistory ? "md:mr-80" : "mr-0"
+        }`}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 shadow-lg">
           <div className="flex items-center gap-3">
@@ -317,13 +363,13 @@ const AskAITutor = () => {
             >
               <FaBars />
             </button>
-            <div className="p-2 bg-white bg-opacity-20 rounded-lg">
+            <div className="flex items-center justify-center w-12 h-12 bg-white bg-opacity-20 rounded-lg">
               <Image
-                src="/benthemascot.png"
+                src="/benthemascot-removebg-preview.png"
                 alt="Ben the AI Tutor"
-                width={32}
-                height={32}
-                className="rounded-lg"
+                width={40}
+                height={40}
+                className="object-contain"
                 title="Hi! I'm Ben, ready to help you learn!"
               />
             </div>
@@ -356,24 +402,28 @@ const AskAITutor = () => {
                 key={message.id}
                 className={`flex items-start gap-4 ${
                   message.type === "user" ? "flex-row-reverse" : ""
+                } ${
+                  message.type === "ai" && message.shouldAnimate
+                    ? "animate-fadeIn"
+                    : ""
                 }`}
               >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md ${
+                  className={`flex items-center justify-center ${
                     message.type === "user"
-                      ? "bg-gradient-to-br from-indigo-600 to-indigo-700"
-                      : "bg-white border-2 border-purple-200"
+                      ? "w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-indigo-700 shadow-md"
+                      : "w-16 h-16"
                   }`}
                 >
                   {message.type === "user" ? (
                     <FaUser className="text-white" />
                   ) : (
                     <Image
-                      src="/benthemascot.png"
+                      src="/benthemascot-removebg-preview.png"
                       alt="Ben the AI Tutor"
-                      width={32}
-                      height={32}
-                      className="rounded-full"
+                      width={64}
+                      height={64}
+                      className="object-contain"
                     />
                   )}
                 </div>
@@ -398,28 +448,23 @@ const AskAITutor = () => {
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">
                     {message.content}
                   </p>
-                  <p
-                    className={`text-xs mt-3 ${
-                      message.type === "user"
-                        ? "text-indigo-100"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
+                  <MessageTimestamp
+                    timestamp={message.timestamp}
+                    isUser={message.type === "user"}
+                  />
                 </div>
               </div>
             ))}
 
             {isLoading && (
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-white border-2 border-purple-200 flex items-center justify-center shadow-md">
+                <div className="w-16 h-16 flex items-center justify-center">
                   <Image
                     src="/ben_the_bear_thinking.gif"
                     alt="Ben the AI Tutor"
-                    width={32}
-                    height={32}
-                    className="rounded-full"
+                    width={64}
+                    height={64}
+                    className="object-contain"
                   />
                 </div>
                 <div className="bg-white border border-gray-200 shadow-md rounded-2xl p-5">
@@ -534,13 +579,13 @@ const AskAITutor = () => {
             {/* Ben typing indicator */}
             {isTyping && (
               <div className="flex items-center justify-center gap-2 mt-2 text-xs text-indigo-600">
-                <div className="w-5 h-5 rounded-full bg-white border border-indigo-200 flex items-center justify-center shadow-sm">
+                <div className="w-6 h-6 flex items-center justify-center">
                   <Image
                     src="/ben_the_bear_thinking.gif"
                     alt="Ben is listening"
-                    width={16}
-                    height={16}
-                    className="rounded-full"
+                    width={24}
+                    height={24}
+                    className="object-contain"
                   />
                 </div>
                 <span className="animate-pulse">Ben is listening...</span>
@@ -550,21 +595,22 @@ const AskAITutor = () => {
         </div>
       </div>
 
-      {/* Sidebar for Chat History - Now on the RIGHT */}
+      {/* Sidebar for Chat History - Fixed positioning */}
       <div
         className={`${
           showHistory ? "translate-x-0" : "translate-x-full"
-        } fixed md:relative md:translate-x-0 z-30 w-80 h-full bg-gray-50 border-l border-gray-200 transition-transform duration-300`}
+        } fixed top-0 right-0 z-30 w-80 h-screen bg-gray-50 border-l border-gray-200 transition-transform duration-300 flex flex-col shadow-lg`}
       >
-        <div className="h-full overflow-hidden">
-          <div className="p-4 border-b border-gray-200 bg-white">
+        <div className="flex-1 flex flex-col h-full">
+          <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
                 Chat History
               </h2>
               <button
                 onClick={() => setShowHistory(false)}
-                className="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                title="Hide History"
               >
                 <FaTimes />
               </button>
@@ -576,7 +622,7 @@ const AskAITutor = () => {
               New Conversation
             </button>
           </div>
-          <div className="h-full overflow-y-auto">
+          <div className="flex-1 overflow-hidden">
             <ChatHistory
               ref={chatHistoryRef}
               onSessionSelect={handleSessionSelect}

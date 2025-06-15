@@ -446,28 +446,18 @@ export function moderateAIResponse(response: string): string {
 
   let moderated = response;
 
-  // Log the original response for debugging
-  console.log("Original AI Response:", response);
-
   // Only remove clearly harmful content, be less aggressive
   moderated = moderated
-    .replace(/\b(password|login|admin|hack|exploit|bypass)\b/gi, (match) => {
-      console.log("Blocked potentially harmful content:", match);
+    .replace(/\b(password|login|admin|hack|exploit|bypass)\b/gi, () => {
       return "[content removed]";
     })
-    .replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, (match) => {
-      console.log("Blocked card number:", match);
+    .replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, () => {
       return "[card number removed]";
     })
-    .replace(
-      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
-      (match) => {
-        console.log("Blocked email:", match);
-        return "[email removed]";
-      }
-    )
-    .replace(/\b\d{8,15}\b/g, (match) => {
-      console.log("Blocked phone number:", match);
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, () => {
+      return "[email removed]";
+    })
+    .replace(/\b\d{8,15}\b/g, () => {
       return "[phone number removed]";
     });
 
@@ -481,8 +471,7 @@ export function moderateAIResponse(response: string): string {
 
   // Only replace very direct answers, allow explanatory responses
   directAnswerPatterns.forEach((pattern) => {
-    moderated = moderated.replace(pattern, (match) => {
-      console.log("Blocked direct answer:", match);
+    moderated = moderated.replace(pattern, () => {
       return "Let me help you think through this step by step. Consider";
     });
   });
@@ -491,19 +480,13 @@ export function moderateAIResponse(response: string): string {
   const strictCleanupPatterns = [/\b(stupid|dumb|idiot|moron)\b/gi];
 
   strictCleanupPatterns.forEach((pattern) => {
-    moderated = moderated.replace(pattern, (match) => {
-      console.log("Blocked inappropriate term:", match);
+    moderated = moderated.replace(pattern, () => {
       return "[inappropriate]";
     });
   });
 
   // Don't force educational encouragement on short responses - let natural responses through
   // Removed the forced educational ending
-
-  // Log if the response was modified
-  if (moderated !== response) {
-    console.log("Modified AI Response:", moderated);
-  }
 
   return moderated;
 }
@@ -601,11 +584,12 @@ export function generateEducationalSystemPrompt(
 3. Provide clear explanations
 4. Use simple language appropriate for primary school students
 5. ${languageInstruction}
+6. NEVER use action descriptions in asterisks like "*adjusts glasses*" or "*gives thumbs up*" or similar - just speak naturally without describing actions
 
 CONTEXT:
 ${contextString}
 
-Respond helpfully to the student's question.`;
+Respond helpfully to the student's question without any action descriptions or roleplay elements.`;
 
   return basePrompt;
 }
