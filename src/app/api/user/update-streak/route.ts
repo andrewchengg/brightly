@@ -2,9 +2,80 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
+import prisma from "@/lib/prisma";
 
 interface StreakRequestBody {
   activityType: string;
+}
+
+// Function to calculate current streak based on actual practice history
+async function calculateCurrentStreak(userId: string): Promise<number> {
+  // Get all completed practice sessions ordered by date
+  const completedSessions = await prisma.practiceSession.findMany({
+    where: {
+      studentId: userId,
+      status: "COMPLETED",
+      endTime: { not: null },
+    },
+    select: {
+      endTime: true,
+    },
+    orderBy: {
+      endTime: "desc",
+    },
+  });
+
+  if (completedSessions.length === 0) {
+    return 0;
+  }
+
+  // Group sessions by date (YYYY-MM-DD format)
+  const practiceDates = new Set<string>();
+  completedSessions.forEach((session) => {
+    if (session.endTime) {
+      const dateKey = session.endTime.toISOString().split("T")[0];
+      practiceDates.add(dateKey);
+    }
+  });
+
+  // Convert to sorted array (most recent first)
+  const sortedDates = Array.from(practiceDates).sort((a, b) =>
+    b.localeCompare(a)
+  );
+
+  if (sortedDates.length === 0) {
+    return 0;
+  }
+
+  const today = new Date();
+  const todayDateString = today.toISOString().split("T")[0];
+
+  // Check if user practiced today
+  let currentStreak = 0;
+  let checkDate = new Date(today);
+
+  // Start checking from today backwards
+  for (let i = 0; i < sortedDates.length + 1; i++) {
+    const checkDateString = checkDate.toISOString().split("T")[0];
+
+    if (sortedDates.includes(checkDateString)) {
+      currentStreak++;
+      // Move to previous day
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      // If this is the first day we're checking (today) and there's no practice,
+      // check if they practiced yesterday to continue the streak
+      if (i === 0) {
+        checkDate.setDate(checkDate.getDate() - 1);
+        continue;
+      } else {
+        // Gap found, stop counting
+        break;
+      }
+    }
+  }
+
+  return currentStreak;
 }
 
 export async function POST(req: NextRequest) {
@@ -50,7 +121,10 @@ export async function POST(req: NextRequest) {
     const today = new Date();
     const todayDateString = today.toISOString().split("T")[0]; // YYYY-MM-DD format for today
 
-    let currentStreak = studentData.currentStreak || 0;
+    // Calculate the actual current streak based on practice history
+    const actualCurrentStreak = await calculateCurrentStreak(userId);
+
+    let currentStreak = actualCurrentStreak;
     let longestStreak = studentData.longestStreak || 0;
     const lastActivityDate = studentData.lastActivityDate; // This is a timestamp from DB
 
@@ -64,46 +138,23 @@ export async function POST(req: NextRequest) {
     let needsDatabaseUpdate = false;
     let newLastActivityDate = lastActivityDate;
 
-    if (!lastActivityDateString) {
-      // First activity ever for this user
-      currentStreak = 1;
+    // Check if this is a new activity today
+    if (lastActivityDateString !== todayDateString) {
+      // New activity today, update last activity date
       newLastActivityDate = todayDateString;
       needsDatabaseUpdate = true;
+
+      // Recalculate streak to account for today's activity
+      currentStreak = await calculateCurrentStreak(userId);
+
       console.log(
-        `Streak: First activity. New streak: 1. Last activity: ${newLastActivityDate}`
+        `Streak: New activity today. Recalculated streak: ${currentStreak}. Last activity: ${newLastActivityDate}`
       );
     } else {
-      // User has prior activity
-      if (lastActivityDateString === todayDateString) {
-        // Activity already logged today. Streak does NOT change.
-        // lastActivityDate also does not change. No DB update needed for streak logic itself.
-        console.log(
-          `Streak: Activity already logged today (${todayDateString}). Current streak: ${currentStreak}`
-        );
-        // needsDatabaseUpdate remains false unless longestStreak changes below
-      } else {
-        // It's a new day for activity
-        newLastActivityDate = todayDateString; // Update last activity to today
-        needsDatabaseUpdate = true; // We'll be updating at least lastActivityDate
-
-        const dayBeforeToday = new Date(today);
-        dayBeforeToday.setDate(today.getDate() - 1);
-        const dayBeforeTodayString = dayBeforeToday.toISOString().split("T")[0];
-
-        if (lastActivityDateString === dayBeforeTodayString) {
-          // Consecutive day
-          currentStreak += 1;
-          console.log(
-            `Streak: Consecutive day. New streak: ${currentStreak}. Last activity: ${newLastActivityDate}`
-          );
-        } else {
-          // Streak broken, reset to 1
-          currentStreak = 1;
-          console.log(
-            `Streak: Broken. New streak: 1. Last activity: ${newLastActivityDate}`
-          );
-        }
-      }
+      // Activity already logged today, use calculated streak
+      console.log(
+        `Streak: Activity already logged today (${todayDateString}). Current streak: ${currentStreak}`
+      );
     }
 
     // Update longest streak if current streak surpasses it
@@ -113,13 +164,18 @@ export async function POST(req: NextRequest) {
       console.log(`Streak: New longest streak: ${longestStreak}`);
     }
 
+    // Always update if the calculated streak differs from stored streak
+    if (currentStreak !== studentData.currentStreak) {
+      needsDatabaseUpdate = true;
+    }
+
     if (needsDatabaseUpdate) {
       const { error: updateError } = await supabase
         .from("Student")
         .update({
           currentStreak: currentStreak,
           longestStreak: longestStreak,
-          lastActivityDate: newLastActivityDate, // Always update to the new last activity date if an update occurs
+          lastActivityDate: newLastActivityDate || todayDateString,
           updatedAt: new Date().toISOString(),
         })
         .eq("id", userId);
@@ -135,7 +191,9 @@ export async function POST(req: NextRequest) {
         );
       }
       console.log(
-        `DB Streak updated for user ${userId}: Current: ${currentStreak}, Longest: ${longestStreak}, Last Activity: ${newLastActivityDate}`
+        `DB Streak updated for user ${userId}: Current: ${currentStreak}, Longest: ${longestStreak}, Last Activity: ${
+          newLastActivityDate || todayDateString
+        }`
       );
     }
 
@@ -143,7 +201,7 @@ export async function POST(req: NextRequest) {
       success: true,
       currentStreak: currentStreak,
       longestStreak: longestStreak,
-      lastActivityDate: newLastActivityDate, // Return the potentially updated lastActivityDate
+      lastActivityDate: newLastActivityDate || todayDateString,
     });
   } catch (error: any) {
     console.error("Error in update-streak endpoint:", error);

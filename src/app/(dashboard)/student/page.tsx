@@ -128,83 +128,112 @@ const StudentPage = async () => {
   });
 
   return (
-    <div className="p-4 md:p-6 flex gap-6 flex-col">
-      {/* Hero Section - Dark Purple Theme */}
-      <div className="bg-gradient-to-br from-purple-800 via-purple-700 to-violet-800 p-6 md:p-8 rounded-3xl shadow-2xl text-white relative overflow-hidden">
-        {/* Background decoration */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full transform translate-x-16 -translate-y-16"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12"></div>
-
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
+    <div className="flex flex-col gap-6 p-6 min-h-screen">
+      {/* Full-width welcome header */}
+      <div className="bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-700 text-white p-6 md:p-8 rounded-2xl shadow-xl w-full">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-2xl md:text-3xl font-bold">
+            {student?.name?.[0]?.toUpperCase() || "U"}
+          </div>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">
-              This Week's Learning
+              Welcome back, {student?.name || "Student"}!
             </h1>
-            <p className="mt-1 text-purple-100 text-sm md:text-base">
-              Complete your weekly quests and master new skills!
+            <p className="text-blue-100 text-sm md:text-base">
+              Ready to continue your learning journey?
             </p>
+          </div>
+        </div>
 
-            <div className="flex flex-wrap items-center gap-3 md:gap-4 mt-5">
-              {student?.xpPoints !== null &&
-                student?.xpPoints !== undefined && (
-                  <XPBar
-                    currentXP={xpPoints}
-                    showTooltip={true}
-                    size="md"
-                    variant="light"
-                  />
-                )}
-              <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-xl flex items-center gap-2 text-sm md:text-base">
-                <FaMedal className="text-yellow-300 text-lg md:text-xl" />
-                <span className="font-semibold">{xpPoints} XP</span>
-              </div>
-              <div className="relative group">
-                <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-xl flex items-center gap-2 text-sm md:text-base">
-                  <FaFire className="text-orange-400 text-lg md:text-xl" />
-                  <span className="font-semibold">{streak} day streak</span>
-                  <div className="absolute hidden group-hover:block bg-white p-3 shadow-xl rounded-lg w-60 md:w-64 text-gray-700 z-10 top-full left-0 mt-2">
-                    <p className="font-semibold mb-1.5 text-orange-600 text-sm">
-                      Activity Streak
-                    </p>
-                    <p className="mb-1.5 text-xs">
-                      Keep practicing daily to maintain your streak!
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-2 text-xs">
-                      <FaFire className="text-orange-500" />
-                      <span>
-                        Longest streak:{" "}
-                        <strong>{student?.longestStreak || 0} days</strong>
-                      </span>
-                    </div>
-                  </div>
+        <div className="flex flex-wrap items-center gap-3 md:gap-4 mt-5">
+          {student?.xpPoints !== null && student?.xpPoints !== undefined && (
+            <XPBar
+              currentXP={xpPoints}
+              showTooltip={true}
+              size="md"
+              variant="light"
+            />
+          )}
+          <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-xl flex items-center gap-2 text-sm md:text-base">
+            <FaMedal className="text-yellow-300 text-lg md:text-xl" />
+            <span className="font-semibold">{xpPoints} XP</span>
+          </div>
+          <div className="relative group">
+            <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-xl flex items-center gap-2 text-sm md:text-base">
+              <FaFire className="text-orange-400 text-lg md:text-xl" />
+              <span className="font-semibold">{streak} day streak</span>
+              <div className="absolute hidden group-hover:block bg-white p-3 shadow-xl rounded-lg w-60 md:w-64 text-gray-700 z-10 top-full left-0 mt-2">
+                <p className="font-semibold mb-1.5 text-orange-600 text-sm">
+                  Activity Streak
+                </p>
+                <p className="mb-1.5 text-xs">
+                  Keep practicing daily to maintain your streak!
+                </p>
+                <div className="flex items-center gap-1.5 mt-2 text-xs">
+                  <FaFire className="text-orange-500" />
+                  <span>
+                    Longest streak:{" "}
+                    <strong>{student?.longestStreak || 0} days</strong>
+                  </span>
                 </div>
               </div>
             </div>
           </div>
-          <Link href="/student/practice" className="mt-6 md:mt-0 shrink-0">
-            <button className="bg-white text-purple-700 hover:bg-purple-50 px-5 py-2.5 md:px-6 md:py-3 rounded-xl font-semibold transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-sm md:text-base">
-              Explore Practice
-            </button>
-          </Link>
         </div>
       </div>
 
-      {/* Main content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-          {/* Assigned Tasks Section */}
-          <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg md:text-xl font-semibold text-gray-800 flex items-center">
-                <FaTasks className="mr-2 md:mr-3 text-gray-600" />
-                Homework from Parents
-              </h2>
-              {assignedTasks.length > 0 && (
-                <div className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
-                  {assignedTasks.length} pending
-                </div>
-              )}
+      {/* Main content - two column layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left side - Calendar */}
+        <div className="flex-1">
+          <div className="bg-white rounded-2xl shadow-xl p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <FaFire className="text-orange-500" />
+              Your Practice Calendar
+            </h2>
+            <StudentCalendar />
+          </div>
+        </div>
+
+        {/* Right side - Quick Actions and Tasks */}
+        <div className="w-full lg:w-80 space-y-6">
+          {/* Quick Actions - moved above tasks */}
+          <div className="bg-white rounded-2xl shadow-xl p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              Quick Actions
+            </h2>
+            <div className="space-y-3">
+              <Link
+                href="/student/practice"
+                className="block w-full p-3 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-lg text-center font-semibold hover:from-green-700 hover:to-emerald-800 transition-all shadow-md"
+              >
+                🎯 Start Practice Session
+              </Link>
+              <Link
+                href="/student/weekly-challenge"
+                className="block w-full p-3 bg-gradient-to-r from-purple-600 to-indigo-700 text-white rounded-lg text-center font-semibold hover:from-purple-700 hover:to-indigo-800 transition-all shadow-md"
+              >
+                🏆 Weekly Challenge
+              </Link>
+              <Link
+                href="/student/results"
+                className="block w-full p-3 bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-lg text-center font-semibold hover:from-amber-700 hover:to-orange-800 transition-all shadow-md"
+              >
+                📊 View Results
+              </Link>
             </div>
+          </div>
+
+          {/* Your Tasks - moved below quick actions */}
+          <div className="bg-white rounded-2xl shadow-xl p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <FaTasks className="text-blue-600" />
+              Your Tasks
+              <span className="text-sm font-normal text-gray-500 bg-blue-50 px-2 py-1 rounded-full">
+                {assignedTasks.length} pending
+              </span>
+            </h2>
+
             {assignedTasks.length > 0 ? (
               <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
                 {assignedTasks.map((task) => (
@@ -235,38 +264,17 @@ const StudentPage = async () => {
                           )}
                         </div>
                       </div>
-                      <span
-                        className={`text-[10px] px-2 py-1 rounded-full font-semibold shrink-0 ${
-                          task.status === PracticeSessionStatus.NOT_STARTED
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
+                      <Link
+                        href={`/student/practice/${task.id}`}
+                        className="flex-shrink-0"
                       >
-                        {task.status === PracticeSessionStatus.NOT_STARTED
-                          ? "New"
-                          : "In Progress"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        {task.type === PracticeSessionType.MOCK_EXAM && (
-                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium">
-                            Mock Exam
-                          </span>
-                        )}
-                        {task.type === PracticeSessionType.TOPIC_QUIZ && (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
-                            Practice Quiz
-                          </span>
-                        )}
-                      </div>
-                      <Link href={getTaskPath(task)} passHref>
-                        <button className="bg-gray-600 text-white px-3 py-1 rounded-md text-xs font-medium hover:bg-gray-700 transition-colors">
-                          {task.status === PracticeSessionStatus.IN_PROGRESS
-                            ? "Continue"
-                            : "Start"}{" "}
-                          <FaPlayCircle className="ml-1.5 h-3 w-3" />
-                        </button>
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 h-8 text-xs rounded-md flex items-center gap-1"
+                        >
+                          <FaPlayCircle className="text-xs" />
+                          Start
+                        </Button>
                       </Link>
                     </div>
                   </div>
@@ -274,16 +282,11 @@ const StudentPage = async () => {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                <FaTasks className="mx-auto text-4xl mb-3" />
-                <p className="text-sm">No assignments yet</p>
+                <FaTasks className="mx-auto text-4xl mb-3 text-gray-300" />
+                <p className="text-sm">No tasks assigned yet</p>
+                <p className="text-xs">New tasks will appear here</p>
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
-            <StudentCalendar />
           </div>
         </div>
       </div>

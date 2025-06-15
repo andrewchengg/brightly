@@ -6,6 +6,124 @@ import { cookies } from "next/headers";
 
 const prisma = new PrismaClient();
 
+// Function to calculate current streak based on actual practice history
+async function calculateCurrentStreak(userId: string): Promise<number> {
+  // Get all completed practice sessions ordered by date
+  const completedSessions = await prisma.practiceSession.findMany({
+    where: {
+      studentId: userId,
+      status: "COMPLETED",
+      endTime: { not: null },
+    },
+    select: {
+      endTime: true,
+    },
+    orderBy: {
+      endTime: "desc",
+    },
+  });
+
+  if (completedSessions.length === 0) {
+    return 0;
+  }
+
+  // Group sessions by date (YYYY-MM-DD format)
+  const practiceDates = new Set<string>();
+  completedSessions.forEach((session) => {
+    if (session.endTime) {
+      const dateKey = session.endTime.toISOString().split("T")[0];
+      practiceDates.add(dateKey);
+    }
+  });
+
+  // Convert to sorted array (most recent first)
+  const sortedDates = Array.from(practiceDates).sort((a, b) =>
+    b.localeCompare(a)
+  );
+
+  if (sortedDates.length === 0) {
+    return 0;
+  }
+
+  const today = new Date();
+
+  // Check if user practiced today
+  let currentStreak = 0;
+  let checkDate = new Date(today);
+
+  // Start checking from today backwards
+  for (let i = 0; i < sortedDates.length + 1; i++) {
+    const checkDateString = checkDate.toISOString().split("T")[0];
+
+    if (sortedDates.includes(checkDateString)) {
+      currentStreak++;
+      // Move to previous day
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      // If this is the first day we're checking (today) and there's no practice,
+      // check if they practiced yesterday to continue the streak
+      if (i === 0) {
+        checkDate.setDate(checkDate.getDate() - 1);
+        continue;
+      } else {
+        // Gap found, stop counting
+        break;
+      }
+    }
+  }
+
+  return currentStreak;
+}
+
+// Function to update streak in database
+async function updateStreakInDatabase(userId: string): Promise<void> {
+  const supabase = createClient();
+
+  // Get current student data
+  const { data: studentData, error: studentFetchError } = await supabase
+    .from("Student")
+    .select("currentStreak, longestStreak, lastActivityDate")
+    .eq("id", userId)
+    .single();
+
+  if (studentFetchError) {
+    console.error(
+      "Error fetching student data for streak update:",
+      studentFetchError
+    );
+    return;
+  }
+
+  // Calculate the actual current streak based on practice history
+  const recalculatedStreak = await calculateCurrentStreak(userId);
+
+  // Keep the longest streak as-is, but ensure it's at least as long as the current streak
+  const longestStreak = Math.max(
+    studentData.longestStreak || 0,
+    recalculatedStreak
+  );
+  const today = new Date().toISOString().split("T")[0];
+
+  // Update the database with the recalculated values
+  const { error: updateError } = await supabase
+    .from("Student")
+    .update({
+      currentStreak: recalculatedStreak,
+      longestStreak: longestStreak,
+      lastActivityDate: today,
+      updatedAt: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (updateError) {
+    console.error("Error updating streak in database:", updateError);
+  } else {
+    console.log(
+      `Streak updated for user ${userId}: Current: ${recalculatedStreak}, Longest: ${longestStreak}`
+    );
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
@@ -89,6 +207,17 @@ export async function PATCH(
       console.log(
         `API PATCH /practice-sessions: Upserted Result for session ${practiceSessionId}`
       );
+
+      // Update streak when session is completed
+      try {
+        await updateStreakInDatabase(updatedPracticeSession.studentId);
+        console.log(
+          `API PATCH /practice-sessions: Updated streak for user ${updatedPracticeSession.studentId} after session completion`
+        );
+      } catch (error) {
+        console.error("Error updating streak after session completion:", error);
+        // Don't fail the request if streak update fails
+      }
     }
 
     console.log(

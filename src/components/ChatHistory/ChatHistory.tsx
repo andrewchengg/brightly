@@ -98,6 +98,42 @@ const ChatHistory = forwardRef<ChatHistoryRef, ChatHistoryProps>(
       }
     };
 
+    const handleDeleteSession = async (
+      sessionId: string,
+      e: React.MouseEvent
+    ) => {
+      e.stopPropagation(); // Prevent session selection when clicking delete
+
+      if (
+        !confirm(
+          "Are you sure you want to delete this conversation? This action cannot be undone."
+        )
+      ) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/chat-sessions/${sessionId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to delete session");
+        }
+
+        // Remove from local state
+        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+
+        // If the deleted session was selected, clear selection
+        if (selectedSession === sessionId) {
+          setSelectedSession(null);
+        }
+      } catch (error) {
+        console.error("Error deleting session:", error);
+        alert("Failed to delete conversation. Please try again.");
+      }
+    };
+
     const formatDate = (dateString: string) => {
       const date = new Date(dateString);
       const now = new Date();
@@ -156,7 +192,9 @@ const ChatHistory = forwardRef<ChatHistoryRef, ChatHistoryProps>(
     }
 
     return (
-      <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
+      <div
+        className={`bg-white rounded-lg shadow-sm border flex flex-col h-full ${className}`}
+      >
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
@@ -183,7 +221,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, ChatHistoryProps>(
         </div>
 
         {/* Sessions List */}
-        <div className="max-h-96 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           {filteredSessions.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
               {searchTerm ? (
@@ -233,10 +271,19 @@ const ChatHistory = forwardRef<ChatHistoryRef, ChatHistoryProps>(
                       <FaCommentDots className="mr-1" />
                       {session.messageCount} messages
                     </span>
-                    <span className="flex items-center">
-                      <FaCalendarAlt className="mr-1" />
-                      {format(new Date(session.createdAt), "MMM dd, yyyy")}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center">
+                        <FaCalendarAlt className="mr-1" />
+                        {format(new Date(session.createdAt), "MMM dd, yyyy")}
+                      </span>
+                      <button
+                        onClick={(e) => handleDeleteSession(session.id, e)}
+                        className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 ml-1"
+                        title="Delete conversation"
+                      >
+                        <FaTrash className="text-xs" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
