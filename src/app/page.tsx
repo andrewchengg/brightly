@@ -103,28 +103,28 @@ const Homepage = () => {
       {/* Navigation */}
       <nav className="fixed w-full bg-white/80 backdrop-blur-md shadow-sm z-50 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
+          <div className="flex justify-between h-20 items-center">
             <div className="flex-shrink-0">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="font-bold text-4xl text-slate-900 tracking-tight hover:text-slate-700 transition-colors duration-300">
                 Brightly
               </h1>
             </div>
             <div className="hidden md:flex items-center space-x-8">
               <button
                 onClick={() => scrollToSection("features")}
-                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                className="text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
               >
                 Features
               </button>
               <button
                 onClick={() => scrollToSection("pricing")}
-                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                className="text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
               >
                 Pricing
               </button>
               <button
                 onClick={() => scrollToSection("about")}
-                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                className="text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
               >
                 About
               </button>
@@ -177,23 +177,23 @@ const Homepage = () => {
 
           {/* Mobile menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden absolute top-16 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-lg">
+            <div className="md:hidden absolute top-20 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-lg">
               <div className="px-4 py-6 space-y-4">
                 <button
                   onClick={() => scrollToSection("features")}
-                  className="block text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                  className="block text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
                 >
                   Features
                 </button>
                 <button
                   onClick={() => scrollToSection("pricing")}
-                  className="block text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                  className="block text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
                 >
                   Pricing
                 </button>
                 <button
                   onClick={() => scrollToSection("about")}
-                  className="block text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                  className="block text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
                 >
                   About
                 </button>

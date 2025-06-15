@@ -197,6 +197,14 @@ export default function RandomPractice() {
         if (sessionData.subjectId && !currentSubjectId) {
           setCurrentSubjectId(sessionData.subjectId);
         }
+        
+        // Add subjectId filtering to questions URL if available
+        const subjectIdToUse = currentSubjectId || sessionData.subjectId;
+        if (subjectIdToUse) {
+          // Check if URL already has parameters
+          const separator = questionsUrl.includes('?') ? '&' : '?';
+          questionsUrl += `${separator}subjectId=${subjectIdToUse}`;
+        }
 
         const questionsResponse = await fetch(questionsUrl);
         if (!questionsResponse.ok) {
@@ -226,7 +234,7 @@ export default function RandomPractice() {
         return null;
       }
     },
-    [userId]
+    [userId, currentSubjectId]
   );
 
   const createNewPracticeSession = useCallback(
@@ -421,6 +429,7 @@ export default function RandomPractice() {
     fetchRandomQuestionsAndStartSession,
     existingSessionId,
     loadExistingSession,
+    currentSubjectId,
   ]);
 
   useEffect(() => {

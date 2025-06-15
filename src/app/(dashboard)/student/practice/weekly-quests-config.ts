@@ -15,7 +15,11 @@ import {
   FaRocket,
   FaStar,
   FaCrosshairs,
-  FaGraduationCap
+  FaGraduationCap,
+  FaArrowUp,
+  FaSearch,
+  FaShieldAlt,
+  FaBalanceScale
 } from "react-icons/fa";
 
 export interface WeeklyQuest {
@@ -36,12 +40,12 @@ export const calculateXPTarget = (level: number): number => {
 
 // Function to calculate accuracy session target based on level
 export const calculateAccuracyTarget = (level: number): number => {
-  return Math.max(3, Math.floor(2 + (level * 0.5))); // Base 3, +0.5 per level (rounded down)
+  return Math.max(3, Math.floor(3 + (level * 0.5))); // Base 3, +0.5 per level (rounded down)
 };
 
 // All available weekly quest templates
 export const WEEKLY_QUEST_TEMPLATES = [
-  // Core Quests (Your original ideas)
+  // Core Weekly Quests (Your original ideas)
   {
     id: 'earn-xp',
     category: 'core' as const,
@@ -93,7 +97,7 @@ export const WEEKLY_QUEST_TEMPLATES = [
     category: 'subject' as const,
     template: () => ({
       title: "Subject Specialist",
-      description: "Complete 5+ practice sessions in your chosen subject",
+      description: "Complete 5+ practice sessions in your chosen subject specialty",
       target: 5,
       icon: FaGraduationCap,
       color: "blue"
@@ -128,7 +132,7 @@ export const WEEKLY_QUEST_TEMPLATES = [
     category: 'consistency' as const,
     template: () => ({
       title: "Consistent Learner",
-      description: "Complete at least 2 sessions on 4 different days",
+      description: "Complete at least 2 practice sessions on 4 different days",
       target: 4,
       icon: FaChartLine,
       color: "teal"
@@ -152,7 +156,7 @@ export const WEEKLY_QUEST_TEMPLATES = [
     category: 'challenge' as const,
     template: () => ({
       title: "Rising Star",
-      description: "Complete 3 practice sessions with increasing difficulty",
+      description: "Complete 3 practice sessions with increasing difficulty levels",
       target: 3,
       icon: FaStar,
       color: "pink"
@@ -163,7 +167,7 @@ export const WEEKLY_QUEST_TEMPLATES = [
     category: 'challenge' as const,
     template: () => ({
       title: "Challenge Seeker",
-      description: "Complete 2 Random Practice sessions",
+      description: "Complete 2 'Random Practice' sessions",
       target: 2,
       icon: FaPlay,
       color: "red"
@@ -187,8 +191,8 @@ export const WEEKLY_QUEST_TEMPLATES = [
     category: 'performance' as const,
     template: () => ({
       title: "Accuracy Champion",
-      description: "Maintain 85%+ average accuracy across all sessions",
-      target: 85,
+      description: "Maintain 85%+ average accuracy across all sessions this week",
+      target: 1, // Achievement-based, not cumulative
       icon: FaCrosshairs,
       color: "emerald"
     })
@@ -222,10 +226,21 @@ export const WEEKLY_QUEST_TEMPLATES = [
     category: 'social' as const,
     template: () => ({
       title: "League Climber",
-      description: "Gain enough XP to improve your league ranking",
+      description: "Gain enough XP to move up in your league ranking",
       target: 1,
       icon: FaMedal,
       color: "gold"
+    })
+  },
+  {
+    id: 'comeback-champion',
+    category: 'social' as const,
+    template: () => ({
+      title: "Comeback King/Queen",
+      description: "Improve your score by 10+ points from last week's average",
+      target: 1,
+      icon: FaArrowUp,
+      color: "rose"
     })
   },
 
@@ -235,10 +250,21 @@ export const WEEKLY_QUEST_TEMPLATES = [
     category: 'learning' as const,
     template: () => ({
       title: "Knowledge Seeker",
-      description: "Complete sessions from topics you've never tried",
+      description: "Complete practice sessions from topics you've never tried before",
       target: 2,
-      icon: FaBook,
+      icon: FaSearch,
       color: "slate"
+    })
+  },
+  {
+    id: 'weakness-warrior',
+    category: 'learning' as const,
+    template: () => ({
+      title: "Weakness Warrior",
+      description: "Focus on your lowest-performing subject (complete 3 sessions)",
+      target: 3,
+      icon: FaShieldAlt,
+      color: "red"
     })
   },
   {
@@ -248,7 +274,7 @@ export const WEEKLY_QUEST_TEMPLATES = [
       title: "Balanced Learner",
       description: "Score 70%+ in at least 2 different subjects",
       target: 2,
-      icon: FaUsers,
+      icon: FaBalanceScale,
       color: "lime"
     })
   }
@@ -264,10 +290,13 @@ export const generateWeeklyQuests = (level: number = 1, count: number = 5): Week
   const shuffledCore = [...coreQuests].sort(() => Math.random() - 0.5);
   const shuffledOther = [...otherQuests].sort(() => Math.random() - 0.5);
   
-  // Select quests (at least 1 core, rest random)
+  // Select quests (at least 1-2 core, rest random)
+  const coreCount = Math.min(2, count);
+  const otherCount = count - coreCount;
+  
   const selectedTemplates = [
-    ...shuffledCore.slice(0, Math.min(2, count)), // Take 1-2 core quests
-    ...shuffledOther.slice(0, count - Math.min(2, count)) // Fill rest with other quests
+    ...shuffledCore.slice(0, coreCount), // Take 1-2 core quests
+    ...shuffledOther.slice(0, otherCount) // Fill rest with other quests
   ];
   
   // Generate actual quest objects

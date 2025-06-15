@@ -31,11 +31,19 @@ import {
 } from "react-icons/fa";
 import { LuCalculator } from "react-icons/lu";
 
-import {
-  WeeklyQuest,
-  getCurrentWeeklyQuests,
-  generateWeeklyQuests,
-} from "./weekly-quests-config";
+// Import only the interface - we'll fetch actual data from API
+interface WeeklyQuest {
+  id: string;
+  title: string;
+  description: string;
+  progress: number;
+  target: number;
+  icon: string;
+  color: string;
+  category: string;
+  isCompleted: boolean;
+  completedAt?: string;
+}
 
 // Define the subjects we want to display
 const subjects = [
@@ -107,9 +115,20 @@ export default function PracticePage() {
 
   // Initialize weekly quests on component mount
   useEffect(() => {
-    const quests = getCurrentWeeklyQuests(playerLevel);
-    setWeeklyQuests(quests);
-  }, [playerLevel]);
+    fetchWeeklyQuests();
+  }, []);
+
+  const fetchWeeklyQuests = async () => {
+    try {
+      const response = await fetch('/api/weekly-quests');
+      if (response.ok) {
+        const quests = await response.json();
+        setWeeklyQuests(quests);
+      }
+    } catch (error) {
+      console.error('Error fetching weekly quests:', error);
+    }
+  };
 
   // Mock mistakes count - replace with actual data source
   const mistakesCount = 0; // This would come from your data source
@@ -132,11 +151,24 @@ export default function PracticePage() {
     router.push("/student/review");
   };
 
-  // Function to generate new weekly quests
-  const generateNewWeeklyQuests = () => {
-    const newQuests = generateWeeklyQuests(playerLevel, 5);
-    setWeeklyQuests(newQuests);
-    // Here you would also save to your backend/localStorage
+  // Function to refresh weekly quests
+  const refreshWeeklyQuests = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/weekly-quests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'refresh' })
+      });
+      if (response.ok) {
+        const quests = await response.json();
+        setWeeklyQuests(quests);
+      }
+    } catch (error) {
+      console.error('Error refreshing weekly quests:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -196,7 +228,8 @@ export default function PracticePage() {
                     variant="ghost"
                     size="sm"
                     className="text-xs text-indigo-600 hover:text-indigo-800"
-                    onClick={generateNewWeeklyQuests}
+                    onClick={refreshWeeklyQuests}
+                    disabled={loading}
                   >
                     <FaSync className="mr-1" />
                     NEW QUESTS
@@ -301,7 +334,31 @@ interface WeeklyQuestCardProps {
 }
 
 function WeeklyQuestCard({ quest }: WeeklyQuestCardProps) {
-  const IconComponent = quest.icon;
+  // Map icon names to components
+  const iconMap: { [key: string]: any } = {
+    FaTrophy,
+    FaBullseye,
+    FaFire,
+    FaBook,
+    FaChartLine,
+    FaUsers,
+    FaCrown,
+    FaMedal,
+    FaGem,
+    FaBookOpen,
+    FaPlay,
+    FaExclamationTriangle,
+    FaArrowRight,
+    FaHeadphones,
+    FaComments,
+    FaMicrophone,
+    FaCalculator,
+    FaLanguage,
+    FaFlask,
+    FaGlobe,
+  };
+  
+  const IconComponent = iconMap[quest.icon] || FaTrophy;
   const isCompleted = quest.progress >= quest.target;
   const progressPercentage = Math.min(
     (quest.progress / quest.target) * 100,

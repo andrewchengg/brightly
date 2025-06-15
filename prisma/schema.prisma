@@ -47,6 +47,7 @@ model Student {
   studentBadges        StudentBadge[]
   chatSessions         ChatSession[]
   uploadedQuestions    StudentUploadedQuestion[]
+  weeklyQuests         WeeklyQuest[]
 }
 
 model Teacher {
@@ -491,6 +492,30 @@ model ChatMessage {
   @@index([sessionId, timestamp])
 }
 
+model WeeklyQuest {
+  id            String             @id @default(uuid())
+  studentId     String
+  questType     String             // 'earn-xp', 'high-accuracy', etc.
+  title         String
+  description   String
+  target        Int
+  progress      Int                @default(0)
+  isCompleted   Boolean            @default(false)
+  completedAt   DateTime?
+  weekStart     DateTime           // Monday of the week this quest belongs to
+  weekEnd       DateTime           // Sunday of the week this quest belongs to
+  icon          String             // Icon name for frontend
+  color         String             // Color theme
+  category      WeeklyQuestCategory
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  student       Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, questType, weekStart])
+  @@index([studentId, weekStart])
+  @@index([weekStart, weekEnd])
+}
+
 enum MessageRole {
   USER
   ASSISTANT
@@ -555,4 +580,14 @@ enum ProcessingStatus {
   COMPLETED
   FAILED
   NEEDS_REVIEW
+}
+
+enum WeeklyQuestCategory {
+  CORE
+  SUBJECT
+  CONSISTENCY
+  CHALLENGE
+  PERFORMANCE
+  SOCIAL
+  LEARNING
 }

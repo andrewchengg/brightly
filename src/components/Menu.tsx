@@ -382,11 +382,11 @@ const Menu = () => {
             key={item.label}
             onClick={handleSignOut}
             disabled={isLoading}
-            className={`flex items-center gap-4 py-3 px-4 rounded-xl hover:bg-red-50 hover:shadow-sm transition-all duration-300 w-full group border border-transparent hover:border-red-100
+            className={`flex items-center gap-3 py-2.5 px-4 rounded-xl hover:bg-red-50 hover:shadow-sm transition-all duration-300 w-full group border border-transparent hover:border-red-100
               ${isLoading ? "opacity-60 cursor-not-allowed" : "opacity-100"}`}
           >
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-red-50 group-hover:bg-red-100 transition-colors duration-300 shadow-sm">
-              <item.icon size={18} className="text-red-600" />
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 group-hover:bg-red-100 transition-colors duration-300 shadow-sm">
+              <item.icon size={16} className="text-red-600" />
             </div>
             <span className="hidden lg:block font-semibold text-slate-700 group-hover:text-red-600 transition-colors duration-300">
               {isLoading ? "Signing out..." : item.label}
@@ -399,7 +399,7 @@ const Menu = () => {
         <Link
           href={effectiveHref}
           key={item.label}
-          className={`flex items-center gap-4 py-3 px-4 rounded-xl transition-all duration-300 group border relative overflow-hidden
+          className={`flex items-center gap-3 py-2.5 px-4 rounded-xl transition-all duration-300 group border relative overflow-hidden
             ${
               isActive
                 ? "bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-100 shadow-sm"
@@ -417,14 +417,14 @@ const Menu = () => {
           ></div>
 
           <div
-            className={`flex items-center justify-center w-11 h-11 rounded-xl transition-all duration-300 shadow-sm ${
+            className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300 shadow-sm ${
               isActive
                 ? "bg-gradient-to-br from-indigo-100 to-indigo-50"
                 : "bg-slate-50 group-hover:bg-slate-100"
             }`}
           >
             <item.icon
-              size={18}
+              size={16}
               className={`transition-colors duration-300 ${
                 isActive
                   ? "text-indigo-600"
@@ -451,7 +451,7 @@ const Menu = () => {
   return (
     <div className="mt-2 px-2 w-full max-w-sm">
       {/* Main menu items */}
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         {mainItems.map((item) => renderMenuItem(item))}
       </div>
 
@@ -460,17 +460,17 @@ const Menu = () => {
         <div className="mt-6">
           <button
             onClick={() => setShowMore(!showMore)}
-            className="flex items-center gap-4 py-3 px-4 rounded-xl hover:bg-slate-50 hover:shadow-sm transition-all duration-300 w-full group border border-transparent hover:border-slate-100"
+            className="flex items-center gap-3 py-2.5 px-4 rounded-xl hover:bg-slate-50 hover:shadow-sm transition-all duration-300 w-full group border border-transparent hover:border-slate-100"
           >
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-slate-50 group-hover:bg-slate-100 transition-all duration-300 shadow-sm">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 group-hover:bg-slate-100 transition-all duration-300 shadow-sm">
               {showMore ? (
                 <FaChevronUp
-                  size={18}
+                  size={16}
                   className="text-slate-600 group-hover:text-indigo-600 transition-colors duration-300"
                 />
               ) : (
                 <FaChevronDown
-                  size={18}
+                  size={16}
                   className="text-slate-600 group-hover:text-indigo-600 transition-colors duration-300"
                 />
               )}
@@ -481,14 +481,14 @@ const Menu = () => {
           </button>
 
           {showMore && (
-            <div className="space-y-1 mt-3 pl-2 border-l-2 border-slate-100">
+            <div className="space-y-0.5 mt-3 pl-2 border-l-2 border-slate-100">
               {moreItems.map((item) => renderMenuItem(item))}
             </div>
           )}
         </div>
       )}
 
-      <div className="hidden lg:block px-2 py-8 mt-12"></div>
+      <div className="hidden lg:block px-2 py-4 mt-6"></div>
     </div>
   );
 };

@@ -301,6 +301,21 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
     // Balanced patterns for mathematical expressions - comprehensive but not over-greedy
     // Note: (?:[0-9]+(?:\s[0-9]+)*) matches numbers with spaces like "20 053"
     const mathPatterns = [
+      // Mixed fractions like "3 1/4", "2 3/8" (must come before other patterns)
+      /(\b[0-9]+\s+[0-9]+\/[0-9]+\b)/g,
+      
+      // Complex expressions with mixed fractions like "3 1/4 + 2 1/2"
+      /(\b[0-9]+\s+[0-9]+\/[0-9]+(?:\s*[\+\-×÷\*]\s*[0-9]+(?:\s+[0-9]+\/[0-9]+|\/[0-9]+)?)+\b)/g,
+      
+      // Complex expressions with multiple fractions like "1 - 1/3 - 1/4"
+      /([0-9]+(?:\s*[\+\-×÷\*\/]\s*[0-9]+\/[0-9]+)+)/g,
+      
+      // Expressions with fractions and other operations like "1/2 + 3/4 - 1"
+      /([0-9]+\/[0-9]+(?:\s*[\+\-×÷\*]\s*[0-9]+(?:\/[0-9]+)?)+)/g,
+      
+      // Mixed operations with fractions like "2 × 1/3", "5 + 1/4"
+      /([0-9]+\s*[\+\-×÷\*]\s*[0-9]+\/[0-9]+|[0-9]+\/[0-9]+\s*[\+\-×÷\*]\s*[0-9]+)/g,
+      
       // Complex expressions with parentheses and multiple operations like "14000 ÷ 4 = (12000 ÷ 4) + (2000 ÷ 4)"
       /((?:[0-9]+(?:\s[0-9]+)*)\s*[÷\/×\*\+\-]\s*(?:[0-9]+(?:\s[0-9]+)*)\s*=\s*\((?:[0-9]+(?:\s[0-9]+)*)\s*[÷\/×\*\+\-]\s*(?:[0-9]+(?:\s[0-9]+)*)\)\s*[÷\/×\*\+\-]\s*\((?:[0-9]+(?:\s[0-9]+)*)\s*[÷\/×\*\+\-]\s*(?:[0-9]+(?:\s[0-9]+)*)\))/g,
       
@@ -415,7 +430,7 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
       segments.push(
         <span 
           key={`math-${match.index}`} 
-          className="font-mono bg-purple-50 px-2 py-1 rounded-md text-purple-700 font-semibold border border-purple-200 shadow-sm"
+          className="font-semibold text-blue-700"
         >
           {formattedMath}
         </span>
@@ -432,7 +447,86 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
     return segments.length > 0 ? segments : [text];
   };
 
-  const formatSingleMathExpression = (mathText: string): string => {
+  const formatSingleMathExpression = (mathText: string): React.ReactNode => {
+    // Check if it's a mixed fraction like "3 1/4"
+    const mixedFractionMatch = mathText.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+    if (mixedFractionMatch) {
+      const [, wholeNumber, numerator, denominator] = mixedFractionMatch;
+      return (
+        <span className="inline-flex items-center">
+          <span className="mr-1">{wholeNumber}</span>
+          <span className="inline-block align-middle">
+            <span className="block text-center border-b border-current leading-tight">{numerator}</span>
+            <span className="block text-center leading-tight">{denominator}</span>
+          </span>
+        </span>
+      );
+    }
+
+    // Check if it's a simple fraction (not part of a complex expression)
+    const simpleFractionMatch = mathText.match(/^(\d+)\/(\d+)$/);
+    if (simpleFractionMatch) {
+      const [, numerator, denominator] = simpleFractionMatch;
+      return (
+        <span className="inline-block align-middle">
+          <span className="block text-center border-b border-current leading-tight">{numerator}</span>
+          <span className="block text-center leading-tight">{denominator}</span>
+        </span>
+      );
+    }
+
+    // For complex expressions, check if they contain fractions that need special formatting
+    if (mathText.includes('/') || mathText.match(/\d+\s+\d+\/\d+/)) {
+      // Split by spaces and operators to process each part
+      const parts = mathText.split(/(\s*[\+\-×÷\*]\s*)/);
+      const renderedParts: React.ReactNode[] = [];
+
+      parts.forEach((part, index) => {
+        const trimmedPart = part.trim();
+        
+        // Check if this part is a mixed fraction
+        const mixedFractionMatch = trimmedPart.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+        if (mixedFractionMatch) {
+          const [, wholeNumber, numerator, denominator] = mixedFractionMatch;
+          renderedParts.push(
+            <span key={index} className="inline-flex items-center mx-1">
+              <span className="mr-1">{wholeNumber}</span>
+              <span className="inline-block align-middle">
+                <span className="block text-center border-b border-current leading-tight text-sm">{numerator}</span>
+                <span className="block text-center leading-tight text-sm">{denominator}</span>
+              </span>
+            </span>
+          );
+        }
+        // Check if this part is a regular fraction
+        else if (trimmedPart.match(/^(\d+)\/(\d+)$/)) {
+          const fractionMatch = trimmedPart.match(/^(\d+)\/(\d+)$/);
+          if (fractionMatch) {
+            const [, numerator, denominator] = fractionMatch;
+            renderedParts.push(
+              <span key={index} className="inline-block align-middle mx-1">
+                <span className="block text-center border-b border-current leading-tight">{numerator}</span>
+                <span className="block text-center leading-tight">{denominator}</span>
+              </span>
+            );
+          }
+        } else if (trimmedPart.match(/^[\+\-×÷]$/)) {
+          // This is an operator
+          renderedParts.push(
+            <span key={index} className="mx-1">{trimmedPart}</span>
+          );
+        } else if (trimmedPart) {
+          // This is a regular number or other content
+          renderedParts.push(
+            <span key={index} className="mx-1">{trimmedPart}</span>
+          );
+        }
+      });
+
+      return <span className="inline-flex items-center">{renderedParts}</span>;
+    }
+
+    // For other mathematical expressions without fractions, return formatted string
     return mathText
       // Convert division slash to division symbol (but preserve text like "numbers/block")
       .replace(/(\d)\s*\/\s*(\d)/g, '$1 ÷ $2')

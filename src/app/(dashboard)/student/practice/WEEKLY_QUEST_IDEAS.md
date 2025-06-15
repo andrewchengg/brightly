@@ -53,7 +53,7 @@ This file contains all the weekly quest ideas discussed and implemented for the 
 - **Social**: League and competitive elements
 - **Learning**: Growth and exploration focused
 
-### Functions Available:
+### Functions Available:    
 - `generateWeeklyQuests(level, count)` - Generate new random weekly quests
 - `getCurrentWeeklyQuests(level)` - Get current week's quests
 - `calculateXPTarget(level)` - Calculate XP target based on level
