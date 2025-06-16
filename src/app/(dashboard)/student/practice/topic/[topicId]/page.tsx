@@ -26,6 +26,7 @@ import {
   sanitizeUserInput,
   getHelpfulSuggestions,
 } from "@/lib/client-validation";
+import ConfettiComponent from "@/components/Confetti";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -42,6 +43,7 @@ import {
   FaArrowRight,
   FaRocket,
   FaBookOpen,
+  FaFlag,
 } from "react-icons/fa";
 
 // Interfaces (same as RandomPractice)
@@ -86,6 +88,142 @@ interface LocalStorageTopicalPracticeProgress {
   practiceSessionId?: string | null;
   subjectId?: number | null;
   topicId: number; // Topic ID is key here
+}
+
+const QUESTION_REPORT_TYPES = [
+  { value: "INCORRECT_ANSWER", label: "Incorrect Answer" },
+  { value: "WRONG_EXPLANATION", label: "Wrong Explanation" },
+  { value: "POOR_FORMATTING", label: "Poor Formatting" },
+  { value: "TECHNICAL_ISSUE", label: "Technical Issue" },
+  { value: "INAPPROPRIATE_CONTENT", label: "Inappropriate Content" },
+  { value: "OTHER", label: "Other" },
+];
+
+function ReportQuestionModal({
+  open,
+  onClose,
+  questionId,
+  studentId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  questionId: number | undefined;
+  studentId: string | null;
+}) {
+  const [reportType, setReportType] = useState(QUESTION_REPORT_TYPES[0].value);
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!questionId || !studentId) {
+      setError("Missing question or user info.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/questions/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionId,
+          studentId,
+          reportType,
+          description,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to submit report");
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to submit report");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) {
+      setReportType(QUESTION_REPORT_TYPES[0].value);
+      setDescription("");
+      setSuccess(false);
+      setError(null);
+    }
+  }, [open]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
+        <button
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+          onClick={onClose}
+        >
+          ×
+        </button>
+        <h2 className="text-lg font-bold mb-4 flex items-center">
+          <FaFlag className="mr-2 text-red-500" /> Report Question
+        </h2>
+        {success ? (
+          <div className="text-green-600 font-semibold text-center py-4">
+            Thank you! Your report has been submitted.
+            <button
+              className="block mt-4 mx-auto px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Type of Problem</label>
+              <select
+                className="w-full border rounded p-2"
+                value={reportType}
+                onChange={e => setReportType(e.target.value)}
+                required
+              >
+                {QUESTION_REPORT_TYPES.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Description</label>
+              <textarea
+                className="w-full border rounded p-2 min-h-[80px]"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Describe the issue..."
+                required
+              />
+            </div>
+            {error && <div className="text-red-600 text-sm">{error}</div>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-60"
+                disabled={submitting}
+              >
+                {submitting ? "Submitting..." : "Submit Report"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function TopicalPracticePage() {
@@ -137,6 +275,7 @@ export default function TopicalPracticePage() {
 
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -150,6 +289,8 @@ export default function TopicalPracticePage() {
   const localStorageKey = userId
     ? `topicalPracticeProgress_${userId}_${numericTopicId}`
     : null;
+
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     if (authUserIsLoaded) {
@@ -692,6 +833,10 @@ export default function TopicalPracticePage() {
       }
 
       setSessionFinalized(true);
+      
+      // Trigger confetti for session completion
+      setShowConfetti(true);
+      
       const levelUpInfo = await awardXPAndStreak(calculatedScore);
       if (levelUpInfo) {
         setNewLevel(levelUpInfo.newLevel);
@@ -775,6 +920,12 @@ export default function TopicalPracticePage() {
         selectedOptionLetter === correctAnswerId || // Letter-based match (c for option C)
         String.fromCharCode(65 + selectedOptionIndex) === String(currentQuestion.correctAnswer) || // Uppercase letter match
         (selectedOptionIndex + 1).toString() === String(currentQuestion.correctAnswer); // 1-based index match
+      
+      // Trigger confetti for correct answers
+      if (isCorrect) {
+        setShowConfetti(true);
+      }
+      
       const correctOption = currentQuestion.options.find(
         (opt) => opt.id.toLowerCase() === correctAnswerId
       );
@@ -817,6 +968,12 @@ export default function TopicalPracticePage() {
             .toLowerCase(),
         ];
     const isCorrect = cAnsArr.includes(userAnswer.toLowerCase());
+    
+    // Trigger confetti for correct answers
+    if (isCorrect) {
+      setShowConfetti(true);
+    }
+    
     const feedback = isCorrect
       ? "Great job!"
       : `Incorrect. Correct: "${cAnsArr.join(" or ")}".`;
@@ -830,8 +987,7 @@ export default function TopicalPracticePage() {
       !currentQuestion ||
       typeof currentQuestion.correctAnswer !== "object" ||
       currentQuestion.correctAnswer === null ||
-      Array.isArray(currentQuestion.correctAnswer) ||
-      selectedAnswer !== null
+      Array.isArray(currentQuestion.correctAnswer)
     )
       return;
     const correctAnswersMap = currentQuestion.correctAnswer as Record<
@@ -853,6 +1009,12 @@ export default function TopicalPracticePage() {
     }
     setMultiPartResults(currentPartResults);
     setSelectedAnswer(JSON.stringify(multiPartAnswers));
+    
+    // Trigger confetti for correct answers
+    if (allPartsCorrect) {
+      setShowConfetti(true);
+    }
+    
     const feedback = allPartsCorrect
       ? "All parts correct!"
       : "Some parts incorrect.";
@@ -868,6 +1030,8 @@ export default function TopicalPracticePage() {
       setCurrentQuestionIndex((prevIndex) => prevIndex + 1);
     } else {
       setShowSummary(true);
+      // Trigger confetti when showing results (session completion)
+      setShowConfetti(true);
       await finalizePracticeSessionInDb();
     }
   }, [currentQuestionIndex, questions.length, finalizePracticeSessionInDb]);
@@ -1343,6 +1507,10 @@ export default function TopicalPracticePage() {
             onClose={() => setShowLevelUp(false)}
           />
         )}
+        <ConfettiComponent 
+          trigger={showConfetti} 
+          onComplete={() => setShowConfetti(false)}
+        />
         <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
           <div className="p-6 md:p-8 bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-center">
             <FaBookOpen className="text-5xl mx-auto mb-4 opacity-80" />
@@ -1387,20 +1555,62 @@ export default function TopicalPracticePage() {
               <h3 className="text-lg font-semibold text-gray-700 mb-3">
                 Review Your Answers:
               </h3>
-              <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+              <div className="max-h-96 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                 {questionResults.map((result, index) => (
                   <div
                     key={result.id}
-                    className={`flex items-center justify-between p-3 rounded-md text-sm ${
+                    className={`p-4 rounded-lg border-l-4 ${
                       result.correct
-                        ? "bg-green-50 text-green-700"
-                        : "bg-red-50 text-red-700"
+                        ? "bg-green-50 border-green-400 text-green-800"
+                        : "bg-red-50 border-red-400 text-red-800"
                     }`}
                   >
-                    <span>
-                      Q{index + 1}: {result.question.substring(0, 50)}...
-                    </span>
-                    {result.correct ? <FaCheck /> : <FaTimes />}
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-semibold text-sm">
+                        Question {index + 1}
+                      </h4>
+                      <div className="flex items-center">
+                        {result.correct ? (
+                          <div className="flex items-center text-green-600">
+                            <FaCheck className="mr-1" />
+                            <span className="text-xs font-medium">Correct</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-red-600">
+                            <FaTimes className="mr-1" />
+                            <span className="text-xs font-medium">Incorrect</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm mb-3 text-gray-700 leading-relaxed">
+                      {result.question}
+                    </p>
+                    
+                    <div className="space-y-2 text-xs">
+                      <div className="flex flex-wrap">
+                        <span className="font-medium text-gray-600 mr-2">Your Answer:</span>
+                        <span className={`${result.correct ? 'text-green-700' : 'text-red-700'} font-medium`}>
+                          {typeof result.userAnswer === 'object' 
+                            ? Object.entries(result.userAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
+                            : result.userAnswer || 'No answer'}
+                        </span>
+                      </div>
+                      
+                      {!result.correct && (
+                        <div className="flex flex-wrap">
+                          <span className="font-medium text-gray-600 mr-2">Correct Answer:</span>
+                          <span className="text-green-700 font-medium">
+                            {typeof result.correctAnswer === 'object' && result.correctAnswer !== null
+                              ? Array.isArray(result.correctAnswer) 
+                                ? result.correctAnswer.join(', ')
+                                : Object.entries(result.correctAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
+                              : result.correctAnswer || 'N/A'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1483,6 +1693,10 @@ export default function TopicalPracticePage() {
           onClose={() => setShowLevelUp(false)}
         />
       )}
+      <ConfettiComponent 
+        trigger={showConfetti} 
+        onComplete={() => setShowConfetti(false)}
+      />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
         <button
           onClick={exitToTopicList}
@@ -1532,6 +1746,16 @@ export default function TopicalPracticePage() {
               >
                 {currentQuestion?.difficulty || "MEDIUM"}
               </span>
+              {/* Report Button */}
+              <button
+                className="ml-4 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
+                onClick={e => {
+                  e.stopPropagation();
+                  setShowReportModal(true);
+                }}
+              >
+                <FaFlag className="mr-1" /> Report
+              </button>
             </div>
 
             <h1 className="text-lg md:text-xl font-semibold text-gray-800 mb-4 leading-snug">
@@ -1660,6 +1884,12 @@ export default function TopicalPracticePage() {
           />
         </div>
       </div>
+      <ReportQuestionModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        questionId={currentQuestion?.id}
+        studentId={userId}
+      />
     </div>
   );
 }

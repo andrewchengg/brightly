@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
   const isRefactored = searchParams.get("isRefactored");
   const questionGroupId = searchParams.get("questionGroupId");
   const search = searchParams.get("search");
+  const questionId = searchParams.get("questionId");
   const skip = (page - 1) * limit;
 
   try {
@@ -77,11 +78,13 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // If no specific filters are applied, default to showing questions that need review
-    // (questions that are either not production ready OR not refactored)
-    if (Object.keys(whereCondition).length === 0) {
-      whereCondition.OR = [{ productionReady: false }, { isRefactored: false }];
+    if (questionId && questionId !== "undefined" && !isNaN(parseInt(questionId, 10))) {
+      whereCondition.id = parseInt(questionId, 10);
     }
+
+    // Only apply default filter for questions needing review if explicitly requesting "show all"
+    // Otherwise, when filters are applied, show results based on those filters
+    // When no filters are specified, show all questions (don't default to filtering)
 
     const questions = await prisma.question.findMany({
       where: whereCondition,

@@ -27,6 +27,8 @@ import {
   FaSpinner,
   FaImage,
   FaInfoCircle,
+  FaTrash,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 
 // Define a Zod schema for form validation
@@ -96,15 +98,21 @@ interface QuestionEditorFormProps {
   questionData: QuestionReviewData;
   onQuestionAccepted: () => void;
   onQuestionUpdated: () => void;
+  onQuestionDeleted?: () => void;
+  onRefreshPreview?: (formData: any) => void;
 }
 
 export default function QuestionEditorForm({
   questionData,
   onQuestionAccepted,
   onQuestionUpdated,
+  onQuestionDeleted,
+  onRefreshPreview,
 }: QuestionEditorFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<
     string | null | undefined
   >(questionData.imageUrl);
@@ -243,6 +251,54 @@ export default function QuestionEditorForm({
       toast.error(err.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteQuestion = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/questions/review/${questionData.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Failed to delete question";
+        try {
+          const errData = await response.json();
+          errorMessage = errData.error || errorMessage;
+        } catch (jsonError) {
+          // If response isn't JSON, try to get text response
+          try {
+            const textResponse = await response.text();
+            console.error("Non-JSON error response:", textResponse);
+            errorMessage = `Server error (${response.status}): ${response.statusText}`;
+          } catch (textError) {
+            console.error("Failed to read error response:", textError);
+            errorMessage = `Server error (${response.status}): ${response.statusText}`;
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Only try to parse JSON if response is ok
+      try {
+        const result = await response.json();
+        console.log("Delete successful:", result);
+      } catch (jsonError) {
+        console.warn("Response was successful but not JSON:", jsonError);
+        // Continue anyway since the delete was successful
+      }
+
+      toast.success("Question deleted successfully!");
+      setShowDeleteConfirm(false);
+      if (onQuestionDeleted) {
+        onQuestionDeleted();
+      }
+    } catch (err: any) {
+      console.error("Delete question error:", err);
+      toast.error(err.message || "Failed to delete question");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -667,6 +723,17 @@ export default function QuestionEditorForm({
             {isSubmitting ? <FaSpinner className="animate-spin mr-2" /> : null}{" "}
             Save Changes
           </Button>
+          {onRefreshPreview && (
+            <Button
+              type="button"
+              onClick={() => onRefreshPreview(getValues())}
+              disabled={isSubmitting || uploading}
+              variant="outline"
+              className="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
+            >
+              🔄 Refresh Preview
+            </Button>
+          )}
           <Button
             type="button"
             onClick={handleSubmit((data) => onSubmit(data, true))}
@@ -677,7 +744,78 @@ export default function QuestionEditorForm({
             Accept & Mark Production Ready
           </Button>
         </div>
+
+        {/* Delete Question Section */}
+        {onQuestionDeleted && (
+          <div className="mt-6 pt-6 border-t border-red-200">
+            <div className="bg-red-50 p-4 rounded-lg">
+              <h4 className="text-lg font-semibold text-red-800 mb-2">
+                Danger Zone
+              </h4>
+              <p className="text-sm text-red-600 mb-4">
+                Delete this question permanently. This action cannot be undone and will remove all associated data including student answers and reports.
+              </p>
+              <Button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isSubmitting || isDeleting}
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <FaTrash className="mr-2" /> Delete Question
+              </Button>
+            </div>
+          </div>
+        )}
       </form>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <FaExclamationTriangle className="text-red-500 text-2xl mr-3" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                Confirm Deletion
+              </h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete Question ID {questionData.id}? This will permanently remove:
+            </p>
+            <ul className="text-sm text-gray-600 mb-6 list-disc list-inside space-y-1">
+              <li>The question and all its content</li>
+              <li>All student answers to this question</li>
+              <li>All reports related to this question</li>
+              <li>Any archived versions of this question</li>
+            </ul>
+            <p className="text-red-600 font-semibold mb-6">
+              This action cannot be undone!
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                onClick={() => setShowDeleteConfirm(false)}
+                variant="outline"
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteQuestion}
+                disabled={isDeleting}
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isDeleting ? (
+                  <FaSpinner className="animate-spin mr-2" />
+                ) : (
+                  <FaTrash className="mr-2" />
+                )}
+                {isDeleting ? "Deleting..." : "Delete Question"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

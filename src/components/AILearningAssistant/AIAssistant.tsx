@@ -152,19 +152,27 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
           });
         }
 
+        // Always include the correct answer if available
+        if (questionContext.correctAnswer) {
+          context += `Correct Answer: ${JSON.stringify(questionContext.correctAnswer)}\n`;
+        }
+
+        // Always include the official explanation if available
+        if (questionContext.explanation) {
+          context += `Official Explanation: ${questionContext.explanation}\n`;
+          context += `IMPORTANT: When explaining this question, use the Official Explanation above as your primary source. Present it in a student-friendly way but maintain its accuracy.\n`;
+        }
+
         if (questionContext.hint) {
           context += `Hint: ${questionContext.hint}\n`;
         }
 
-        if (
-          sessionContext.isCompleted &&
-          questionContext.isCorrect !== undefined
-        ) {
-          context += `Result: ${
+        if (questionContext.isCorrect !== undefined) {
+          context += `Student's Result: ${
             questionContext.isCorrect ? "CORRECT" : "INCORRECT"
           }\n`;
-          if (questionContext.explanation) {
-            context += `Explanation: ${questionContext.explanation}\n`;
+          if (questionContext.userAnswer) {
+            context += `Student's Answer: ${JSON.stringify(questionContext.userAnswer)}\n`;
           }
         }
         context += "\n";

@@ -33,6 +33,7 @@ import {
   FaRobot,
   FaChevronDown,
   FaChevronUp,
+  FaFlag,
 } from "react-icons/fa";
 
 interface StudentInfo {
@@ -130,6 +131,12 @@ const menuItems = [
         icon: FaEdit,
         label: "Question Review",
         href: "/admin/question-review",
+        visible: ["admin"],
+      },
+      {
+        icon: FaFlag,
+        label: "Question Reports",
+        href: "/admin/question-reports",
         visible: ["admin"],
       },
       {

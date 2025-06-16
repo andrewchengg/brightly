@@ -14,7 +14,7 @@ import {
 import Image from "next/image";
 import { validateUserInput, sanitizeUserInput } from "@/lib/client-validation";
 import { toast } from "react-toastify";
-import { ChatHistory, ChatHistoryRef } from "@/components/ChatHistory";
+import { ChatHistory, ChatHistoryRef } from "@/components/ChatHistory/index";
 import {
   AIAssistant,
   createSessionContext,

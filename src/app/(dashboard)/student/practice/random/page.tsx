@@ -20,6 +20,7 @@ import {
   createSessionContext,
   createQuestionContext,
 } from "@/components/AILearningAssistant";
+import ConfettiComponent from "@/components/Confetti";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -125,6 +126,7 @@ export default function RandomPractice() {
 
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -687,6 +689,9 @@ export default function RandomPractice() {
 
       setSessionFinalized(true);
 
+      // Trigger confetti for session completion
+      setShowConfetti(true);
+
       const levelUpInfo = await awardXPAndStreak(calculatedScore);
       if (levelUpInfo) {
         setNewLevel(levelUpInfo.newLevel);
@@ -785,6 +790,11 @@ export default function RandomPractice() {
         ? correctOption.text
         : `ID: ${currentQuestion.correctAnswer}`;
 
+      // Trigger confetti for correct answers
+      if (isCorrect) {
+        setShowConfetti(true);
+      }
+
       // AI feedback will be handled by the new AI assistant component
 
       handleSubmitAnswer(optionId, isCorrect);
@@ -811,6 +821,11 @@ export default function RandomPractice() {
             .toLowerCase(),
         ];
     const isCorrect = cAnsArr.includes(userAnswer.toLowerCase());
+
+    // Trigger confetti for correct answers
+    if (isCorrect) {
+      setShowConfetti(true);
+    }
 
     // AI feedback will be handled by the new AI assistant component
 
@@ -848,6 +863,11 @@ export default function RandomPractice() {
     setMultiPartResults(currentPartResults); // For UI feedback on individual parts
     setSelectedAnswer(JSON.stringify(multiPartAnswers)); // Mark as answered for UI disabling
 
+    // Trigger confetti for correct answers
+    if (allPartsCorrect) {
+      setShowConfetti(true);
+    }
+
     // AI feedback will be handled by the new AI assistant component
 
     handleSubmitAnswer(multiPartAnswers, allPartsCorrect);
@@ -863,6 +883,8 @@ export default function RandomPractice() {
       setCurrentQuestionIndex((prevIndex) => prevIndex + 1);
     } else {
       setShowSummary(true);
+      // Trigger confetti when showing results (session completion)
+      setShowConfetti(true);
       await finalizePracticeSessionInDb();
     }
   }, [currentQuestionIndex, questions.length, finalizePracticeSessionInDb]);
@@ -1327,20 +1349,62 @@ export default function RandomPractice() {
               <h3 className="text-lg font-semibold text-gray-700 mb-3">
                 Review Your Answers:
               </h3>
-              <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+              <div className="max-h-96 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                 {questionResults.map((result, index) => (
                   <div
                     key={result.id}
-                    className={`flex items-center justify-between p-3 rounded-md text-sm ${
+                    className={`p-4 rounded-lg border-l-4 ${
                       result.correct
-                        ? "bg-green-50 text-green-700"
-                        : "bg-red-50 text-red-700"
+                        ? "bg-green-50 border-green-400 text-green-800"
+                        : "bg-red-50 border-red-400 text-red-800"
                     }`}
                   >
-                    <span>
-                      Q{index + 1}: {result.question.substring(0, 50)}...
-                    </span>
-                    {result.correct ? <FaCheck /> : <FaTimes />}
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-semibold text-sm">
+                        Question {index + 1}
+                      </h4>
+                      <div className="flex items-center">
+                        {result.correct ? (
+                          <div className="flex items-center text-green-600">
+                            <FaCheck className="mr-1" />
+                            <span className="text-xs font-medium">Correct</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-red-600">
+                            <FaTimes className="mr-1" />
+                            <span className="text-xs font-medium">Incorrect</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm mb-3 text-gray-700 leading-relaxed">
+                      {result.question}
+                    </p>
+                    
+                    <div className="space-y-2 text-xs">
+                      <div className="flex flex-wrap">
+                        <span className="font-medium text-gray-600 mr-2">Your Answer:</span>
+                        <span className={`${result.correct ? 'text-green-700' : 'text-red-700'} font-medium`}>
+                          {typeof result.userAnswer === 'object' 
+                            ? Object.entries(result.userAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
+                            : result.userAnswer || 'No answer'}
+                        </span>
+                      </div>
+                      
+                      {!result.correct && (
+                        <div className="flex flex-wrap">
+                          <span className="font-medium text-gray-600 mr-2">Correct Answer:</span>
+                          <span className="text-green-700 font-medium">
+                            {typeof result.correctAnswer === 'object' && result.correctAnswer !== null
+                              ? Array.isArray(result.correctAnswer) 
+                                ? result.correctAnswer.join(', ')
+                                : Object.entries(result.correctAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
+                              : result.correctAnswer || 'N/A'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1416,6 +1480,10 @@ export default function RandomPractice() {
           onClose={() => setShowLevelUp(false)}
         />
       )}
+      <ConfettiComponent 
+        trigger={showConfetti} 
+        onComplete={() => setShowConfetti(false)}
+      />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
         <button
           onClick={clearProgressAndExit}

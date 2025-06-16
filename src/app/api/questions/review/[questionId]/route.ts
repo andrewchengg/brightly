@@ -82,3 +82,56 @@ export async function PATCH(
     await prisma.$disconnect();
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { questionId: string } }
+) {
+  try {
+    const questionId = parseInt(params.questionId, 10);
+    
+    if (isNaN(questionId)) {
+      return NextResponse.json(
+        { error: "Invalid question ID" },
+        { status: 400 }
+      );
+    }
+
+    // Check if question exists
+    const existingQuestion = await prisma.question.findUnique({
+      where: { id: questionId },
+      include: {
+        studentAnswers: true,
+        archivedVersion: true,
+        tags: true,
+        reports: true
+      }
+    });
+
+    if (!existingQuestion) {
+      return NextResponse.json(
+        { error: "Question not found" },
+        { status: 404 }
+      );
+    }
+
+    // Delete the question (this will cascade delete related records due to Prisma schema constraints)
+    await prisma.question.delete({
+      where: { id: questionId }
+    });
+
+    return NextResponse.json({
+      message: "Question deleted successfully",
+      questionId: questionId
+    });
+
+  } catch (error: any) {
+    console.error("API: Error deleting question:", error);
+    return NextResponse.json(
+      { error: "Failed to delete question", details: error.message },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}

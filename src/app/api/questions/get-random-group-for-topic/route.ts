@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       where: {
         topicId: topicId,
         questionGroupId: { not: null },
-        productionReady: false, // Ensure questions are usable
+        productionReady: true, // Only fetch production-ready questions for math practice
       },
       select: {
         questionGroupId: true,

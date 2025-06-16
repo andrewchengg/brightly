@@ -21,6 +21,7 @@ interface FilterValues {
   isRefactored?: string;
   questionGroupId?: string;
   search?: string;
+  questionId?: string;
 }
 
 interface QuestionFiltersProps {
@@ -56,7 +57,6 @@ export default function QuestionFilters({
     subjects: [],
     questionGroups: [],
   });
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [availableTopics, setAvailableTopics] = useState<
     Array<{ id: number; name: string }>
   >([]);
@@ -135,7 +135,7 @@ export default function QuestionFilters({
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100 mb-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <FaFilter className="text-indigo-600" />
           <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
@@ -145,27 +145,19 @@ export default function QuestionFilters({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        {hasActiveFilters && (
           <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+            onClick={clearAllFilters}
+            className="flex items-center gap-1 text-sm text-red-600 hover:text-red-800 font-medium"
           >
-            {showAdvanced ? "Hide Advanced" : "Show Advanced"}
+            <FaTimes className="text-xs" />
+            Clear All
           </button>
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="flex items-center gap-1 text-sm text-red-600 hover:text-red-800 font-medium"
-            >
-              <FaTimes className="text-xs" />
-              Clear All
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       <div className="space-y-4">
-        {/* Basic Filters Row 1 */}
+        {/* Row 1: Search and Basic Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Search */}
           <div>
@@ -182,6 +174,20 @@ export default function QuestionFilters({
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
+          </div>
+
+          {/* Question ID */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Question ID
+            </label>
+            <input
+              type="number"
+              placeholder="Enter question ID..."
+              value={filters.questionId || ""}
+              onChange={(e) => handleFilterChange("questionId", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
           </div>
 
           {/* Subject */}
@@ -222,7 +228,10 @@ export default function QuestionFilters({
               ))}
             </select>
           </div>
+        </div>
 
+        {/* Row 2: Question Properties */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Difficulty */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -241,96 +250,94 @@ export default function QuestionFilters({
               ))}
             </select>
           </div>
+
+          {/* Question Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Question Type
+            </label>
+            <select
+              value={filters.questionType || ""}
+              onChange={(e) =>
+                handleFilterChange("questionType", e.target.value)
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">All Types</option>
+              {QUESTION_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Production Ready */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Production Ready
+            </label>
+            <select
+              value={filters.productionReady || ""}
+              onChange={(e) =>
+                handleFilterChange("productionReady", e.target.value)
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">All</option>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Is Refactored */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Is Refactored
+            </label>
+            <select
+              value={filters.isRefactored || ""}
+              onChange={(e) =>
+                handleFilterChange("isRefactored", e.target.value)
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">All</option>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Advanced Filters */}
-        {showAdvanced && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
-            {/* Question Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Question Type
-              </label>
-              <select
-                value={filters.questionType || ""}
-                onChange={(e) =>
-                  handleFilterChange("questionType", e.target.value)
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">All Types</option>
-                {QUESTION_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Production Ready */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Production Ready
-              </label>
-              <select
-                value={filters.productionReady || ""}
-                onChange={(e) =>
-                  handleFilterChange("productionReady", e.target.value)
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">All</option>
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Is Refactored */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Is Refactored
-              </label>
-              <select
-                value={filters.isRefactored || ""}
-                onChange={(e) =>
-                  handleFilterChange("isRefactored", e.target.value)
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">All</option>
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Question Group */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Question Group
-              </label>
-              <select
-                value={filters.questionGroupId || ""}
-                onChange={(e) =>
-                  handleFilterChange("questionGroupId", e.target.value)
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">All Groups</option>
-                {filterOptions.questionGroups.map((group) => (
-                  <option key={group.id} value={group.id.toString()}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* Row 3: Question Group */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Question Group */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Question Group
+            </label>
+            <select
+              value={filters.questionGroupId || ""}
+              onChange={(e) =>
+                handleFilterChange("questionGroupId", e.target.value)
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">All Groups</option>
+              {filterOptions.questionGroups.map((group) => (
+                <option key={group.id} value={group.id.toString()}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

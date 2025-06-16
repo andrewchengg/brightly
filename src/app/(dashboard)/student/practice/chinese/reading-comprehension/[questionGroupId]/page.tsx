@@ -638,20 +638,62 @@ export default function ReadingComprehensionPassagePracticePage() {
                 <h3 className="text-lg font-semibold text-gray-700 mb-3">
                   Review Your Answers:
                 </h3>
-                <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                <div className="max-h-96 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                   {questionResults.map((result, index) => (
                     <div
                       key={result.id}
-                      className={`flex items-center justify-between p-3 rounded-md text-sm ${
+                      className={`p-4 rounded-lg border-l-4 ${
                         result.correct
-                          ? "bg-green-50 text-green-700"
-                          : "bg-red-50 text-red-700"
+                          ? "bg-green-50 border-green-400 text-green-800"
+                          : "bg-red-50 border-red-400 text-red-800"
                       }`}
                     >
-                      <span>
-                        Q{index + 1}: {result.question.substring(0, 40)}...
-                      </span>
-                      {result.correct ? <FaCheck /> : <FaTimes />}
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-semibold text-sm">
+                          Question {index + 1}
+                        </h4>
+                        <div className="flex items-center">
+                          {result.correct ? (
+                            <div className="flex items-center text-green-600">
+                              <FaCheck className="mr-1" />
+                              <span className="text-xs font-medium">Correct</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center text-red-600">
+                              <FaTimes className="mr-1" />
+                              <span className="text-xs font-medium">Incorrect</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <p className="text-sm mb-3 text-gray-700 leading-relaxed">
+                        {result.question}
+                      </p>
+                      
+                      <div className="space-y-2 text-xs">
+                        <div className="flex flex-wrap">
+                          <span className="font-medium text-gray-600 mr-2">Your Answer:</span>
+                          <span className={`${result.correct ? 'text-green-700' : 'text-red-700'} font-medium`}>
+                            {typeof result.userAnswer === 'object' 
+                              ? Object.entries(result.userAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
+                              : result.userAnswer || 'No answer'}
+                          </span>
+                        </div>
+                        
+                        {!result.correct && (
+                          <div className="flex flex-wrap">
+                            <span className="font-medium text-gray-600 mr-2">Correct Answer:</span>
+                            <span className="text-green-700 font-medium">
+                              {typeof result.correctAnswer === 'object' && result.correctAnswer !== null
+                                ? Array.isArray(result.correctAnswer) 
+                                  ? result.correctAnswer.join(', ')
+                                  : Object.entries(result.correctAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
+                                : result.correctAnswer || 'N/A'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
