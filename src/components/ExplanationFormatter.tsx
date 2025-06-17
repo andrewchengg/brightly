@@ -1,5 +1,33 @@
 import React from 'react';
 
+/**
+ * Renders a standard stacked fraction. e.g., 3/4
+ */
+const StackedFraction: React.FC<{ numerator: string; denominator: string; key?: string | number }> = ({
+  numerator,
+  denominator,
+}) => (
+  <span className="inline-block align-middle text-center mx-1">
+    <span className="block border-b border-current leading-tight px-1">{numerator}</span>
+    <span className="block leading-tight px-1">{denominator}</span>
+  </span>
+);
+
+/**
+ * Renders a mixed fraction. e.g., 2 1/2
+ */
+const MixedFraction: React.FC<{ whole: string; numerator: string; denominator: string; key?: string | number }> = ({
+  whole,
+  numerator,
+  denominator,
+}) => (
+  <span className="inline-flex items-center mx-1 align-middle">
+    <span className="mr-1">{whole}</span>
+    <StackedFraction numerator={numerator} denominator={denominator} />
+  </span>
+);
+
+
 interface ExplanationFormatterProps {
   explanation: string;
   className?: string;
@@ -9,548 +37,227 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
   explanation, 
   className = "" 
 }) => {
-  const formatExplanation = (text: string): React.ReactNode[] => {
-    // First, handle multi-part question formatting
-    const multiPartFormatted = formatMultiPartSections(text);
-    
-    // Split by lines and group step content together
-    const lines = multiPartFormatted.split('\n');
-    const formattedLines: React.ReactNode[] = [];
-    let i = 0;
 
-    while (i < lines.length) {
-      const line = lines[i];
-      
-      if (line.trim() === '') {
-        formattedLines.push(<br key={`br-${i}`} />);
-        i++;
-        continue;
-      }
-
-      // Check if line starts with part markers like "Part (a):", "Part (b):", etc.
-      const partMatch = line.match(/^(\s*)(Part\s+\([a-z]\):)(\s*)(.*)/i);
-      
-      if (partMatch) {
-        const [, indent, partHeader, spacing, content] = partMatch;
-        
-        formattedLines.push(
-          <div key={`part-${i}`} className="mb-3 mt-4">
-            <div className="font-bold text-blue-700 text-base mb-2">
-              {partHeader}
-            </div>
-            <div className="ml-4">
-              {formatTextWithSentenceBreaks(content)}
-            </div>
-          </div>
-        );
-        i++;
-      }
-      // Check if line starts with step enumeration like "Step 1:", "1.", "2)", etc.
-      else {
-        const stepMatch = line.match(/^(\s*)(Step\s+)?(\d+)[\.\)\:](\s*)(.*)/i);
-        
-        if (stepMatch) {
-          const [, indent, stepWord, number, spacing, content] = stepMatch;
-          const stepHeader = `Step ${number}.`;
-          
-          // Collect all lines that belong to this step
-          let stepContent = content;
-          let j = i + 1;
-          
-          // Look ahead to collect all lines until next step or part
-          while (j < lines.length) {
-            const nextLine = lines[j];
-            
-            // Stop if we hit another step, part, or empty line followed by step/part
-            if (nextLine.trim() === '') {
-              // Check if the line after empty line is a step or part
-              if (j + 1 < lines.length) {
-                const lineAfterEmpty = lines[j + 1];
-                if (lineAfterEmpty.match(/^(\s*)(Step\s+)?(\d+)[\.\)\:]/) || 
-                    lineAfterEmpty.match(/^(\s*)(Part\s+\([a-z]\):)/i)) {
-                  break;
-                }
-              }
-              stepContent += '\n' + nextLine;
-            } else if (nextLine.match(/^(\s*)(Step\s+)?(\d+)[\.\)\:]/) || 
-                      nextLine.match(/^(\s*)(Part\s+\([a-z]\):)/i)) {
-              break;
-            } else {
-              stepContent += '\n' + nextLine;
-            }
-            j++;
-          }
-          
-          formattedLines.push(
-            <div key={`step-${i}`} className="mb-3">
-              <div className="font-bold text-gray-800 mb-1">
-                {stepHeader}
-              </div>
-              <div className="ml-8 pl-2 border-l-2 border-gray-200 leading-relaxed">
-                {formatTextWithStepIndentation(stepContent)}
-              </div>
-            </div>
-          );
-          
-          i = j; // Skip all the lines we've already processed
-        } else {
-          // Regular line - format with sentence breaks and math expressions
-          formattedLines.push(
-            <div key={`line-${i}`} className="mb-1">
-              {formatTextWithSentenceBreaks(line)}
-            </div>
-          );
-          i++;
-        }
-      }
-    }
-
-    return formattedLines;
-  };
-
-  const formatMultiPartSections = (text: string): string => {
-    // Debug: Log the input text
-    console.log('ExplanationFormatter - Input text:', text);
-    
-    // Split text by part markers (a), (b), (c), etc. and restructure
-    // This handles cases where parts are embedded within the same line
-    const partPattern = /\(([a-z])\)\s*/gi;
-    const parts = text.split(partPattern);
-    
-    console.log('ExplanationFormatter - Parts after split:', parts);
-    
-    if (parts.length <= 2) {
-      // No parts found or only one part, return original text
-      console.log('ExplanationFormatter - No multi-parts detected, returning original');
-      return text;
-    }
-    
-    let formatted = '';
-    
-    // The first element is content before any part marker
-    if (parts[0].trim()) {
-      formatted += parts[0].trim() + '\n\n';
-    }
-    
-    // Process remaining parts in pairs (letter, content)
-    for (let i = 1; i < parts.length; i += 2) {
-      const partLetter = parts[i];
-      const partContent = parts[i + 1] || '';
-      
-      console.log(`ExplanationFormatter - Processing part ${partLetter}:`, partContent);
-      
-      if (partLetter && partContent.trim()) {
-        formatted += `Part (${partLetter}): ${partContent.trim()}\n\n`;
-      }
-    }
-    
-    const result = formatted.trim();
-    console.log('ExplanationFormatter - Final formatted result:', result);
-    return result;
-  };
-
-  const formatTextWithStepIndentation = (text: string): React.ReactNode[] => {
-    // Process the text for decimal points and abbreviations
-    const decimalPlaceholder = '###DECIMAL###';
-    const abbreviationPlaceholder = '###ABBREV###';
-    
-    // First, temporarily replace decimal points with a placeholder
-    let processedText = text.replace(/(\d)\.(\d)/g, `$1${decimalPlaceholder}$2`);
-    
-    // Then, temporarily replace common abbreviations that end with periods
-    const abbreviations = [
-      'e.g.', 'i.e.', 'etc.', 'vs.', 'cf.', 'viz.',
-      'Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.', 'Sr.', 'Jr.',
-      'Inc.', 'Corp.', 'Ltd.', 'Co.', 'Ave.', 'St.',
-      'approx.', 'est.', 'max.', 'min.', 'no.', 'vol.',
-      'ch.', 'fig.', 'p.', 'pp.', 'ed.', 'eds.'
-    ];
-    
-    abbreviations.forEach((abbrev, index) => {
-      const regex = new RegExp(`\\b${abbrev.replace(/\./g, '\\.')}`, 'gi');
-      processedText = processedText.replace(regex, `${abbreviationPlaceholder}${index}${abbreviationPlaceholder}`);
-    });
-    
-    // Split on sentence endings and use <br> tags for line breaks
-    const sentences = processedText.split(/([.!?]+\s*)/).filter(segment => segment.trim() !== '');
-    const result: React.ReactNode[] = [];
-    let currentSentence = '';
-    
-    sentences.forEach((segment, index) => {
-      if (segment.match(/^[.!?]+\s*$/)) {
-        // This is punctuation + spacing
-        currentSentence += segment;
-        
-        // Restore decimal points and abbreviations
-        let restoredSentence = currentSentence.replace(new RegExp(decimalPlaceholder, 'g'), '.');
-        
-        abbreviations.forEach((abbrev, abbrevIndex) => {
-          const abbrevRegex = new RegExp(`${abbreviationPlaceholder}${abbrevIndex}${abbreviationPlaceholder}`, 'g');
-          restoredSentence = restoredSentence.replace(abbrevRegex, abbrev);
-        });
-        
-        // Add the sentence with math formatting
-        result.push(...formatMathText(restoredSentence.trim()));
-        
-        // Add line break after each sentence (except the last one)
-        if (index < sentences.length - 1) {
-          result.push(<br key={`br-${index}`} />);
-        }
-        
-        currentSentence = '';
-      } else {
-        // This is sentence content
-        currentSentence += segment;
-      }
-    });
-    
-    // Handle any remaining content without sentence ending
-    if (currentSentence.trim()) {
-      let restoredSentence = currentSentence.replace(new RegExp(decimalPlaceholder, 'g'), '.');
-      
-      abbreviations.forEach((abbrev, abbrevIndex) => {
-        const abbrevRegex = new RegExp(`${abbreviationPlaceholder}${abbrevIndex}${abbreviationPlaceholder}`, 'g');
-        restoredSentence = restoredSentence.replace(abbrevRegex, abbrev);
-      });
-      
-      result.push(...formatMathText(restoredSentence.trim()));
-    }
-    
-    return result.length > 0 ? result : formatMathText(text);
-  };
-
-  const formatTextWithSentenceBreaks = (text: string): React.ReactNode[] => {
-    // Split text into sentences, but avoid splitting on decimal points and abbreviations
-    const decimalPlaceholder = '###DECIMAL###';
-    const abbreviationPlaceholder = '###ABBREV###';
-    
-    // First, temporarily replace decimal points with a placeholder
-    let processedText = text.replace(/(\d)\.(\d)/g, `$1${decimalPlaceholder}$2`);
-    
-    // Then, temporarily replace common abbreviations that end with periods
-    const abbreviations = [
-      'e.g.', 'i.e.', 'etc.', 'vs.', 'cf.', 'viz.',
-      'Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.', 'Sr.', 'Jr.',
-      'Inc.', 'Corp.', 'Ltd.', 'Co.', 'Ave.', 'St.',
-      'approx.', 'est.', 'max.', 'min.', 'no.', 'vol.',
-      'ch.', 'fig.', 'p.', 'pp.', 'ed.', 'eds.'
-    ];
-    
-    abbreviations.forEach((abbrev, index) => {
-      const regex = new RegExp(`\\b${abbrev.replace(/\./g, '\\.')}`, 'gi');
-      processedText = processedText.replace(regex, `${abbreviationPlaceholder}${index}${abbreviationPlaceholder}`);
-    });
-    
-    // Now split on sentence endings
-    const sentences = processedText.split(/([.!?]+\s*)/).filter(segment => segment.trim() !== '');
-    const formattedSentences: React.ReactNode[] = [];
-    
-    let currentSentence = '';
-    
-    sentences.forEach((segment, index) => {
-      if (segment.match(/^[.!?]+\s*$/)) {
-        // This is punctuation + spacing
-        currentSentence += segment;
-        
-        // End of sentence - restore decimal points and abbreviations, then format
-        let restoredSentence = currentSentence.replace(new RegExp(decimalPlaceholder, 'g'), '.');
-        
-        // Restore abbreviations
-        abbreviations.forEach((abbrev, abbrevIndex) => {
-          const abbrevRegex = new RegExp(`${abbreviationPlaceholder}${abbrevIndex}${abbreviationPlaceholder}`, 'g');
-          restoredSentence = restoredSentence.replace(abbrevRegex, abbrev);
-        });
-        
-        formattedSentences.push(
-          <span key={`sentence-${index}`}>
-            {formatMathText(restoredSentence)}
-            <br />
-          </span>
-        );
-        currentSentence = '';
-      } else {
-        // This is sentence content
-        currentSentence += segment;
-      }
-    });
-    
-    // Handle any remaining content without sentence ending
-    if (currentSentence.trim()) {
-      let restoredSentence = currentSentence.replace(new RegExp(decimalPlaceholder, 'g'), '.');
-      
-      // Restore abbreviations
-      abbreviations.forEach((abbrev, abbrevIndex) => {
-        const abbrevRegex = new RegExp(`${abbreviationPlaceholder}${abbrevIndex}${abbreviationPlaceholder}`, 'g');
-        restoredSentence = restoredSentence.replace(abbrevRegex, abbrev);
-      });
-      
-      formattedSentences.push(
-        <span key={`final-sentence`}>
-          {formatMathText(restoredSentence)}
-        </span>
-      );
-    }
-    
-    return formattedSentences.length > 0 ? formattedSentences : [formatMathText(text)];
-  };
-
+  /**
+   * General-purpose math text formatter for explanations.
+   * It handles fractions, calculations, and standardizes spacing and symbols.
+   */
   const formatMathText = (text: string): React.ReactNode[] => {
-    const segments: React.ReactNode[] = [];
+    const nodes: React.ReactNode[] = [];
     let lastIndex = 0;
 
-    // Balanced patterns for mathematical expressions - comprehensive but not over-greedy
-    // Note: (?:[0-9]+(?:\s[0-9]+)*) matches numbers with spaces like "20 053"
-    const mathPatterns = [
-      // Mixed fractions like "3 1/4", "2 3/8" (must come before other patterns)
-      /(\b[0-9]+\s+[0-9]+\/[0-9]+\b)/g,
-      
-      // Complex expressions with mixed fractions like "3 1/4 + 2 1/2"
-      /(\b[0-9]+\s+[0-9]+\/[0-9]+(?:\s*[\+\-×÷\*]\s*[0-9]+(?:\s+[0-9]+\/[0-9]+|\/[0-9]+)?)+\b)/g,
-      
-      // Complex expressions with multiple fractions like "1 - 1/3 - 1/4"
-      /([0-9]+(?:\s*[\+\-×÷\*\/]\s*[0-9]+\/[0-9]+)+)/g,
-      
-      // Expressions with fractions and other operations like "1/2 + 3/4 - 1"
-      /([0-9]+\/[0-9]+(?:\s*[\+\-×÷\*]\s*[0-9]+(?:\/[0-9]+)?)+)/g,
-      
-      // Mixed operations with fractions like "2 × 1/3", "5 + 1/4"
-      /([0-9]+\s*[\+\-×÷\*]\s*[0-9]+\/[0-9]+|[0-9]+\/[0-9]+\s*[\+\-×÷\*]\s*[0-9]+)/g,
-      
-      // Complex expressions with parentheses and multiple operations like "14000 ÷ 4 = (12000 ÷ 4) + (2000 ÷ 4)"
-      /((?:[0-9]+(?:\s[0-9]+)*)\s*[÷\/×\*\+\-]\s*(?:[0-9]+(?:\s[0-9]+)*)\s*=\s*\((?:[0-9]+(?:\s[0-9]+)*)\s*[÷\/×\*\+\-]\s*(?:[0-9]+(?:\s[0-9]+)*)\)\s*[÷\/×\*\+\-]\s*\((?:[0-9]+(?:\s[0-9]+)*)\s*[÷\/×\*\+\-]\s*(?:[0-9]+(?:\s[0-9]+)*)\))/g,
-      
-      // Equations with multiple equals like "= 3000+ 500 = 3500"
-      /(=\s*(?:[0-9]+(?:\s[0-9]+)*)\s*[\+\-×\*÷\/]\s*(?:[0-9]+(?:\s[0-9]+)*)\s*=\s*(?:[0-9]+(?:\s[0-9]+)*))/g,
-      
-      // Mathematical expressions with text variables like "Total candles = S+ L = S + (S + 21) = 2S + 21"
-      /([A-Za-z\s]+[a-zA-Z]\s*=\s*[a-zA-Z0-9\s\+\-×\*÷\/\(\)]+\s*=\s*[a-zA-Z0-9\s\+\-×\*÷\/\(\)]+\s*=\s*[a-zA-Z0-9\s\+\-×\*÷\/]+[.]*)/g,
-      
-      // Cost expressions like "Cost of long candles = 7 boxes ×$3.20/box =$22.40"
-      /([A-Za-z\s]+[a-zA-Z]\s*=\s*(?:[0-9]+(?:\s[0-9]+)*)\s+[a-zA-Z]+\s*[×\*]\s*\$(?:[0-9]+(?:\s[0-9]+)*)\.[0-9]+\/[a-zA-Z]+\s*=\s*\$(?:[0-9]+(?:\s[0-9]+)*)\.[0-9]+)/g,
-      
-      // Simple comparison expressions like "2S < 29", "Total candles < 50"
-      /([A-Za-z\s]*[a-zA-Z0-9]+\s*[<>≤≥≠]\s*(?:[0-9]+(?:\s[0-9]+)*)(?:\.[0-9]+)?[.]*)/g,
-      
-      // Simple variable equations like "L = S + 21"
-      /([a-zA-Z]+\s*=\s*[a-zA-Z]+\s*[\+\-×\*÷\/]\s*(?:[0-9]+(?:\s[0-9]+)*)[.]*)/g,
-      
-      // Arithmetic with parentheses like "(12000 ÷ 4)", "(2000 ÷ 4)"
-      /(\((?:[0-9]+(?:\s[0-9]+)*)\s*[÷\/×\*\+\-]\s*(?:[0-9]+(?:\s[0-9]+)*)\))/g,
-      
-      // Currency amounts like "$3.20/box", "$22.40"
-      /(\$(?:[0-9]+(?:\s[0-9]+)*)\.[0-9]+(?:\/[a-zA-Z]+)?)/g,
-      
-      // Simple arithmetic like "3000+ 500", "35 ÷ 5", "20 053 + 5000"
-      /((?:[0-9]+(?:\s[0-9]+)*)\s*[\+\-×\*÷\/]\s*(?:[0-9]+(?:\s[0-9]+)*))/g,
-      
-      // Standalone spaced numbers like "20 053", "1 234 567"
-      /((?:[0-9]+(?:\s[0-9]+)+))/g,
-      
-      // Complex arithmetic expressions with equals like "32 × 7 = 224", "230 - 224 = 6"
-      /(\b[0-9]+\s*[×\*÷\/\+\-]\s*[0-9]+\s*=\s*[0-9]+)/g,
-      
-      // Simple comparison expressions like "49 < 50", "x > 10", "5 ≤ y"
-      /(\b[0-9]+\s*[<>≤≥≠]\s*[0-9]+|\b[a-zA-Z]\s*[<>≤≥≠]\s*[0-9]+|\b[0-9]+\s*[<>≤≥≠]\s*[a-zA-Z])/g,
-      
-      // Mathematical expressions with text like "32 blocks × 4 numbers/block", "Numbers in full blocks + Numbers"
-      /(\b[0-9]+\s+[a-zA-Z]+\s*[×\*÷\/\+\-]\s*[0-9]+\s+[a-zA-Z]+(?:\/[a-zA-Z]+)?)/g,
-      
-      // Complex equations with multiple terms like "6W = 5M", "10 * (3÷5)W = 10 * (1÷2)M"
-      /([a-zA-Z]\w*\s*[=]\s*[\d\w\s\+\-\*\/\÷\(\)\.]+|[\d\w\s\+\-\*\/\÷\(\)\.]+\s*[=]\s*[a-zA-Z]\w*)/g,
-      
-      // Mathematical expressions in parentheses like (3÷5)W, (1÷2)M
-      /(\([^)]*[÷\/\+\-\*][^)]*\)[a-zA-Z]+)/g,
-      
-      // Fractions in parentheses like (3÷5), (1÷2), (2/5)
-      /(\([0-9]+[÷\/][0-9]+\))/g,
-      
-      // Numbers with units including punctuation like "131 numbers.", "5 units,"
-      /(\b[0-9]+\s*(?:units?|numbers?|blocks?|cm|mm|m|km|inches?|ft|feet|seconds?|minutes?|hours?|u)[.,;!?\)])/g,
-      
-      // Equations with results including punctuation like "= 7.", "= 131 numbers.", "= 224,"
-      /(=\s*[0-9]+(?:\.[0-9]+)?\s*[a-zA-Z]*[.,;!?\)]*)/g,
-      
-      // Simple fractions like 2÷5, 3/4, 1÷2
-      /(\b[0-9]+[÷\/][0-9]+\b)/g,
-      
-      // Expressions with multiple operations like "5 + 3", "10 - 4", "6 * 2" (only if not caught by longer patterns)
-      /(\b[0-9]+\s*[\+\-\*×÷]\s*[0-9]+\b)/g,
-      
-      // Variables with coefficients like 3W, 5u, 6M, 2x (only standalone)
-      /(\b[0-9]+[a-zA-Z]+\b)/g,
-      
-      // Numbers followed by punctuation at end of expressions like "7.", "224,", "6)."
-      /(\b[0-9]+(?:\.[0-9]+)?[.,;!?\)]+(?=\s|$))/g,
-      
-      // Single variables in mathematical context (standalone W, M, u, x, y, etc.)
-      /(\b[A-Z]\b|\b[a-z]\b(?=\s*[=\+\-\*÷\/])|(?<=[=\+\-\*÷\/]\s*)\b[a-z]\b)/g,
-      
-      // Mathematical operations like "cross-multiply", "LCM", "GCD"
-      /\b(LCM|GCD|cross-multiply|multiply|divide|add|subtract)\b/gi,
-      
-      // Percentages like "25%", "50%"
-      /(\b[0-9]+(?:\.[0-9]+)?%)/g,
-      
-      // Degrees and angles like "180°", "∠ABC", "50°"
-      /(∠[A-Z]+\s*[=]?\s*[0-9]+°?|\b[0-9]+°)/g,
-      
-      // Mathematical symbols and notation
-      /(≤|≥|≠|±|∞|√|∑|∏|∫|∂|∆|π|θ|α|β|γ|δ|ε|φ|ψ|ω)/g,
-      
-      // Currency with variables like "$5x", "$504"
-      /(\$[0-9]+[a-zA-Z]*)/g,
-      
-      // Ratios like "5:3", "2:1"
-      /(\b[0-9]+:[0-9]+\b)/g,
-      
-      // Decimal numbers in mathematical context
-      /(\b[0-9]+\.[0-9]+\b)/g,
-      
-      // Powers and exponents like "x²", "2³", "10^2"
-      /([a-zA-Z0-9]+[\^²³⁴⁵⁶⁷⁸⁹⁰]+[a-zA-Z0-9]*|[a-zA-Z0-9]+[₀₁₂₃₄₅₆₇₈₉]+)/g
-    ];
-
-    // Create a combined pattern to find all math expressions
-    const combinedPattern = new RegExp(
-      mathPatterns.map(p => `(${p.source})`).join('|'), 
+    // Regex to find all math-related patterns. More specific ones first.
+    const masterPattern = new RegExp(
+      [
+        String.raw`(\b\d+\s+\d+\/\d+\b)`,       // 1. Mixed Fractions (e.g., "3 1/4")
+        String.raw`(\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\b)`, // 2. Numeric division (e.g., "480 / 0.15")
+        String.raw`(\b\w+\/\w+\b)`,             // 3. Other fractions (e.g., "10k/4", "3/4 of")
+        String.raw`([=<>≤≥])`,                  // 4. Comparison/Equals Operators
+        String.raw`([+\-−×*])`,                // 5. Arithmetic Operators
+      ].join('|'),
       'g'
     );
 
     let match;
-    while ((match = combinedPattern.exec(text)) !== null) {
-      // Add text before the match
+    while ((match = masterPattern.exec(text)) !== null) {
+      // Add plain text before the match
       if (match.index > lastIndex) {
-        const beforeText = text.slice(lastIndex, match.index);
-        segments.push(beforeText);
+        nodes.push(text.substring(lastIndex, match.index));
       }
 
-      // Add the mathematical expression with formatting
-      const mathText = match[0];
-      const formattedMath = formatSingleMathExpression(mathText);
-      segments.push(
-        <span 
-          key={`math-${match.index}`} 
-          className="font-semibold text-blue-700"
-        >
-          {formattedMath}
-        </span>
-      );
+      const [
+        fullMatch, 
+        mixedFraction, 
+        numericDivision, 
+        simpleFraction, 
+        comparison, 
+        operator
+      ] = match;
+      
+      const key = `${match.index}-${fullMatch}`;
 
-      lastIndex = match.index + match[0].length;
+      if (mixedFraction) {
+        const [whole, num, den] = mixedFraction.split(/[\s\/]+/);
+        nodes.push(<MixedFraction key={key} whole={whole} numerator={num} denominator={den} />);
+      } else if (numericDivision) {
+        const [num, den] = numericDivision.split('/');
+        nodes.push(<span key={key} className="mx-1">{`${num.trim()} ÷ ${den.trim()}`}</span>);
+      } else if (simpleFraction) {
+        const [num, den] = simpleFraction.split('/');
+        nodes.push(<StackedFraction key={key} numerator={num} denominator={den} />);
+      } else if (comparison || operator) {
+        const symbol = fullMatch.replace('*', '×').replace('-', '−');
+        nodes.push(<span key={key} className="mx-1">{symbol}</span>);
+      }
+      
+      lastIndex = match.index + fullMatch.length;
     }
 
-    // Add remaining text
+    // Add any remaining text
     if (lastIndex < text.length) {
-      segments.push(text.slice(lastIndex));
+      nodes.push(text.substring(lastIndex));
     }
-
-    return segments.length > 0 ? segments : [text];
+    
+    return nodes;
   };
+  
+  /**
+   * Intelligently splits text into sentences and handles line breaks.
+   * Preserves math expressions and adds appropriate spacing.
+   */
+  const formatTextWithBreaks = (text: string): React.ReactNode[] => {
+    // First, split by explicit line breaks
+    const lines = text.split('\n');
+    const result: React.ReactNode[] = [];
 
-  const formatSingleMathExpression = (mathText: string): React.ReactNode => {
-    // Check if it's a mixed fraction like "3 1/4"
-    const mixedFractionMatch = mathText.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-    if (mixedFractionMatch) {
-      const [, wholeNumber, numerator, denominator] = mixedFractionMatch;
-      return (
-        <span className="inline-flex items-center">
-          <span className="mr-1">{wholeNumber}</span>
-          <span className="inline-block align-middle">
-            <span className="block text-center border-b border-current leading-tight">{numerator}</span>
-            <span className="block text-center leading-tight">{denominator}</span>
-          </span>
-        </span>
-      );
-    }
-
-    // Check if it's a simple fraction (not part of a complex expression)
-    const simpleFractionMatch = mathText.match(/^(\d+)\/(\d+)$/);
-    if (simpleFractionMatch) {
-      const [, numerator, denominator] = simpleFractionMatch;
-      return (
-        <span className="inline-block align-middle">
-          <span className="block text-center border-b border-current leading-tight">{numerator}</span>
-          <span className="block text-center leading-tight">{denominator}</span>
-        </span>
-      );
-    }
-
-    // For complex expressions, check if they contain fractions that need special formatting
-    if (mathText.includes('/') || mathText.match(/\d+\s+\d+\/\d+/)) {
-      // Split by spaces and operators to process each part
-      const parts = mathText.split(/(\s*[\+\-×÷\*]\s*)/);
-      const renderedParts: React.ReactNode[] = [];
-
-      parts.forEach((part, index) => {
-        const trimmedPart = part.trim();
-        
-        // Check if this part is a mixed fraction
-        const mixedFractionMatch = trimmedPart.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-        if (mixedFractionMatch) {
-          const [, wholeNumber, numerator, denominator] = mixedFractionMatch;
-          renderedParts.push(
-            <span key={index} className="inline-flex items-center mx-1">
-              <span className="mr-1">{wholeNumber}</span>
-              <span className="inline-block align-middle">
-                <span className="block text-center border-b border-current leading-tight text-sm">{numerator}</span>
-                <span className="block text-center leading-tight text-sm">{denominator}</span>
-              </span>
-            </span>
-          );
+    lines.forEach((line, lineIndex) => {
+      const trimmedLine = line.trim();
+      
+      if (trimmedLine === '') {
+        // Add spacing for empty lines
+        if (result.length > 0) {
+          result.push(<br key={`empty-${lineIndex}`} />);
         }
-        // Check if this part is a regular fraction
-        else if (trimmedPart.match(/^(\d+)\/(\d+)$/)) {
-          const fractionMatch = trimmedPart.match(/^(\d+)\/(\d+)$/);
-          if (fractionMatch) {
-            const [, numerator, denominator] = fractionMatch;
-            renderedParts.push(
-              <span key={index} className="inline-block align-middle mx-1">
-                <span className="block text-center border-b border-current leading-tight">{numerator}</span>
-                <span className="block text-center leading-tight">{denominator}</span>
-              </span>
-            );
+        return;
+      }
+
+      // Split line into sentences while preserving decimals
+      const sentences = trimmedLine
+        .replace(/(\d)\.(\d)/g, '$1DECIMAL_PLACEHOLDER$2') // Protect decimals
+        .split(/([.!?]+\s*)/)
+        .filter(segment => segment.trim() !== '')
+        .map(segment => segment.replace(/DECIMAL_PLACEHOLDER/g, '.'));
+
+      let currentSentence = '';
+      
+      sentences.forEach((segment, segmentIndex) => {
+        currentSentence += segment;
+        
+        // Check if this segment ends a sentence
+        if (segment.match(/^[.!?]+\s*$/)) {
+          const formattedSentence = formatMathText(currentSentence.trim());
+          result.push(...formattedSentence);
+          
+          // Add appropriate spacing after sentences
+          if (segmentIndex < sentences.length - 1) {
+            result.push(' '); // Space between sentences
           }
-        } else if (trimmedPart.match(/^[\+\-×÷]$/)) {
-          // This is an operator
-          renderedParts.push(
-            <span key={index} className="mx-1">{trimmedPart}</span>
-          );
-        } else if (trimmedPart) {
-          // This is a regular number or other content
-          renderedParts.push(
-            <span key={index} className="mx-1">{trimmedPart}</span>
-          );
+          
+          currentSentence = '';
         }
       });
 
-      return <span className="inline-flex items-center">{renderedParts}</span>;
-    }
+      // Handle any remaining content that didn't end with punctuation
+      if (currentSentence.trim()) {
+        const formattedSentence = formatMathText(currentSentence.trim());
+        result.push(...formattedSentence);
+      }
 
-    // For other mathematical expressions without fractions, return formatted string
-    return mathText
-      // Convert division slash to division symbol (but preserve text like "numbers/block")
-      .replace(/(\d)\s*\/\s*(\d)/g, '$1 ÷ $2')
-      // Convert multiplication symbol alternatives
-      .replace(/\*/g, '×')
-      // Add spaces around operators for better readability (but not inside parentheses)
-      .replace(/([=\+\-×])/g, ' $1 ')
-      // Handle special spacing for ÷ symbol
-      .replace(/(÷)/g, ' $1 ')
-      // Clean up multiple spaces
-      .replace(/\s+/g, ' ')
-      // Remove spaces around parentheses content
-      .replace(/\(\s+/g, '(')
-      .replace(/\s+\)/g, ')')
-      // Clean up spaces before punctuation
-      .replace(/\s+([.,;!?])/g, '$1')
-      .trim();
+      // Add line break between lines (but not after the last line)
+      if (lineIndex < lines.length - 1) {
+        result.push(<br key={`line-break-${lineIndex}`} />);
+      }
+    });
+
+    return result;
+  };
+  
+  /**
+   * Main function to format the entire explanation, identifying parts and steps.
+   */
+  const formatExplanation = (text: string): React.ReactNode[] => {
+    const lines = text.split('\n');
+    const formattedNodes: React.ReactNode[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      if (line.trim() === '') {
+        formattedNodes.push(<br key={`br-${i}`} />);
+        i++;
+        continue;
+      }
+
+      // Regex for "Part (a):", "Part (b):", etc.
+      const partMatch = line.match(/^(\s*)(Part\s+\([a-z]\):)(.*)/i);
+      // Regex for "Step 1:", "1.", etc.
+      const stepMatch = line.match(/^(\s*)(?:Step\s+)?(\d+)[\.\)\:](\s+.*)/i);
+
+      if (partMatch) {
+        const [, , partHeader, content] = partMatch;
+        formattedNodes.push(
+          <div key={`part-${i}`} className="mb-3 mt-4">
+            <div className="font-bold text-blue-700 text-base mb-2">{partHeader}</div>
+            <div className="ml-4">{formatTextWithBreaks(content.trim())}</div>
+          </div>
+        );
+        i++;
+      } else if (stepMatch) {
+        const [, , number, contentWithSpace] = stepMatch;
+        const content = contentWithSpace.trim();
+        const stepHeader = `Step ${number}.`;
+
+        // Collect all subsequent lines that belong to this step
+        let stepContent = content;
+        let j = i + 1;
+        while (j < lines.length) {
+          const nextLine = lines[j];
+          if (
+            nextLine.trim() === '' ||
+            nextLine.match(/^(\s*)(?:Step\s+)?(\d+)[\.\)\:]/) ||
+            nextLine.match(/^(\s*)(Part\s+\([a-z]\):)/i)
+          ) {
+            break; // Stop if we hit a new step, part, or an empty line
+          }
+          stepContent += '\n' + nextLine;
+          j++;
+        }
+        
+        formattedNodes.push(
+          <div key={`step-${i}`} className="mb-3">
+            <div className="font-bold text-gray-800 mb-1">{stepHeader}</div>
+            <div className="ml-8 pl-2 border-l-2 border-gray-200 leading-relaxed">
+              {formatTextWithBreaks(stepContent)}
+            </div>
+          </div>
+        );
+        i = j; // Skip lines we've processed
+      } else {
+        // Handle regular text lines - collect consecutive non-step/part lines
+        let textBlock = line;
+        let j = i + 1;
+        
+        while (j < lines.length) {
+          const nextLine = lines[j];
+          if (
+            nextLine.trim() === '' ||
+            nextLine.match(/^(\s*)(?:Step\s+)?(\d+)[\.\)\:]/) ||
+            nextLine.match(/^(\s*)(Part\s+\([a-z]\):)/i)
+          ) {
+            break;
+          }
+          textBlock += '\n' + nextLine;
+          j++;
+        }
+        
+        formattedNodes.push(
+          <div key={`text-block-${i}`} className="mb-2 leading-relaxed">
+            {formatTextWithBreaks(textBlock)}
+          </div>
+        );
+        i = j;
+      }
+    }
+    
+    return formattedNodes;
   };
 
   return (
-    <div className={`whitespace-pre-wrap ${className}`}>
+    <div className={`space-y-1 ${className}`}>
       {formatExplanation(explanation)}
     </div>
   );
 };
 
-export default ExplanationFormatter; 
+export default ExplanationFormatter;

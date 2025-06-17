@@ -5,237 +5,148 @@ interface QuestionTextFormatterProps {
   className?: string;
 }
 
+/**
+ * Renders a standard stacked fraction. e.g., 3/4
+ */
+const StackedFraction: React.FC<{ numerator: string; denominator: string; key?: string }> = ({
+  numerator,
+  denominator,
+}) => (
+  <span className="inline-block align-middle text-center mx-1">
+    <span className="block border-b border-current leading-tight px-1">{numerator}</span>
+    <span className="block leading-tight px-1">{denominator}</span>
+  </span>
+);
+
+/**
+ * Renders a mixed fraction. e.g., 2 1/2
+ */
+const MixedFraction: React.FC<{ whole: string; numerator: string; denominator: string; key?: string }> = ({
+  whole,
+  numerator,
+  denominator,
+}) => (
+  <span className="inline-flex items-center mx-1 align-middle">
+    <span className="mr-1">{whole}</span>
+    <StackedFraction numerator={numerator} denominator={denominator} />
+  </span>
+);
+
 const QuestionTextFormatter: React.FC<QuestionTextFormatterProps> = ({ 
   text, 
   className = "" 
 }) => {
-  // Function to split multi-part questions and add periods to each part
-  const processMultiPartQuestion = (text: string): string => {
-    // Check if text contains part markers like (a), (b), (c), etc.
+  /**
+   * Adds a period to the end of a string if it's missing punctuation.
+   */
+  const ensurePeriodAtEnd = (str: string): string => {
+    const trimmed = str.trim();
+    if (trimmed && !/[.!?]$/.test(trimmed)) {
+      return trimmed + '.';
+    }
+    return trimmed;
+  };
+
+  /**
+   * Formats multi-part questions like (a), (b) onto separate lines and ensures they end with a period.
+   */
+  const processMultiPartQuestion = (str: string): string => {
     const partPattern = /(\([a-z]\))/gi;
-    
-    if (!partPattern.test(text)) {
-      // No parts found, just ensure period at end
-      return ensurePeriodAtEnd(text);
+    if (!partPattern.test(str)) {
+      return ensurePeriodAtEnd(str);
     }
     
-    // Split by part markers but keep the markers
-    const parts = text.split(/(\([a-z]\))/gi);
+    // Split by part markers, ensuring markers are kept.
+    const parts = str.split(partPattern);
     let processedText = '';
-    let isFirstPart = true;
     
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i].trim();
+      if (!part) continue;
       
-      if (part.match(/^\([a-z]\)$/i)) {
-        // This is a part marker like (a), (b)
-        if (!isFirstPart) {
-          // Add line break before subsequent parts
-          processedText += '\n';
+      if (part.match(/^\([a-z]\)$/i)) { // It's a marker like (a)
+        // Add a newline before the marker if it's not the first part of the text
+        if (processedText.length > 0) {
+          processedText = ensurePeriodAtEnd(processedText) + '\n\n';
         }
         processedText += part + ' ';
-        isFirstPart = false;
-      } else if (part) {
-        // This is content after a part marker
-        processedText += ensurePeriodAtEnd(part);
+      } else { // It's the content after a marker
+        processedText += part;
       }
     }
     
-    return processedText.trim();
+    return ensurePeriodAtEnd(processedText);
   };
-
-  // Function to add period if missing at the end of question statements
-  const ensurePeriodAtEnd = (text: string): string => {
-    const trimmedText = text.trim();
-    // Check if the text ends with punctuation
-    if (!/[.!?]$/.test(trimmedText)) {
-      return trimmedText + '.';
-    }
-    return trimmedText;
-  };
-
-  const formatMathText = (text: string): React.ReactNode[] => {
-    const segments: React.ReactNode[] = [];
-    let lastIndex = 0;
-
-    // Enhanced patterns for mathematical expressions - prioritizing complex expressions first
-    const mathPatterns = [
-      // Mixed fractions like "3 1/4", "2 3/8" (must come before other patterns)
-      /(\b[0-9]+\s+[0-9]+\/[0-9]+\b)/g,
-      
-      // Complex expressions with mixed fractions like "3 1/4 + 2 1/2"
-      /(\b[0-9]+\s+[0-9]+\/[0-9]+(?:\s*[\+\-×÷\*]\s*[0-9]+(?:\s+[0-9]+\/[0-9]+|\/[0-9]+)?)+\b)/g,
-      
-      // Complex expressions with multiple fractions like "1 - 1/3 - 1/4" (removed word boundaries that were causing issues)
-      /([0-9]+(?:\s*[\+\-×÷\*\/]\s*[0-9]+\/[0-9]+)+)/g,
-      
-      // Expressions starting with fractions like "1/2 + 3/4 - 1"
-      /([0-9]+\/[0-9]+(?:\s*[\+\-×÷\*]\s*[0-9]+(?:\/[0-9]+)?)+)/g,
-      
-      // Mixed operations with fractions like "2 × 1/3", "5 + 1/4"
-      /([0-9]+\s*[\+\-×÷\*]\s*[0-9]+\/[0-9]+|[0-9]+\/[0-9]+\s*[\+\-×÷\*]\s*[0-9]+)/g,
-      
-      // Simple arithmetic like 5 + 3, 10 - 4, 6 * 2
-      /(\b[0-9]+\s*[\+\-\*×÷]\s*[0-9]+\b)/g,
-      
-      // Fractions like 1/2, 3/4, etc.
-      /(\b[0-9]+\/[0-9]+\b)/g,
-      
-      // Variables with coefficients like 3x, 5y, 6z
-      /(\b[0-9]+[a-zA-Z]+\b)/g,
-      
-      // Simple equations like x = 5, y = 10
-      /([a-zA-Z]\s*=\s*[0-9]+)/g,
-      
-      // Mathematical symbols and notation
-      /(≤|≥|≠|±|∞|√|∑|∏|∫|∂|∆|π|θ|α|β|γ|δ|ε|φ|ψ|ω)/g,
-      
-      // Percentages like 25%, 50%
-      /(\b[0-9]+(?:\.[0-9]+)?%)/g,
-      
-      // Degrees and angles like 180°, ∠ABC, 50°
-      /(∠[A-Z]+\s*[=]?\s*[0-9]+°?|\b[0-9]+°)/g,
-      
-      // Powers and exponents like x², 2³, 10^2
-      /([a-zA-Z0-9]+[\^²³⁴⁵⁶⁷⁸⁹⁰]+[a-zA-Z0-9]*|[a-zA-Z0-9]+[₀₁₂₃₄₅₆₇₈₉]+)/g,
-      
-      // Decimal numbers in mathematical context
-      /(\b[0-9]+\.[0-9]+\b)/g,
-      
-      // Ratios like 5:3, 2:1
-      /(\b[0-9]+:[0-9]+\b)/g
-    ];
-
-    // Create a combined pattern to find all math expressions
-    const combinedPattern = new RegExp(
-      mathPatterns.map(p => `(${p.source})`).join('|'), 
+  
+  /**
+   * Parses the text and formats mathematical expressions.
+   */
+  const formatText = (inputText: string): React.ReactNode[] => {
+    // A single, powerful regex to find all math-related patterns we want to format.
+    // Order is important: more specific patterns (like mixed fractions) must come first.
+    // LaTeX symbols are caught first to preserve them as-is.
+    const masterPattern = new RegExp(
+      [
+        String.raw`(\b\d+\s+\d+\/\d+\b)`, // 1. Mixed Fractions (e.g., "4 1/5")
+        String.raw`(\b\w+\/\w+\b)`,       // 2. Simple Fractions (alphanumeric, e.g., "3/4", "10k/4")
+        String.raw`(∠\s?[\w\d]+)`,         // 3. Angles (e.g., "∠CBE")
+        String.raw`(\d+(\.\d+)?%)`,       // 4. Percentages (e.g., "7%")
+        String.raw`([÷×−≤≥≠])`,           // 5. Already-correct LaTeX symbols (preserve as-is)
+        String.raw`([=<>])`,              // 6. Basic comparison operators
+        String.raw`([+\-*:])`,            // 7. ASCII operators (convert to LaTeX)
+      ].join('|'),
       'g'
     );
-
+    
+    const nodes: React.ReactNode[] = [];
+    let lastIndex = 0;
     let match;
-    while ((match = combinedPattern.exec(text)) !== null) {
-      // Add text before the match
+
+    while ((match = masterPattern.exec(inputText)) !== null) {
+      // Add the plain text segment before the matched math expression
       if (match.index > lastIndex) {
-        const beforeText = text.slice(lastIndex, match.index);
-        segments.push(beforeText);
+        nodes.push(inputText.substring(lastIndex, match.index));
       }
 
-      // Add the mathematical expression with formatting
-      const mathText = match[0];
-      const formattedMath = formatSingleMathExpression(mathText);
-      segments.push(
-        <span 
-          key={`math-${match.index}`} 
-          className="font-semibold text-blue-700"
-        >
-          {formattedMath}
-        </span>
-      );
-
-      lastIndex = match.index + match[0].length;
-    }
-
-    // Add remaining text
-    if (lastIndex < text.length) {
-      segments.push(text.slice(lastIndex));
-    }
-
-    return segments.length > 0 ? segments : [text];
-  };
-
-  const formatSingleMathExpression = (mathText: string): React.ReactNode => {
-    // Check if it's a mixed fraction like "3 1/4"
-    const mixedFractionMatch = mathText.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-    if (mixedFractionMatch) {
-      const [, wholeNumber, numerator, denominator] = mixedFractionMatch;
-      return (
-        <span className="inline-flex items-center">
-          <span className="mr-1">{wholeNumber}</span>
-          <span className="inline-block align-middle">
-            <span className="block text-center border-b border-current leading-tight">{numerator}</span>
-            <span className="block text-center leading-tight">{denominator}</span>
-          </span>
-        </span>
-      );
-    }
-
-    // Check if it's a simple fraction (not part of a complex expression)
-    const simpleFractionMatch = mathText.match(/^(\d+)\/(\d+)$/);
-    if (simpleFractionMatch) {
-      const [, numerator, denominator] = simpleFractionMatch;
-      return (
-        <span className="inline-block align-middle">
-          <span className="block text-center border-b border-current leading-tight">{numerator}</span>
-          <span className="block text-center leading-tight">{denominator}</span>
-        </span>
-      );
-    }
-
-    // For complex expressions, convert fractions to proper display format
-    const processedText = mathText
-      // Convert multiplication symbol alternatives
-      .replace(/\*/g, '×')
-      // Clean up spaces before processing fractions
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    // Split by spaces and operators to process each part
-    const parts = processedText.split(/(\s*[\+\-×÷]\s*)/);
-    const renderedParts: React.ReactNode[] = [];
-
-    parts.forEach((part, index) => {
-      const trimmedPart = part.trim();
+      const [fullMatch, mixedFraction, simpleFraction, angle, percent, latexSymbol, basicComparison, asciiOperator] = match;
       
-      // Check if this part is a mixed fraction
-      const mixedFractionMatch = trimmedPart.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-      if (mixedFractionMatch) {
-        const [, wholeNumber, numerator, denominator] = mixedFractionMatch;
-        renderedParts.push(
-          <span key={index} className="inline-flex items-center mx-1">
-            <span className="mr-1">{wholeNumber}</span>
-            <span className="inline-block align-middle">
-              <span className="block text-center border-b border-current leading-tight text-sm">{numerator}</span>
-              <span className="block text-center leading-tight text-sm">{denominator}</span>
-            </span>
-          </span>
-        );
+      if (mixedFraction) {
+        const [whole, num, den] = mixedFraction.split(/[\s\/]+/);
+        nodes.push(<MixedFraction key={`${match.index}`} whole={whole} numerator={num} denominator={den} />);
+      } else if (simpleFraction) {
+        const [num, den] = simpleFraction.split('/');
+        nodes.push(<StackedFraction key={`${match.index}`} numerator={num} denominator={den} />);
+      } else if (angle || percent) {
+        nodes.push(<span key={`${match.index}`} className="font-semibold">{fullMatch}</span>);
+      } else if (latexSymbol) {
+        // Already correct LaTeX symbols - preserve as-is with minimal spacing
+        nodes.push(<span key={`${match.index}`} className="mx-1">{fullMatch}</span>);
+      } else if (basicComparison || asciiOperator) {
+        // Convert ASCII operators to LaTeX and add spacing
+        let symbol = fullMatch.replace('*', '×').replace(':', ' : ').replace('-', '−');
+        nodes.push(<span key={`${match.index}`} className="mx-2">{symbol.trim()}</span>);
       }
-      // Check if this part is a regular fraction
-      else if (trimmedPart.match(/^(\d+)\/(\d+)$/)) {
-        const fractionMatch = trimmedPart.match(/^(\d+)\/(\d+)$/);
-        if (fractionMatch) {
-          const [, numerator, denominator] = fractionMatch;
-          renderedParts.push(
-            <span key={index} className="inline-block align-middle mx-1">
-              <span className="block text-center border-b border-current leading-tight">{numerator}</span>
-              <span className="block text-center leading-tight">{denominator}</span>
-            </span>
-          );
-        }
-      } else if (trimmedPart.match(/^[\+\-×÷]$/)) {
-        // This is an operator
-        renderedParts.push(
-          <span key={index} className="mx-1">{trimmedPart}</span>
-        );
-      } else if (trimmedPart) {
-        // This is a regular number or other content
-        renderedParts.push(
-          <span key={index} className="mx-1">{trimmedPart}</span>
-        );
-      }
-    });
-
-    return <span className="inline-flex items-center">{renderedParts}</span>;
+      
+      lastIndex = match.index + fullMatch.length;
+    }
+    
+    // Add any remaining text after the last match
+    if (lastIndex < inputText.length) {
+      nodes.push(inputText.substring(lastIndex));
+    }
+    
+    return nodes;
   };
 
-  // Process multi-part questions first, then format math
-  const processedText = processMultiPartQuestion(text);
+  // Run the full pipeline
+  const preprocessedText = processMultiPartQuestion(text);
+  const formattedContent = formatText(preprocessedText);
 
   return (
     <div className={`whitespace-pre-wrap ${className}`}>
-      {formatMathText(processedText)}
+      {formattedContent}
     </div>
   );
 };
 
-export default QuestionTextFormatter; 
+export default QuestionTextFormatter;
