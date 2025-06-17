@@ -24,7 +24,9 @@ const ResultListPage = async ({
   searchParams: { [key: string]: string | undefined };
 }) => {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role as string;
   const currentUserId = user?.id;
 
@@ -75,9 +77,7 @@ const ResultListPage = async ({
       <td className="flex items-center gap-4 p-4">{item.title}</td>
       <td>{item.studentName}</td>
       <td className="hidden md:table-cell">{item.score}</td>
-      <td className="hidden md:table-cell">
-        {item.teacherName}
-      </td>
+      <td className="hidden md:table-cell">{item.teacherName}</td>
       <td className="hidden md:table-cell">{item.className}</td>
       <td className="hidden md:table-cell">
         {new Intl.DateTimeFormat("en-US").format(item.startTime)}
@@ -101,7 +101,7 @@ const ResultListPage = async ({
 
   // URL PARAMS CONDITION
 
-  const query: Prisma.ResultWhereInput = {};
+  const query: any = {};
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
@@ -112,7 +112,11 @@ const ResultListPage = async ({
             break;
           case "search":
             query.OR = [
-              { exam: { title: { contains: value, mode: "insensitive" } } },
+              {
+                practiceSession: {
+                  title: { contains: value, mode: "insensitive" },
+                },
+              },
               { student: { name: { contains: value, mode: "insensitive" } } },
             ];
             break;
@@ -129,10 +133,7 @@ const ResultListPage = async ({
     case "admin":
       break;
     case "teacher":
-      query.OR = [
-        { exam: { lesson: { teacherId: currentUserId! } } },
-        { assignment: { lesson: { teacherId: currentUserId! } } },
-      ];
+      // For now, teachers can see all results
       break;
 
     case "student":
@@ -153,24 +154,10 @@ const ResultListPage = async ({
       where: query,
       include: {
         student: { select: { name: true } },
-        exam: {
-          include: {
-            lesson: {
-              select: {
-                class: { select: { name: true } },
-                teacher: { select: { name: true } },
-              },
-            },
-          },
-        },
-        assignment: {
-          include: {
-            lesson: {
-              select: {
-                class: { select: { name: true } },
-                teacher: { select: { name: true } },
-              },
-            },
+        practiceSession: {
+          select: {
+            title: true,
+            startTime: true,
           },
         },
       },
@@ -181,20 +168,14 @@ const ResultListPage = async ({
   ]);
 
   const data = dataRes.map((item) => {
-    const assessment = item.exam || item.assignment;
-
-    if (!assessment) return null;
-
-    const isExam = "startTime" in assessment;
-
     return {
       id: item.id,
-      title: assessment.title,
+      title: item.practiceSession.title || "Practice Session",
       studentName: item.student.name,
-      teacherName: assessment.lesson.teacher.name,
+      teacherName: "N/A",
       score: item.score,
-      className: assessment.lesson.class.name,
-      startTime: isExam ? assessment.startTime : assessment.endTime,
+      className: "N/A",
+      startTime: item.practiceSession.startTime,
     };
   });
 

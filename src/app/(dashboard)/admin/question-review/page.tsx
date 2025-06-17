@@ -628,11 +628,7 @@ export default function QuestionReviewPage() {
       }
 
       // If we came from topic questions, refresh that list too
-      if (
-        selectedTopic &&
-        viewMode !== "questionDetail" &&
-        viewMode !== "productionReview"
-      ) {
+      if (selectedTopic && viewMode !== "questionDetail") {
         fetchTopicQuestions(selectedTopic.id);
         setViewMode("topicQuestions");
         setSelectedQuestion(null);
@@ -1025,9 +1021,9 @@ export default function QuestionReviewPage() {
         );
       case PrismaQuestionType.MULTI_PART:
         if (
-          typeof selectedQuestion.correctAnswer !== "object" ||
-          selectedQuestion.correctAnswer === null ||
-          Array.isArray(selectedQuestion.correctAnswer)
+          typeof questionToRender.correctAnswer !== "object" ||
+          questionToRender.correctAnswer === null ||
+          Array.isArray(questionToRender.correctAnswer)
         ) {
           return (
             <p className="text-red-500">
@@ -1035,7 +1031,7 @@ export default function QuestionReviewPage() {
             </p>
           );
         }
-        const parts = Object.keys(selectedQuestion.correctAnswer);
+        const parts = Object.keys(questionToRender.correctAnswer);
         return (
           <div className="mt-6 space-y-4">
             <div className="mb-4 p-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-md">
@@ -1081,7 +1077,7 @@ export default function QuestionReviewPage() {
                       Correct: "
                       {
                         (
-                          selectedQuestion.correctAnswer as Record<
+                          questionToRender.correctAnswer as Record<
                             string,
                             string
                           >
@@ -1116,11 +1112,11 @@ export default function QuestionReviewPage() {
                     ? "All parts correct!"
                     : "Some parts incorrect."}
                 </p>
-                {selectedQuestion.explanation && (
+                {questionToRender.explanation && (
                   <div className="border-t pt-2">
                     <p className="font-semibold mb-2">Explanation:</p>
                     <ExplanationFormatter
-                      explanation={selectedQuestion.explanation}
+                      explanation={questionToRender.explanation}
                       className="text-gray-700"
                     />
                   </div>
@@ -1134,7 +1130,7 @@ export default function QuestionReviewPage() {
           <div className="p-4 bg-yellow-50 border rounded-md text-yellow-800 text-center">
             <p>
               Unsupported question type:{" "}
-              {selectedQuestion.questionType || "Not specified"}
+              {questionToRender.questionType || "Not specified"}
             </p>
           </div>
         );

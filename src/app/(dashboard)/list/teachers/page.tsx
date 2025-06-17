@@ -4,13 +4,12 @@ import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { role } from "@/lib/data";
 import prisma from "@/lib/prisma";
-import { Class, Subject, Teacher } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 
-type TeacherList = Teacher & { subjects: Subject[] } & { classes: Class[] };
+type TeacherList = any;
 
 const columns = [
   {
@@ -68,10 +67,13 @@ const renderRow = (item: TeacherList) => (
     </td>
     <td className="hidden md:table-cell">{item.username}</td>
     <td className="hidden md:table-cell">
-      {item.subjects.map((subject) => subject.name).join(",")}
+      {item.subjectTeachers?.map((st: any) => st.subject.name).join(",") ||
+        "No subjects"}
     </td>
     <td className="hidden md:table-cell">
-      {item.classes.map((classItem) => classItem.name).join(",")}
+      {item.classesSupervised
+        ?.map((classItem: any) => classItem.name)
+        .join(",") || "No classes"}
     </td>
     <td className="hidden md:table-cell">{item.phone}</td>
     <td className="hidden md:table-cell">{item.address}</td>
@@ -98,24 +100,27 @@ const TeacherListPage = async ({
   const page = searchParams?.page ? parseInt(searchParams.page) : 1;
 
   // Build query with search parameters
-  const query: Prisma.TeacherWhereInput = {};
+  const query: any = {};
 
   if (searchParams) {
     if (searchParams.search) {
       query.OR = [
         { name: { contains: searchParams.search, mode: "insensitive" } },
-        { surname: { contains: searchParams.search, mode: "insensitive" } },
         { email: { contains: searchParams.search, mode: "insensitive" } },
         { username: { contains: searchParams.search, mode: "insensitive" } },
       ];
     }
 
     if (searchParams.classId) {
-      query.classes = { some: { id: parseInt(searchParams.classId) } };
+      query.classesSupervised = {
+        some: { id: parseInt(searchParams.classId) },
+      };
     }
 
     if (searchParams.subjectId) {
-      query.subjects = { some: { id: parseInt(searchParams.subjectId) } };
+      query.subjectTeachers = {
+        some: { subjectId: parseInt(searchParams.subjectId) },
+      };
     }
   }
 
@@ -123,8 +128,12 @@ const TeacherListPage = async ({
     prisma.teacher.findMany({
       where: query,
       include: {
-        subjects: true,
-        classes: true,
+        subjectTeachers: {
+          include: {
+            subject: true,
+          },
+        },
+        classesSupervised: true,
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (page - 1),

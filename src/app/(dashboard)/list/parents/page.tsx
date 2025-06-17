@@ -5,10 +5,10 @@ import TableSearch from "@/components/TableSearch";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
-import { Parent, Prisma, Student } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import Image from "next/image";
 
-type ParentList = Parent & { students: Student[] };
+type ParentList = any;
 
 const ParentListPage = async ({
   searchParams,
@@ -16,7 +16,9 @@ const ParentListPage = async ({
   searchParams: { [key: string]: string | undefined };
 }) => {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role as string;
 
   const columns = [
@@ -61,7 +63,7 @@ const ParentListPage = async ({
         </div>
       </td>
       <td className="hidden md:table-cell">
-        {item.students.map((student) => student.name).join(",")}
+        {item.students.map((student: any) => student.name).join(",")}
       </td>
       <td className="hidden md:table-cell">{item.phone}</td>
       <td className="hidden md:table-cell">{item.address}</td>
@@ -84,7 +86,7 @@ const ParentListPage = async ({
 
   // URL PARAMS CONDITION
 
-  const query: Prisma.ParentWhereInput = {};
+  const query: any = {};
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {

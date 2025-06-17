@@ -6,9 +6,18 @@ import { role, subjectsData } from "@/lib/data";
 import Image from "next/image";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { Prisma, Subject, Teacher } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
-type SubjectList = Subject & { teachers: Teacher[] };
+type SubjectList = {
+  id: number;
+  name: string;
+  subjectTeachers: {
+    teacher: {
+      id: string;
+      name: string;
+    };
+  }[];
+};
 
 const columns = [
   {
@@ -33,7 +42,8 @@ const renderRow = (item: SubjectList) => (
   >
     <td className="flex items-center gap-4 p-4">{item.name}</td>
     <td className="hidden md:table-cell">
-      {item.teachers.map((teacher) => teacher.name).join(", ")}
+      {item.subjectTeachers?.map((st: any) => st.teacher.name).join(", ") ||
+        "No teachers assigned"}
     </td>
     <td>
       <div className="flex items-center gap-2">
@@ -56,7 +66,7 @@ const SubjectListPage = async ({
   const page = searchParams?.page ? parseInt(searchParams.page) : 1;
 
   // Build query with search parameters
-  const query: Prisma.SubjectWhereInput = {};
+  const query: any = {};
 
   if (searchParams) {
     if (searchParams.search) {
@@ -74,7 +84,11 @@ const SubjectListPage = async ({
     prisma.subject.findMany({
       where: query,
       include: {
-        teachers: true,
+        subjectTeachers: {
+          include: {
+            teacher: true,
+          },
+        },
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (page - 1),

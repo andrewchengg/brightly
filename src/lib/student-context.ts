@@ -119,14 +119,24 @@ export async function getStudentContext(
     const recentMistakes: RecentMistake[] = [];
 
     recentSessions?.forEach((session) => {
-      session.studentAnswers?.forEach((answer) => {
-        const topicKey = `${answer.question.topic.subject.name}:${answer.question.topic.name}`;
+      session.studentAnswers?.forEach((answer: any) => {
+        // Type assertion for nested Supabase query result
+        const question = answer.question as {
+          text: string;
+          correctAnswer: any;
+          topic: {
+            name: string;
+            subject: { name: string };
+          };
+        };
+
+        const topicKey = `${question.topic.subject.name}:${question.topic.name}`;
 
         if (!topicStats.has(topicKey)) {
           topicStats.set(topicKey, {
             correct: 0,
             total: 0,
-            subject: answer.question.topic.subject.name,
+            subject: question.topic.subject.name,
           });
         }
 
@@ -140,13 +150,13 @@ export async function getStudentContext(
           if (recentMistakes.length < 5) {
             recentMistakes.push({
               questionText:
-                answer.question.text.length > 100
-                  ? answer.question.text.substring(0, 100) + "..."
-                  : answer.question.text,
-              topic: answer.question.topic.name,
-              subject: answer.question.topic.subject.name,
+                question.text.length > 100
+                  ? question.text.substring(0, 100) + "..."
+                  : question.text,
+              topic: question.topic.name,
+              subject: question.topic.subject.name,
               userAnswer: String(answer.submittedAnswer || "No answer"),
-              correctAnswer: String(answer.question.correctAnswer),
+              correctAnswer: String(question.correctAnswer),
             });
           }
         }

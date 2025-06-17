@@ -14,7 +14,9 @@ const EventListPage = async ({
   searchParams: { [key: string]: string | undefined };
 }) => {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role as string;
 
   const columns = [
@@ -71,7 +73,7 @@ const EventListPage = async ({
 
   // URL PARAMS CONDITION
 
-  const query: Prisma.EventWhereInput = {};
+  const query: any = {};
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {

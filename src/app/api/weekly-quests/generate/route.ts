@@ -53,7 +53,7 @@ export async function POST() {
     const studentQuests = await generateWeeklyQuests(studentId);
 
     // Format for frontend
-    const formattedQuests = studentQuests.map((studentQuest) => ({
+    const formattedQuests = studentQuests.map((studentQuest: any) => ({
       id: studentQuest.id,
       title: studentQuest.quest.title,
       description: studentQuest.quest.description,

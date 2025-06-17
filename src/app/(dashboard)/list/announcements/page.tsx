@@ -14,7 +14,9 @@ const AnnouncementListPage = async ({
   searchParams: { [key: string]: string | undefined };
 }) => {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role as string;
   const currentUserId = user?.id;
 
@@ -46,7 +48,7 @@ const AnnouncementListPage = async ({
   const renderRow = (item: any) => (
     <tr
       key={item.id}
-                      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-brightPurpleLight"
+      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-brightPurpleLight"
     >
       <td className="flex items-center gap-4 p-4">
         <div className="flex flex-col">
@@ -64,16 +66,8 @@ const AnnouncementListPage = async ({
         <div className="flex items-center gap-2">
           {(role === "admin" || role === "teacher") && (
             <>
-              <FormContainer
-                table="announcement"
-                type="update"
-                data={item}
-              />
-              <FormContainer
-                table="announcement"
-                type="delete"
-                id={item.id}
-              />
+              <FormContainer table="announcement" type="update" data={item} />
+              <FormContainer table="announcement" type="delete" id={item.id} />
             </>
           )}
         </div>
@@ -87,7 +81,7 @@ const AnnouncementListPage = async ({
 
   // URL PARAMS CONDITION
 
-  const query: Prisma.AnnouncementWhereInput = {};
+  const query: any = {};
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {

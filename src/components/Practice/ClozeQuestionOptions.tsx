@@ -1,10 +1,12 @@
 // src/components/Practice/ClozeQuestionOptions.tsx
 import React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  QuestionClient,
-  OptionClient,
-} from "@/app/(dashboard)/student/practice/question-group/[questionGroupId]/page"; // Adjust path
+import { QuestionClient } from "@/app/(dashboard)/student/practice/question-group/[questionGroupId]/page"; // Adjust path
+
+interface OptionClient {
+  id: string;
+  text: string;
+}
 
 interface ClozeQuestionOptionsProps {
   currentQuestion: QuestionClient;

@@ -1,5 +1,9 @@
-import { PrismaClient, PracticeSession, WeeklyQuestCategory } from '@/generated/prisma';
-import { WEEKLY_QUEST_TEMPLATES } from '@/app/(dashboard)/student/practice/weekly-quests-config';
+import {
+  PrismaClient,
+  PracticeSession,
+  WeeklyQuestCategory,
+} from "@/generated/prisma";
+import { WEEKLY_QUEST_TEMPLATES } from "@/app/(dashboard)/student/practice/weekly-quests-config";
 
 const prisma = new PrismaClient();
 
@@ -40,33 +44,38 @@ export function getWeekEnd(weekStart: Date): Date {
 }
 
 // Get current week's quests for a student
-export async function getCurrentWeekQuests(studentId: string): Promise<WeeklyQuest[]> {
+export async function getCurrentWeekQuests(
+  studentId: string
+): Promise<WeeklyQuest[]> {
   const weekStart = getWeekStart();
   const weekEnd = getWeekEnd(weekStart);
 
   // First check if we need to clean up old quests (older than 2 weeks)
   const twoWeeksAgo = new Date(weekStart);
   twoWeeksAgo.setDate(weekStart.getDate() - 14);
-  
-  await prisma.weeklyQuest.deleteMany({
+
+  await prisma.studentQuest.deleteMany({
     where: {
       studentId,
       weekStart: {
-        lt: twoWeeksAgo
-      }
-    }
+        lt: twoWeeksAgo,
+      },
+    },
   });
 
   // Get quests for current week using ORM
-  const quests = await prisma.weeklyQuest.findMany({
+  const quests = await prisma.studentQuest.findMany({
     where: {
       studentId,
       weekStart: {
         gte: weekStart,
-        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-      }
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
     },
-    orderBy: { createdAt: 'asc' }
+    include: {
+      quest: true, // Include the related Quest data
+    },
+    orderBy: { createdAt: "asc" },
   });
 
   // If no quests exist for this week, generate them
@@ -75,224 +84,279 @@ export async function getCurrentWeekQuests(studentId: string): Promise<WeeklyQue
   }
 
   // Convert to interface format
-  return quests.map(quest => ({
+  return quests.map((quest) => ({
     id: quest.id,
     studentId: quest.studentId,
-    questType: quest.questType,
-    title: quest.title,
-    description: quest.description,
+    questType: quest.quest.questType,
+    title: quest.quest.title,
+    description: quest.quest.description,
     target: quest.target,
     progress: quest.progress,
     isCompleted: quest.isCompleted,
     completedAt: quest.completedAt || undefined,
     weekStart: quest.weekStart,
     weekEnd: quest.weekEnd,
-    icon: quest.icon,
-    color: quest.color,
-    category: quest.category,
+    icon: quest.quest.icon,
+    color: quest.quest.color,
+    category: quest.quest.category,
     createdAt: quest.createdAt,
-    updatedAt: quest.updatedAt
+    updatedAt: quest.updatedAt,
   }));
 }
 
 // Generate 5 weekly quests for a student
-export async function generateWeeklyQuests(studentId: string, level: number = 1): Promise<WeeklyQuest[]> {
+export async function generateWeeklyQuests(
+  studentId: string,
+  level: number = 1
+): Promise<WeeklyQuest[]> {
   const weekStart = getWeekStart();
   const weekEnd = getWeekEnd(weekStart);
 
   // Check if quests already exist for this week using ORM
-  const existingQuests = await prisma.weeklyQuest.findMany({
+  const existingQuests = await prisma.studentQuest.findMany({
     where: {
       studentId,
       weekStart: {
         gte: weekStart,
-        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-      }
-    }
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
+    },
   });
 
   if (existingQuests.length >= 5) {
-    return existingQuests.map(quest => ({
+    // TODO: Implement proper quest system with relational schema
+    return existingQuests.map((quest) => ({
       id: quest.id,
       studentId: quest.studentId,
-      questType: quest.questType,
-      title: quest.title,
-      description: quest.description,
+      questType: "earn-xp", // Placeholder
+      title: "Practice Quest", // Placeholder
+      description: "Complete practice sessions", // Placeholder
       target: quest.target,
       progress: quest.progress,
       isCompleted: quest.isCompleted,
       completedAt: quest.completedAt || undefined,
       weekStart: quest.weekStart,
       weekEnd: quest.weekEnd,
-      icon: quest.icon,
-      color: quest.color,
-      category: quest.category,
+      icon: "FaTrophy", // Placeholder
+      color: "#3B82F6", // Placeholder
+      category: "core", // Placeholder
       createdAt: quest.createdAt,
-      updatedAt: quest.updatedAt
+      updatedAt: quest.updatedAt,
     }));
   }
 
   // Get student level
   const student = await prisma.student.findUnique({
     where: { id: studentId },
-    select: { level: true }
+    select: { level: true },
   });
-  
+
   const studentLevel = student?.level || 1;
 
   // Always include at least one core quest
-  const coreQuests = WEEKLY_QUEST_TEMPLATES.filter(q => q.category === 'core');
-  const otherQuests = WEEKLY_QUEST_TEMPLATES.filter(q => q.category !== 'core');
-  
+  const coreQuests = WEEKLY_QUEST_TEMPLATES.filter(
+    (q) => q.category === "core"
+  );
+  const otherQuests = WEEKLY_QUEST_TEMPLATES.filter(
+    (q) => q.category !== "core"
+  );
+
   // Shuffle arrays
   const shuffledCore = [...coreQuests].sort(() => Math.random() - 0.5);
   const shuffledOther = [...otherQuests].sort(() => Math.random() - 0.5);
-  
+
   // Select quest templates (at least 1 core, rest random)
   const questsToGenerate = 5 - existingQuests.length;
   const coreCount = Math.min(2, questsToGenerate);
   const otherCount = questsToGenerate - coreCount;
-  
+
   const selectedTemplates = [
     ...shuffledCore.slice(0, coreCount),
-    ...shuffledOther.slice(0, otherCount)
+    ...shuffledOther.slice(0, otherCount),
   ];
 
-  // Filter out existing quest types
-  const existingTypes = existingQuests.map(q => q.questType);
-  const filteredTemplates = selectedTemplates.filter(t => !existingTypes.includes(t.id));
-
-  // Map string categories to enum values
-  const categoryMap: { [key: string]: WeeklyQuestCategory } = {
-    'core': WeeklyQuestCategory.CORE,
-    'subject': WeeklyQuestCategory.SUBJECT,
-    'consistency': WeeklyQuestCategory.CONSISTENCY,
-    'challenge': WeeklyQuestCategory.CHALLENGE,
-    'performance': WeeklyQuestCategory.PERFORMANCE,
-    'social': WeeklyQuestCategory.SOCIAL,
-    'learning': WeeklyQuestCategory.LEARNING
-  };
-
-  // Generate quest objects using Prisma ORM instead of raw SQL
-  const questsToCreate = filteredTemplates.map(template => {
-    const questData = template.template(studentLevel);
-    
-    // Convert React icon component to string name
-    const iconName = questData.icon.name || 'FaTrophy';
-    
-    return {
-      studentId,
-      questType: template.id,
-      title: questData.title,
-      description: questData.description,
-      target: questData.target,
-      progress: 0,
-      weekStart,
-      weekEnd,
-      icon: iconName,
-      color: questData.color,
-      category: categoryMap[template.category] || WeeklyQuestCategory.CORE
-    };
-  });
-
-  // Create quests in database using ORM
-  if (questsToCreate.length > 0) {
-    await prisma.weeklyQuest.createMany({
-      data: questsToCreate
-    });
-  }
-
-  // Return all quests for this week
-  const allQuests = await prisma.weeklyQuest.findMany({
+  // Filter out existing quest types - need to include quest relation to access questType
+  const existingQuestsWithQuest = await prisma.studentQuest.findMany({
     where: {
       studentId,
       weekStart: {
         gte: weekStart,
-        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-      }
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
     },
-    orderBy: { createdAt: 'asc' }
+    include: {
+      quest: true,
+    },
   });
 
-  return allQuests.map(quest => ({
-    id: quest.id,
-    studentId: quest.studentId,
-    questType: quest.questType,
-    title: quest.title,
-    description: quest.description,
-    target: quest.target,
-    progress: quest.progress,
-    isCompleted: quest.isCompleted,
-    completedAt: quest.completedAt || undefined,
-    weekStart: quest.weekStart,
-    weekEnd: quest.weekEnd,
-    icon: quest.icon,
-    color: quest.color,
-    category: quest.category,
-    createdAt: quest.createdAt,
-    updatedAt: quest.updatedAt
+  const existingTypes = existingQuestsWithQuest.map((q) => q.quest.questType);
+  const filteredTemplates = selectedTemplates.filter(
+    (t) => !existingTypes.includes(t.id)
+  );
+
+  // Map string categories to enum values
+  const categoryMap: { [key: string]: WeeklyQuestCategory } = {
+    core: WeeklyQuestCategory.CORE,
+    subject: WeeklyQuestCategory.SUBJECT,
+    consistency: WeeklyQuestCategory.CONSISTENCY,
+    challenge: WeeklyQuestCategory.CHALLENGE,
+    performance: WeeklyQuestCategory.PERFORMANCE,
+    social: WeeklyQuestCategory.SOCIAL,
+    learning: WeeklyQuestCategory.LEARNING,
+  };
+
+  // Generate quest objects using Prisma ORM with proper relations
+  if (filteredTemplates.length > 0) {
+    for (const template of filteredTemplates) {
+      const questData = template.template(studentLevel);
+
+      // Convert React icon component to string name
+      const iconName = questData.icon.name || "FaTrophy";
+
+      // First, check if a Quest with this questType already exists
+      let quest = await prisma.quest.findUnique({
+        where: { questType: template.id },
+      });
+
+      // If quest doesn't exist, create it
+      if (!quest) {
+        quest = await prisma.quest.create({
+          data: {
+            questType: template.id,
+            title: questData.title,
+            description: questData.description,
+            baseTarget: questData.target,
+            icon: iconName,
+            color: questData.color,
+            category:
+              categoryMap[template.category] || WeeklyQuestCategory.CORE,
+            xpReward: 25, // Default XP reward
+          },
+        });
+      }
+
+      // Create StudentQuest linking to the Quest
+      await prisma.studentQuest.create({
+        data: {
+          studentId,
+          questId: quest.id,
+          target: questData.target,
+          progress: 0,
+          weekStart,
+          weekEnd,
+        },
+      });
+    }
+  }
+
+  // Return all quests for this week with quest relation
+  const allQuests = await prisma.studentQuest.findMany({
+    where: {
+      studentId,
+      weekStart: {
+        gte: weekStart,
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
+    },
+    include: {
+      quest: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return allQuests.map((studentQuest) => ({
+    id: studentQuest.id,
+    studentId: studentQuest.studentId,
+    questType: studentQuest.quest.questType,
+    title: studentQuest.quest.title,
+    description: studentQuest.quest.description,
+    target: studentQuest.target,
+    progress: studentQuest.progress,
+    isCompleted: studentQuest.isCompleted,
+    completedAt: studentQuest.completedAt || undefined,
+    weekStart: studentQuest.weekStart,
+    weekEnd: studentQuest.weekEnd,
+    icon: studentQuest.quest.icon,
+    color: studentQuest.quest.color,
+    category: studentQuest.quest.category,
+    createdAt: studentQuest.createdAt,
+    updatedAt: studentQuest.updatedAt,
   }));
 }
 
 // Update quest progress when a practice session is completed
-export async function updateQuestProgress(practiceSession: PracticeSession & {
-  subject?: { name: string } | null;
-  topic?: { name: string } | null;
-  student: { level: number };
-}) {
+export async function updateQuestProgress(
+  practiceSession: PracticeSession & {
+    subject?: { name: string } | null;
+    topic?: { name: string } | null;
+    student: { level: number };
+  }
+) {
   const weekStart = getWeekStart(practiceSession.endTime || new Date());
-  
+
   // Get active quests for this week
-  const activeQuests = await prisma.$queryRaw`
-    SELECT * FROM "WeeklyQuest" 
-    WHERE "studentId" = ${practiceSession.studentId} 
-    AND "weekStart" >= ${weekStart}
-    AND "weekStart" < ${new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)}
-    AND "isCompleted" = false
-  ` as WeeklyQuest[];
+  const activeQuests = await prisma.studentQuest.findMany({
+    where: {
+      studentId: practiceSession.studentId,
+      weekStart: {
+        gte: weekStart,
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
+      isCompleted: false,
+    },
+    include: {
+      quest: true,
+    },
+  });
 
   for (const quest of activeQuests) {
     let progressToAdd = 0;
     let shouldComplete = false;
     let newProgress = quest.progress;
 
-    switch (quest.questType) {
+    switch (quest.quest.questType) {
       // Core Quests
-      case 'earn-xp':
+      case "earn-xp":
         progressToAdd = practiceSession.xpEarned || 0;
         newProgress += progressToAdd;
         shouldComplete = newProgress >= quest.target;
         break;
 
-      case 'high-accuracy':
+      case "high-accuracy":
         if (practiceSession.score && practiceSession.totalQuestions) {
-          const accuracy = (practiceSession.correctAnswers || 0) / practiceSession.totalQuestions;
-          if (accuracy >= 0.8) { // 80% or higher
+          const accuracy =
+            (practiceSession.correctAnswers || 0) /
+            practiceSession.totalQuestions;
+          if (accuracy >= 0.8) {
+            // 80% or higher
             newProgress += 1;
             shouldComplete = newProgress >= quest.target;
           }
         }
         break;
 
-      case 'review-mistakes':
+      case "review-mistakes":
         // This would be updated when mistakes are reviewed, not during practice sessions
         // For now, we'll keep current progress
         break;
 
       // Subject Mastery Quests
-      case 'multi-subject':
+      case "multi-subject":
         // Track unique subjects practiced this week
-        const subjectCount = await getUniqueSubjectsThisWeek(practiceSession.studentId, weekStart);
+        const subjectCount = await getUniqueSubjectsThisWeek(
+          practiceSession.studentId,
+          weekStart
+        );
         newProgress = subjectCount;
         shouldComplete = subjectCount >= quest.target;
         break;
 
-      case 'subject-specialist':
+      case "subject-specialist":
         // Count sessions in the same subject
         if (practiceSession.subjectId) {
           const subjectSessionCount = await getSubjectSessionsThisWeek(
-            practiceSession.studentId, 
-            practiceSession.subjectId, 
+            practiceSession.studentId,
+            practiceSession.subjectId,
             weekStart
           );
           newProgress = subjectSessionCount;
@@ -300,7 +364,7 @@ export async function updateQuestProgress(practiceSession: PracticeSession & {
         }
         break;
 
-      case 'cross-subject-explorer':
+      case "cross-subject-explorer":
         // Check if this is a new subject for the week
         const newSubjectThisWeek = await isNewSubjectThisWeek(
           practiceSession.studentId,
@@ -314,67 +378,86 @@ export async function updateQuestProgress(practiceSession: PracticeSession & {
         break;
 
       // Consistency & Streak Quests
-      case 'weekly-warrior':
+      case "weekly-warrior":
         // Count unique days practiced
-        const uniqueDays = await getUniqueDaysThisWeek(practiceSession.studentId, weekStart);
+        const uniqueDays = await getUniqueDaysThisWeek(
+          practiceSession.studentId,
+          weekStart
+        );
         newProgress = uniqueDays;
         shouldComplete = uniqueDays >= quest.target;
         break;
 
-      case 'consistent-learner':
+      case "consistent-learner":
         // Count days with at least 2 sessions
-        const daysWithTwoSessions = await getDaysWithMinSessions(practiceSession.studentId, weekStart, 2);
+        const daysWithTwoSessions = await getDaysWithMinSessions(
+          practiceSession.studentId,
+          weekStart,
+          2
+        );
         newProgress = daysWithTwoSessions;
         shouldComplete = daysWithTwoSessions >= quest.target;
         break;
 
-      case 'perfect-week':
+      case "perfect-week":
         // Count unique days practiced (same as weekly-warrior but target is 7)
-        const perfectWeekDays = await getUniqueDaysThisWeek(practiceSession.studentId, weekStart);
+        const perfectWeekDays = await getUniqueDaysThisWeek(
+          practiceSession.studentId,
+          weekStart
+        );
         newProgress = perfectWeekDays;
         shouldComplete = perfectWeekDays >= quest.target;
         break;
 
       // Challenge & Difficulty Quests
-      case 'rising-star':
+      case "rising-star":
         // Count sessions with increasing difficulty (simplified - count sessions for now)
         newProgress += 1;
         shouldComplete = newProgress >= quest.target;
         break;
 
-      case 'challenge-seeker':
+      case "challenge-seeker":
         // Count random practice sessions (would need session type tracking)
         // For now, count all sessions
         newProgress += 1;
         shouldComplete = newProgress >= quest.target;
         break;
 
-      case 'topic-explorer':
+      case "topic-explorer":
         // Track unique topics practiced this week
-        const topicCount = await getUniqueTopicsThisWeek(practiceSession.studentId, weekStart);
+        const topicCount = await getUniqueTopicsThisWeek(
+          practiceSession.studentId,
+          weekStart
+        );
         newProgress = topicCount;
         shouldComplete = topicCount >= quest.target;
         break;
 
       // Performance & Achievement Quests
-      case 'accuracy-champion':
+      case "accuracy-champion":
         // Check if weekly average accuracy is 85%+
-        const weeklyAccuracy = await getWeeklyAverageAccuracy(practiceSession.studentId, weekStart);
+        const weeklyAccuracy = await getWeeklyAverageAccuracy(
+          practiceSession.studentId,
+          weekStart
+        );
         if (weeklyAccuracy >= 0.85) {
           newProgress = 1;
           shouldComplete = true;
         }
         break;
 
-      case 'speed-demon':
+      case "speed-demon":
         newProgress += 1; // Each completed session counts
         shouldComplete = newProgress >= quest.target;
         break;
 
-      case 'perfectionist':
+      case "perfectionist":
         if (practiceSession.score && practiceSession.totalQuestions) {
-          const accuracy = (practiceSession.correctAnswers || 0) / practiceSession.totalQuestions;
-          if (accuracy >= 0.95) { // 95% or higher
+          const accuracy =
+            (practiceSession.correctAnswers || 0) /
+            practiceSession.totalQuestions;
+          if (accuracy >= 0.95) {
+            // 95% or higher
             newProgress += 1;
             shouldComplete = newProgress >= quest.target;
           }
@@ -382,18 +465,18 @@ export async function updateQuestProgress(practiceSession: PracticeSession & {
         break;
 
       // Social & Competitive Quests
-      case 'league-climber':
+      case "league-climber":
         // Would need league system implementation
         // For now, mark as incomplete
         break;
 
-      case 'comeback-champion':
+      case "comeback-champion":
         // Would need previous week's data comparison
         // For now, mark as incomplete
         break;
 
       // Learning & Growth Quests
-      case 'knowledge-seeker':
+      case "knowledge-seeker":
         // Check if this topic was never tried before
         const isNewTopic = await isNewTopicForStudent(
           practiceSession.studentId,
@@ -405,20 +488,22 @@ export async function updateQuestProgress(practiceSession: PracticeSession & {
         }
         break;
 
-      case 'weakness-warrior':
+      case "weakness-warrior":
         // Count sessions in lowest-performing subject
-        const lowestSubjectId = await getLowestPerformingSubject(practiceSession.studentId);
+        const lowestSubjectId = await getLowestPerformingSubject(
+          practiceSession.studentId
+        );
         if (practiceSession.subjectId === lowestSubjectId) {
           newProgress += 1;
           shouldComplete = newProgress >= quest.target;
         }
         break;
 
-      case 'balanced-learner':
+      case "balanced-learner":
         // Count subjects with 70%+ score this week
         const subjectsWithGoodScore = await getSubjectsWithMinAccuracy(
-          practiceSession.studentId, 
-          weekStart, 
+          practiceSession.studentId,
+          weekStart,
           0.7
         );
         newProgress = subjectsWithGoodScore;
@@ -445,9 +530,12 @@ export async function updateQuestProgress(practiceSession: PracticeSession & {
 }
 
 // Helper functions for complex quest calculations
-async function getUniqueSubjectsThisWeek(studentId: string, weekStart: Date): Promise<number> {
+async function getUniqueSubjectsThisWeek(
+  studentId: string,
+  weekStart: Date
+): Promise<number> {
   const weekEnd = getWeekEnd(weekStart);
-  const result = await prisma.$queryRaw`
+  const result = (await prisma.$queryRaw`
     SELECT COUNT(DISTINCT "subjectId") as count
     FROM "PracticeSession"
     WHERE "studentId" = ${studentId}
@@ -455,13 +543,17 @@ async function getUniqueSubjectsThisWeek(studentId: string, weekStart: Date): Pr
     AND "endTime" >= ${weekStart}
     AND "endTime" <= ${weekEnd}
     AND "subjectId" IS NOT NULL
-  ` as [{ count: bigint }];
+  `) as [{ count: bigint }];
   return Number(result[0]?.count || 0);
 }
 
-async function getSubjectSessionsThisWeek(studentId: string, subjectId: number, weekStart: Date): Promise<number> {
+async function getSubjectSessionsThisWeek(
+  studentId: string,
+  subjectId: number,
+  weekStart: Date
+): Promise<number> {
   const weekEnd = getWeekEnd(weekStart);
-  const result = await prisma.$queryRaw`
+  const result = (await prisma.$queryRaw`
     SELECT COUNT(*) as count
     FROM "PracticeSession"
     WHERE "studentId" = ${studentId}
@@ -469,26 +561,33 @@ async function getSubjectSessionsThisWeek(studentId: string, subjectId: number, 
     AND "status" = 'COMPLETED'
     AND "endTime" >= ${weekStart}
     AND "endTime" <= ${weekEnd}
-  ` as [{ count: bigint }];
+  `) as [{ count: bigint }];
   return Number(result[0]?.count || 0);
 }
 
-async function getUniqueDaysThisWeek(studentId: string, weekStart: Date): Promise<number> {
+async function getUniqueDaysThisWeek(
+  studentId: string,
+  weekStart: Date
+): Promise<number> {
   const weekEnd = getWeekEnd(weekStart);
-  const result = await prisma.$queryRaw`
+  const result = (await prisma.$queryRaw`
     SELECT COUNT(DISTINCT DATE("endTime")) as count
     FROM "PracticeSession"
     WHERE "studentId" = ${studentId}
     AND "status" = 'COMPLETED'
     AND "endTime" >= ${weekStart}
     AND "endTime" <= ${weekEnd}
-  ` as [{ count: bigint }];
+  `) as [{ count: bigint }];
   return Number(result[0]?.count || 0);
 }
 
-async function getDaysWithMinSessions(studentId: string, weekStart: Date, minSessions: number): Promise<number> {
+async function getDaysWithMinSessions(
+  studentId: string,
+  weekStart: Date,
+  minSessions: number
+): Promise<number> {
   const weekEnd = getWeekEnd(weekStart);
-  const result = await prisma.$queryRaw`
+  const result = (await prisma.$queryRaw`
     SELECT COUNT(*) as count
     FROM (
       SELECT DATE("endTime") as session_date
@@ -500,13 +599,16 @@ async function getDaysWithMinSessions(studentId: string, weekStart: Date, minSes
       GROUP BY DATE("endTime")
       HAVING COUNT(*) >= ${minSessions}
     ) as days_with_min_sessions
-  ` as [{ count: bigint }];
+  `) as [{ count: bigint }];
   return Number(result[0]?.count || 0);
 }
 
-async function getUniqueTopicsThisWeek(studentId: string, weekStart: Date): Promise<number> {
+async function getUniqueTopicsThisWeek(
+  studentId: string,
+  weekStart: Date
+): Promise<number> {
   const weekEnd = getWeekEnd(weekStart);
-  const result = await prisma.$queryRaw`
+  const result = (await prisma.$queryRaw`
     SELECT COUNT(DISTINCT "topicId") as count
     FROM "PracticeSession"
     WHERE "studentId" = ${studentId}
@@ -514,25 +616,28 @@ async function getUniqueTopicsThisWeek(studentId: string, weekStart: Date): Prom
     AND "endTime" >= ${weekStart}
     AND "endTime" <= ${weekEnd}
     AND "topicId" IS NOT NULL
-  ` as [{ count: bigint }];
+  `) as [{ count: bigint }];
   return Number(result[0]?.count || 0);
 }
 
-async function getWeeklyAverageAccuracy(studentId: string, weekStart: Date): Promise<number> {
+async function getWeeklyAverageAccuracy(
+  studentId: string,
+  weekStart: Date
+): Promise<number> {
   const weekEnd = getWeekEnd(weekStart);
-  const result = await prisma.$queryRaw`
+  const result = (await prisma.$queryRaw`
     SELECT AVG("score") as average
     FROM "PracticeSession"
     WHERE "studentId" = ${studentId}
     AND "status" = 'COMPLETED'
     AND "endTime" >= ${weekStart}
     AND "endTime" <= ${weekEnd}
-  ` as [{ average: bigint }];
+  `) as [{ average: bigint }];
   return Number(result[0]?.average || 0);
 }
 
 async function getLowestPerformingSubject(studentId: string): Promise<number> {
-  const result = await prisma.$queryRaw`
+  const result = (await prisma.$queryRaw`
     SELECT "subjectId"
     FROM "PracticeSession"
     WHERE "studentId" = ${studentId}
@@ -540,13 +645,17 @@ async function getLowestPerformingSubject(studentId: string): Promise<number> {
     GROUP BY "subjectId"
     ORDER BY AVG("score") ASC
     LIMIT 1
-  ` as [{ subjectId: bigint }];
+  `) as [{ subjectId: bigint }];
   return Number(result[0]?.subjectId || 0);
 }
 
-async function getSubjectsWithMinAccuracy(studentId: string, weekStart: Date, minAccuracy: number): Promise<number> {
+async function getSubjectsWithMinAccuracy(
+  studentId: string,
+  weekStart: Date,
+  minAccuracy: number
+): Promise<number> {
   const weekEnd = getWeekEnd(weekStart);
-  const result = await prisma.$queryRaw`
+  const result = (await prisma.$queryRaw`
     SELECT COUNT(*) as count
     FROM "PracticeSession"
     WHERE "studentId" = ${studentId}
@@ -554,13 +663,17 @@ async function getSubjectsWithMinAccuracy(studentId: string, weekStart: Date, mi
     AND "endTime" >= ${weekStart}
     AND "endTime" <= ${weekEnd}
     AND "score" >= ${minAccuracy}
-  ` as [{ count: bigint }];
+  `) as [{ count: bigint }];
   return Number(result[0]?.count || 0);
 }
 
-async function isNewSubjectThisWeek(studentId: string, subjectId: number, weekStart: Date): Promise<boolean> {
+async function isNewSubjectThisWeek(
+  studentId: string,
+  subjectId: number,
+  weekStart: Date
+): Promise<boolean> {
   const weekEnd = getWeekEnd(weekStart);
-  const result = await prisma.$queryRaw`
+  const result = (await prisma.$queryRaw`
     SELECT COUNT(*) as count
     FROM "PracticeSession"
     WHERE "studentId" = ${studentId}
@@ -568,63 +681,68 @@ async function isNewSubjectThisWeek(studentId: string, subjectId: number, weekSt
     AND "endTime" >= ${weekStart}
     AND "endTime" <= ${weekEnd}
     AND "subjectId" = ${subjectId}
-  ` as [{ count: bigint }];
+  `) as [{ count: bigint }];
   return Number(result[0]?.count || 0) === 0;
 }
 
-async function isNewTopicForStudent(studentId: string, topicId: number): Promise<boolean> {
-  const result = await prisma.$queryRaw`
+async function isNewTopicForStudent(
+  studentId: string,
+  topicId: number
+): Promise<boolean> {
+  const result = (await prisma.$queryRaw`
     SELECT COUNT(*) as count
     FROM "PracticeSession"
     WHERE "studentId" = ${studentId}
     AND "status" = 'COMPLETED'
     AND "topicId" = ${topicId}
-  ` as [{ count: bigint }];
+  `) as [{ count: bigint }];
   return Number(result[0]?.count || 0) === 0;
 }
 
 // Refresh incomplete quests (generate new ones to replace incomplete ones)
-export async function refreshIncompleteQuests(studentId: string): Promise<WeeklyQuest[]> {
+export async function refreshIncompleteQuests(
+  studentId: string
+): Promise<WeeklyQuest[]> {
   const weekStart = getWeekStart();
-  
+
   // Get current week's quests using ORM
-  const currentQuests = await prisma.weeklyQuest.findMany({
+  const currentQuests = await prisma.studentQuest.findMany({
     where: {
       studentId,
       weekStart: {
         gte: weekStart,
-        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-      }
-    }
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
+    },
   });
 
-  const incompleteQuests = currentQuests.filter(q => !q.isCompleted);
+  const incompleteQuests = currentQuests.filter((q) => !q.isCompleted);
   const completedCount = currentQuests.length - incompleteQuests.length;
 
   // If all quests are completed, generate new ones anyway (refresh behavior)
   if (completedCount >= 5 && incompleteQuests.length === 0) {
     // Delete all current quests and generate fresh ones
-    await prisma.weeklyQuest.deleteMany({
+    await prisma.studentQuest.deleteMany({
       where: {
         studentId,
         weekStart: {
           gte: weekStart,
-          lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-        }
-      }
+          lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+        },
+      },
     });
     return await generateWeeklyQuests(studentId);
   }
 
   // Delete incomplete quests and generate new ones
   if (incompleteQuests.length > 0) {
-    const incompleteIds = incompleteQuests.map(q => q.id);
-    await prisma.weeklyQuest.deleteMany({
+    const incompleteIds = incompleteQuests.map((q) => q.id);
+    await prisma.studentQuest.deleteMany({
       where: {
         id: {
-          in: incompleteIds
-        }
-      }
+          in: incompleteIds,
+        },
+      },
     });
   }
 
@@ -636,7 +754,7 @@ export async function refreshIncompleteQuests(studentId: string): Promise<Weekly
 export async function resetWeeklyQuests() {
   const lastWeekStart = new Date(getWeekStart());
   lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-  
+
   // Archive or delete old quests (older than last week)
   await prisma.$executeRaw`
     DELETE FROM "WeeklyQuest" 
@@ -646,29 +764,35 @@ export async function resetWeeklyQuests() {
 
 // Helper function to generate UUID
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c == "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
 
 // Update quest progress for mistakes review (called when mistakes are reviewed)
-export async function updateMistakeReviewProgress(studentId: string, mistakesReviewed: number) {
+export async function updateMistakeReviewProgress(
+  studentId: string,
+  mistakesReviewed: number
+) {
   const weekStart = getWeekStart();
-  
+
   // Get active review-mistakes quests for this week
-  const activeQuests = await prisma.$queryRaw`
+  const activeQuests = (await prisma.$queryRaw`
     SELECT * FROM "WeeklyQuest" 
     WHERE "studentId" = ${studentId} 
     AND "weekStart" >= ${weekStart}
     AND "weekStart" < ${new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)}
     AND "questType" = 'review-mistakes'
     AND "isCompleted" = false
-  ` as WeeklyQuest[];
+  `) as WeeklyQuest[];
 
   for (const quest of activeQuests) {
-    const newProgress = Math.min(quest.progress + mistakesReviewed, quest.target);
+    const newProgress = Math.min(
+      quest.progress + mistakesReviewed,
+      quest.target
+    );
     const shouldComplete = newProgress >= quest.target;
 
     await prisma.$executeRaw`
@@ -684,8 +808,8 @@ export async function updateMistakeReviewProgress(studentId: string, mistakesRev
 
 // Weekly Quest Scheduler - handles automatic quest rotation
 export async function manageWeeklyQuestRotation() {
-  console.log('🔄 Starting weekly quest rotation management...');
-  
+  console.log("🔄 Starting weekly quest rotation management...");
+
   try {
     const now = new Date();
     const currentWeekStart = getWeekStart(now);
@@ -693,55 +817,63 @@ export async function manageWeeklyQuestRotation() {
     lastWeekStart.setDate(currentWeekStart.getDate() - 7);
 
     // Get all students who have old quests that need rotation
-    const studentsWithOldQuests = await prisma.weeklyQuest.findMany({
+    const studentsWithOldQuests = await prisma.studentQuest.findMany({
       where: {
         weekStart: {
-          lt: currentWeekStart
-        }
+          lt: currentWeekStart,
+        },
       },
       select: {
-        studentId: true
+        studentId: true,
       },
-      distinct: ['studentId']
+      distinct: ["studentId"],
     });
 
-    console.log(`📚 Found ${studentsWithOldQuests.length} students with old quests`);
+    console.log(
+      `📚 Found ${studentsWithOldQuests.length} students with old quests`
+    );
 
     // Clean up quests older than 2 weeks
     const twoWeeksAgo = new Date(currentWeekStart);
     twoWeeksAgo.setDate(currentWeekStart.getDate() - 14);
-    
-    const deletedOldQuests = await prisma.weeklyQuest.deleteMany({
+
+    const deletedOldQuests = await prisma.studentQuest.deleteMany({
       where: {
         weekStart: {
-          lt: twoWeeksAgo
-        }
-      }
+          lt: twoWeeksAgo,
+        },
+      },
     });
 
-    console.log(`🗑️ Cleaned up ${deletedOldQuests.count} old quests (older than 2 weeks)`);
+    console.log(
+      `🗑️ Cleaned up ${deletedOldQuests.count} old quests (older than 2 weeks)`
+    );
 
     // Generate new quests for students who don't have current week quests
     const studentsNeedingNewQuests = await prisma.student.findMany({
       where: {
-        weeklyQuests: {
+        studentQuests: {
           none: {
             weekStart: {
               gte: currentWeekStart,
-              lt: new Date(currentWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-            }
-          }
-        }
+              lt: new Date(
+                currentWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000
+              ),
+            },
+          },
+        },
       },
       select: {
         id: true,
         username: true,
-        level: true
+        level: true,
       },
-      take: 100 // Limit to prevent overwhelming the system
+      take: 100, // Limit to prevent overwhelming the system
     });
 
-    console.log(`🎯 Generating quests for ${studentsNeedingNewQuests.length} students`);
+    console.log(
+      `🎯 Generating quests for ${studentsNeedingNewQuests.length} students`
+    );
 
     let questsGenerated = 0;
     for (const student of studentsNeedingNewQuests) {
@@ -749,20 +881,24 @@ export async function manageWeeklyQuestRotation() {
         await generateWeeklyQuests(student.id, student.level || 1);
         questsGenerated += 5; // Assuming 5 quests per student
       } catch (error) {
-        console.error(`❌ Failed to generate quests for student ${student.username}:`, error);
+        console.error(
+          `❌ Failed to generate quests for student ${student.username}:`,
+          error
+        );
       }
     }
 
-    console.log(`✅ Weekly quest rotation completed! Generated ${questsGenerated} new quests.`);
-    
+    console.log(
+      `✅ Weekly quest rotation completed! Generated ${questsGenerated} new quests.`
+    );
+
     return {
       studentsProcessed: studentsNeedingNewQuests.length,
       questsGenerated,
-      oldQuestsDeleted: deletedOldQuests.count
+      oldQuestsDeleted: deletedOldQuests.count,
     };
-
   } catch (error) {
-    console.error('❌ Error in weekly quest rotation:', error);
+    console.error("❌ Error in weekly quest rotation:", error);
     throw error;
   }
 }
@@ -771,53 +907,70 @@ export async function manageWeeklyQuestRotation() {
 export async function checkAndRotateWeeklyQuests() {
   const now = new Date();
   const currentWeekStart = getWeekStart(now);
-  
+
   // Check if we're at the beginning of a new week (Monday)
   const isNewWeek = now.getDay() === 1 && now.getHours() === 0; // Monday at midnight
-  
+
   if (isNewWeek) {
-    console.log('🗓️ New week detected! Triggering quest rotation...');
+    console.log("🗓️ New week detected! Triggering quest rotation...");
     return await manageWeeklyQuestRotation();
   }
-  
+
   return null;
 }
 
 // Auto-generate quests for new students
-export async function ensureStudentHasQuests(studentId: string): Promise<WeeklyQuest[]> {
+export async function ensureStudentHasQuests(
+  studentId: string
+): Promise<WeeklyQuest[]> {
   const weekStart = getWeekStart();
-  
-  const existingQuests = await prisma.weeklyQuest.findMany({
+
+  const existingQuests = await prisma.studentQuest.findMany({
     where: {
       studentId,
       weekStart: {
         gte: weekStart,
-        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-      }
-    }
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
+    },
   });
 
   if (existingQuests.length === 0) {
-    console.log(`🆕 New student detected: ${studentId}. Generating initial quests...`);
+    console.log(
+      `🆕 New student detected: ${studentId}. Generating initial quests...`
+    );
     return await generateWeeklyQuests(studentId);
   }
 
-  return existingQuests.map(quest => ({
+  const existingQuestsWithQuest = await prisma.studentQuest.findMany({
+    where: {
+      studentId,
+      weekStart: {
+        gte: weekStart,
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
+    },
+    include: {
+      quest: true,
+    },
+  });
+
+  return existingQuestsWithQuest.map((quest) => ({
     id: quest.id,
     studentId: quest.studentId,
-    questType: quest.questType,
-    title: quest.title,
-    description: quest.description,
+    questType: quest.quest.questType,
+    title: quest.quest.title,
+    description: quest.quest.description,
     target: quest.target,
     progress: quest.progress,
     isCompleted: quest.isCompleted,
     completedAt: quest.completedAt || undefined,
     weekStart: quest.weekStart,
     weekEnd: quest.weekEnd,
-    icon: quest.icon,
-    color: quest.color,
-    category: quest.category,
+    icon: quest.quest.icon,
+    color: quest.quest.color,
+    category: quest.quest.category,
     createdAt: quest.createdAt,
-    updatedAt: quest.updatedAt
+    updatedAt: quest.updatedAt,
   }));
-} 
+}
