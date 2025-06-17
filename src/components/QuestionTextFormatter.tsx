@@ -1,39 +1,11 @@
-/*
-Usage Examples:
-
-For Question Text (no fractions):
-<QuestionTextFormatter text="Sam was given some ribbon to tie 2 parcels. He used 7/8 m of ribbon..." />
-// Result: "7/8" will display as plain text
-
-For Option Text (with fractions):
-<OptionTextFormatter text="7/16 m" />
-// Result: "7/16" will display as a stacked fraction
-
-For Option Rendering in Components:
-{options.map((option, index) => (
-  <button key={option.id}>
-    <span className="font-bold mr-2">{String.fromCharCode(65 + index)}.</span>
-    <OptionTextFormatter text={option.text} />
-  </button>
-))}
-*/
-
 import React from 'react';
 
-interface QuestionTextFormatterProps {
-  text: string;
-  className?: string;
-}
-
-interface OptionTextFormatterProps {
-  text: string;
-  className?: string;
-}
+// --- Reusable Math Components ---
 
 /**
  * Renders a standard stacked fraction. e.g., 3/4
  */
-const StackedFraction: React.FC<{ numerator: string; denominator: string; key?: string }> = ({
+const StackedFraction: React.FC<{ numerator: string; denominator: string; key?: string | number }> = ({
   numerator,
   denominator,
 }) => (
@@ -46,7 +18,7 @@ const StackedFraction: React.FC<{ numerator: string; denominator: string; key?: 
 /**
  * Renders a mixed fraction. e.g., 2 1/2
  */
-const MixedFraction: React.FC<{ whole: string; numerator: string; denominator: string; key?: string }> = ({
+const MixedFraction: React.FC<{ whole: string; numerator: string; denominator: string; key?: string | number }> = ({
   whole,
   numerator,
   denominator,
@@ -57,74 +29,103 @@ const MixedFraction: React.FC<{ whole: string; numerator: string; denominator: s
   </span>
 );
 
+
+// --- Shared Formatting Logic ---
+
 /**
- * Component for formatting option text with fractions
+ * A robust, shared function to parse and format mathematical text.
+ * It now correctly handles fractions with parentheses and within sentences.
  */
-const OptionTextFormatter: React.FC<OptionTextFormatterProps> = ({ 
-  text, 
-  className = "" 
-}) => {
-  const formatOptionText = (inputText: string): React.ReactNode[] => {
-    const nodes: React.ReactNode[] = [];
-    let lastIndex = 0;
+const formatMathematicalText = (inputText: string): React.ReactNode[] => {
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
 
-    // Only format fractions in options, leave everything else as plain text
-    const fractionPattern = new RegExp(
-      [
-        String.raw`(\b\d+\s+\d+\/\d+\b)`,       // Mixed Fractions (e.g., "3 1/4")
-        String.raw`(\b\w+\/\w+\b)`,             // Simple Fractions (e.g., "3/4", "10k/4")
-      ].join('|'),
-      'g'
-    );
+  // This single, powerful regex finds all math patterns.
+  // The fraction pattern is now more precise to avoid being greedy.
+  const masterPattern = new RegExp(
+    [
+      String.raw`(\b\d+\s+\d+\/\d+\b)`,              // 1. Mixed Fractions (e.g., "4 1/5") - Most specific
+      String.raw`(\b[\w.]+\s*\/\s*(?:\([^)]+\)|\w+))`,// 2. All other fractions (e.g., "1/4", "y/40", "5/(8y)") - More precise denominator
+      String.raw`(∠\s?[\w\d]+)`,                  // 3. Angles (e.g., "∠CBE")
+      String.raw`(\d+(?:\.\d+)?%)`,                // 4. Percentages (e.g., "7%")
+      String.raw`([=<>≤≥≠])`,                      // 5. Comparison/Equals Operators
+      String.raw`([+\-−×*÷:])`,                    // 6. Arithmetic/Ratio Operators
+    ].join('|'),
+    'g'
+  );
 
-    let match;
-    while ((match = fractionPattern.exec(inputText)) !== null) {
-      // Add plain text before the match
-      if (match.index > lastIndex) {
-        nodes.push(inputText.substring(lastIndex, match.index));
-      }
+  let match;
+  while ((match = masterPattern.exec(inputText)) !== null) {
+    // Add the plain text segment before the matched math expression
+    if (match.index > lastIndex) {
+      nodes.push(inputText.substring(lastIndex, match.index));
+    }
 
-      const [fullMatch, mixedFraction, simpleFraction] = match;
-      const key = `${match.index}`;
+    const [
+      fullMatch, 
+      mixedFraction, 
+      anyFraction, 
+      angle, 
+      percent, 
+      comparison, 
+      operator
+    ] = match;
+    const key = `${match.index}-${fullMatch}`;
 
-      if (mixedFraction) {
-        const [whole, num, den] = mixedFraction.split(/[\s\/]+/);
-        nodes.push(<MixedFraction key={key} whole={whole} numerator={num} denominator={den} />);
-      } else if (simpleFraction) {
-        const [num, den] = simpleFraction.split('/');
-        nodes.push(<StackedFraction key={key} numerator={num} denominator={den} />);
+    if (mixedFraction) {
+      const [whole, num, den] = mixedFraction.split(/[\s\/]+/);
+      nodes.push(<MixedFraction key={key} whole={whole} numerator={num} denominator={den} />);
+    } else if (anyFraction) {
+      // This block now handles all non-mixed fractions correctly
+      const parts = anyFraction.split('/');
+      const num = parts[0].trim();
+      let den = parts[1].trim();
+
+      // Remove parentheses from denominator if they exist
+      if (den.startsWith('(') && den.endsWith(')')) {
+        den = den.substring(1, den.length - 1).trim();
       }
       
-      lastIndex = match.index + fullMatch.length;
-    }
-
-    // Add remaining text
-    if (lastIndex < inputText.length) {
-      nodes.push(inputText.substring(lastIndex));
+      nodes.push(<StackedFraction key={key} numerator={num} denominator={den} />);
+    } else if (angle || percent) {
+      nodes.push(<span key={key} className="font-semibold">{fullMatch}</span>);
+    } else if (comparison || operator) {
+      const symbol = fullMatch.replace('*', '×').replace('-', '−');
+      nodes.push(<span key={key} className="mx-2">{symbol.trim()}</span>);
     }
     
-    return nodes;
-  };
-
-  const formattedContent = formatOptionText(text);
-
-  return (
-    <span className={className}>
-      {formattedContent}
-    </span>
-  );
+    lastIndex = match.index + fullMatch.length;
+  }
+  
+  // Add any remaining text after the last match
+  if (lastIndex < inputText.length) {
+    nodes.push(inputText.substring(lastIndex));
+  }
+  
+  return nodes;
 };
 
+
+// --- Exported Components ---
+
+interface QuestionTextFormatterProps {
+  text: string;
+  className?: string;
+}
+
+interface OptionTextFormatterProps {
+  text: string;
+  className?: string;
+}
+
 /**
- * Component for formatting question text without fractions
+ * Component for formatting the main question text.
+ * It handles multi-part questions and all mathematical expressions.
  */
 const QuestionTextFormatter: React.FC<QuestionTextFormatterProps> = ({ 
   text, 
   className = "" 
 }) => {
-  /**
-   * Adds a period to the end of a string if it's missing punctuation.
-   */
   const ensurePeriodAtEnd = (str: string): string => {
     const trimmed = str.trim();
     if (trimmed && !/[.!?]$/.test(trimmed)) {
@@ -133,16 +134,12 @@ const QuestionTextFormatter: React.FC<QuestionTextFormatterProps> = ({
     return trimmed;
   };
 
-  /**
-   * Formats multi-part questions like (a), (b) onto separate lines and ensures they end with a period.
-   */
   const processMultiPartQuestion = (str: string): string => {
     const partPattern = /(\([a-z]\))/gi;
     if (!partPattern.test(str)) {
       return ensurePeriodAtEnd(str);
     }
     
-    // Split by part markers, ensuring markers are kept.
     const parts = str.split(partPattern);
     let processedText = '';
     
@@ -150,13 +147,12 @@ const QuestionTextFormatter: React.FC<QuestionTextFormatterProps> = ({
       const part = parts[i].trim();
       if (!part) continue;
       
-      if (part.match(/^\([a-z]\)$/i)) { // It's a marker like (a)
-        // Add a newline before the marker if it's not the first part of the text
+      if (part.match(/^\([a-z]\)$/i)) {
         if (processedText.length > 0) {
           processedText = ensurePeriodAtEnd(processedText) + '\n\n';
         }
         processedText += part + ' ';
-      } else { // It's the content after a marker
+      } else {
         processedText += part;
       }
     }
@@ -164,63 +160,29 @@ const QuestionTextFormatter: React.FC<QuestionTextFormatterProps> = ({
     return ensurePeriodAtEnd(processedText);
   };
 
-  /**
-   * Formats non-fraction math expressions only
-   */
-  const formatText = (inputText: string): React.ReactNode[] => {
-    const nodes: React.ReactNode[] = [];
-    let lastIndex = 0;
-
-    // Pattern for non-fraction math expressions only
-    const nonFractionMathPattern = new RegExp(
-      [
-        String.raw`(∠\s?[\w\d]+)`,              // Angles (e.g., "∠CBE")
-        String.raw`(\d+(\.\d+)?%)`,             // Percentages (e.g., "7%")
-        String.raw`([÷×−≤≥≠])`,                 // LaTeX symbols
-        String.raw`([=<>])`,                    // Comparison operators
-        String.raw`([+\-*:])`,                  // ASCII operators
-      ].join('|'),
-      'g'
-    );
-
-    let match;
-    while ((match = nonFractionMathPattern.exec(inputText)) !== null) {
-      // Add plain text before the match
-      if (match.index > lastIndex) {
-        nodes.push(inputText.substring(lastIndex, match.index));
-      }
-
-      const [fullMatch, angle, percent, percentDecimal, latexSymbol, comparison, operator] = match;
-      const key = `${match.index}`;
-
-      if (angle || percent) {
-        nodes.push(<span key={key} className="font-semibold">{fullMatch}</span>);
-      } else if (latexSymbol) {
-        nodes.push(<span key={key} className="mx-1">{fullMatch}</span>);
-      } else if (comparison || operator) {
-        let symbol = fullMatch.replace('*', '×').replace(':', ' : ').replace('-', '−');
-        nodes.push(<span key={key} className="mx-2">{symbol.trim()}</span>);
-      }
-      
-      lastIndex = match.index + fullMatch.length;
-    }
-
-    // Add remaining text
-    if (lastIndex < inputText.length) {
-      nodes.push(inputText.substring(lastIndex));
-    }
-    
-    return nodes;
-  };
-
-  // Run the full pipeline
   const preprocessedText = processMultiPartQuestion(text);
-  const formattedContent = formatText(preprocessedText);
+  const formattedContent = formatMathematicalText(preprocessedText);
 
   return (
     <div className={`whitespace-pre-wrap ${className}`}>
       {formattedContent}
     </div>
+  );
+};
+
+/**
+ * Component for formatting option text, now using the shared formatter.
+ */
+const OptionTextFormatter: React.FC<OptionTextFormatterProps> = ({ 
+  text, 
+  className = "" 
+}) => {
+  const formattedContent = formatMathematicalText(text);
+
+  return (
+    <span className={className}>
+      {formattedContent}
+    </span>
   );
 };
 
