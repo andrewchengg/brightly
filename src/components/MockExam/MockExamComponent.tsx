@@ -16,6 +16,7 @@ import {
   FaSpinner,
 } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
+import { OptionTextFormatter } from "@/components/QuestionTextFormatter";
 
 export const dynamic = "force-dynamic";
 
@@ -801,7 +802,7 @@ export default function MockExamComponent({
                       <span className="font-semibold mr-2">
                         {optionLetter}.
                       </span>{" "}
-                      {optionText}
+                      <OptionTextFormatter text={optionText} />
                     </button>
                   );
                 })}
