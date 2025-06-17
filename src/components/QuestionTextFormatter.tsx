@@ -190,7 +190,7 @@ const QuestionTextFormatter: React.FC<QuestionTextFormatterProps> = ({
         nodes.push(inputText.substring(lastIndex, match.index));
       }
 
-      const [fullMatch, angle, percent, latexSymbol, comparison, operator] = match;
+      const [fullMatch, angle, percent, percentDecimal, latexSymbol, comparison, operator] = match;
       const key = `${match.index}`;
 
       if (angle || percent) {

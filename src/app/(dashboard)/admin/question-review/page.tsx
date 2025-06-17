@@ -460,6 +460,9 @@ export default function QuestionReviewPage() {
       setMultiPartResults({});
       setIsAnswerCorrect(false);
       setShowHint(false);
+      
+      // Scroll to top to show the new question
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentProductionReviewIndex, productionReviewQuestions, formatOptionsForClient]);
 
@@ -582,6 +585,9 @@ export default function QuestionReviewPage() {
     
     // For other modes, just refresh the question data and stay
     await handleQuestionUpdated(false);
+    
+    // Scroll to top to show the updated question
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleQuestionDeleted = () => {
