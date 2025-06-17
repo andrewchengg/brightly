@@ -205,12 +205,6 @@ const StudentPage = async () => {
                 <FaFire className="text-orange-500" />
                 Weekly Quests
               </h2>
-              <Link
-                href="/student/weekly-quests"
-                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-              >
-                View All
-              </Link>
             </div>
 
             {/* Weekly Quests Preview */}

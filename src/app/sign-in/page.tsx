@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client"; // For Google OAuth & direct email login
 import Link from "next/link";
+import { CuteLoader, StudyLoader } from "@/components/ui/CuteLoader";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -81,31 +82,42 @@ export default function SignInPage() {
       }
 
       if (authSuccessful) {
-        console.log(`[REDIRECT] Auth successful. Checking setup status for role: ${userRole}`);
-        
+        console.log(
+          `[REDIRECT] Auth successful. Checking setup status for role: ${userRole}`
+        );
+
         // For students, check if they need to complete setup before redirecting
         if (userRole === "student") {
-          const { data: { user } } = await supabase.auth.getUser();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
           if (user) {
             const { data: student, error: studentError } = await supabase
-              .from('Student')
-              .select('initialSetupComplete')
-              .eq('id', user.id)
+              .from("Student")
+              .select("initialSetupComplete")
+              .eq("id", user.id)
               .single();
 
             if (studentError) {
-              console.error("[SIGN_IN] Error checking student setup status:", studentError);
+              console.error(
+                "[SIGN_IN] Error checking student setup status:",
+                studentError
+              );
               // If error checking status, go to student dashboard and let StudentSetupCheck handle it
-              router.push('/student');
+              router.push("/student");
             } else if (student && !student.initialSetupComplete) {
-              console.log("[SIGN_IN] Student setup incomplete, redirecting to complete-setup");
-              router.push('/student/complete-setup');
+              console.log(
+                "[SIGN_IN] Student setup incomplete, redirecting to complete-setup"
+              );
+              router.push("/student/complete-setup");
             } else {
-              console.log("[SIGN_IN] Student setup complete, redirecting to dashboard");
-              router.push('/student');
+              console.log(
+                "[SIGN_IN] Student setup complete, redirecting to dashboard"
+              );
+              router.push("/student");
             }
           } else {
-            router.push('/student');
+            router.push("/student");
           }
         } else {
           // For non-students, redirect to their role dashboard directly
@@ -168,7 +180,7 @@ export default function SignInPage() {
                 href="/"
                 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
               >
-                                  Brightly
+                Brightly
               </Link>
             </div>
             <div className="flex items-center space-x-4">
@@ -257,9 +269,13 @@ export default function SignInPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed min-h-[40px]"
               >
-                {isLoading ? "Signing in..." : "Sign in"}
+                {isLoading ? (
+                  <StudyLoader text="Signing you in..." theme="dark" />
+                ) : (
+                  "Sign in"
+                )}
               </button>
             </div>
           </form>
@@ -279,32 +295,42 @@ export default function SignInPage() {
                 onClick={handleGoogleSignIn}
                 type="button"
                 disabled={isLoading}
-                className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px]"
               >
-                <svg
-                  width="18"
-                  height="18"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 48 48"
-                >
-                  <path
-                    fill="#FFC107"
-                    d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
-                  ></path>
-                  <path
-                    fill="#FF3D00"
-                    d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
-                  ></path>
-                  <path
-                    fill="#4CAF50"
-                    d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
-                  ></path>
-                  <path
-                    fill="#1976D2"
-                    d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
-                  ></path>
-                </svg>
-                {isLoading ? "Signing in..." : "Sign in with Google"}
+                {isLoading ? (
+                  <CuteLoader
+                    variant="dots"
+                    text="Connecting with Google..."
+                    size="sm"
+                  />
+                ) : (
+                  <>
+                    <svg
+                      width="18"
+                      height="18"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 48 48"
+                    >
+                      <path
+                        fill="#FFC107"
+                        d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+                      ></path>
+                      <path
+                        fill="#FF3D00"
+                        d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+                      ></path>
+                      <path
+                        fill="#4CAF50"
+                        d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+                      ></path>
+                      <path
+                        fill="#1976D2"
+                        d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+                      ></path>
+                    </svg>
+                    Sign in with Google
+                  </>
+                )}
               </button>
             </div>
           </div>

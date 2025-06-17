@@ -6,148 +6,114 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr"; // For s
 import { cookies } from "next/headers";
 
 export async function POST(request: NextRequest) {
+  console.log("[API_SIGN_IN] Starting username-based sign-in process");
   const { username, password } = await request.json();
-  const cookieStore = cookies();
 
   if (!username || !password) {
     return NextResponse.json(
-      { error: "Username and password are required" },
+      { error: "Username and password are required." },
       { status: 400 }
     );
   }
 
-  // Use admin client for user lookup since we need to bypass RLS
+  const cookieStore = cookies();
   const supabaseAdmin = createAdminClient();
 
   let emailToTry: string | null = null;
-  let userRole: string | null = null;
+  let userRole: string = "student";
   let userId: string | null = null;
-  let userData; // Declare userData here to be re-assignable
-  let queryError; // Declare a generic queryError variable
 
   try {
-    // 1. Look up username in Student table
+    // Check Student table first (most common)
     console.log(
       `[API_SIGN_IN] Checking Student table for username: ${username}`
     );
-    ({ data: userData, error: queryError } = await supabaseAdmin
+    const { data: studentData, error: studentError } = await supabaseAdmin
       .from("Student")
       .select("id, email, name")
       .eq("username", username)
-      .single());
+      .single();
 
-    if (queryError && queryError.code !== "PGRST116") {
-      console.error("[API_SIGN_IN] Error Student lookup:", queryError.message);
-    }
-
-    if (userData?.email) {
-      emailToTry = userData.email;
+    if (!studentError && studentData?.email) {
+      emailToTry = studentData.email;
       userRole = "student";
-      userId = userData.id;
+      userId = studentData.id;
       console.log(`[API_SIGN_IN] Found Student: ${emailToTry}`);
     } else {
-      // 2. Look up username in Parent table
+      // Check Parent table
       console.log(
         `[API_SIGN_IN] Checking Parent table for username: ${username}`
       );
-      ({ data: userData, error: queryError } = await supabaseAdmin
+      const { data: parentData, error: parentError } = await supabaseAdmin
         .from("Parent")
         .select("id, email, name")
         .eq("username", username)
-        .single());
+        .single();
 
-      if (queryError && queryError.code !== "PGRST116") {
-        console.error("[API_SIGN_IN] Error Parent lookup:", queryError.message);
-      }
-
-      if (userData?.email) {
-        emailToTry = userData.email;
+      if (!parentError && parentData?.email) {
+        emailToTry = parentData.email;
         userRole = "parent";
-        userId = userData.id;
+        userId = parentData.id;
         console.log(`[API_SIGN_IN] Found Parent: ${emailToTry}`);
       } else {
-        // 3. Look up username in Teacher table
+        // Check Teacher table
         console.log(
           `[API_SIGN_IN] Checking Teacher table for username: ${username}`
         );
-        ({ data: userData, error: queryError } = await supabaseAdmin
+        const { data: teacherData, error: teacherError } = await supabaseAdmin
           .from("Teacher")
           .select("id, email, name")
           .eq("username", username)
-          .single());
+          .single();
 
-        if (queryError && queryError.code !== "PGRST116") {
-          console.error(
-            "[API_SIGN_IN] Error Teacher lookup:",
-            queryError.message
-          );
-        }
-
-        if (userData?.email) {
-          emailToTry = userData.email;
+        if (!teacherError && teacherData?.email) {
+          emailToTry = teacherData.email;
           userRole = "teacher";
-          userId = userData.id;
+          userId = teacherData.id;
           console.log(`[API_SIGN_IN] Found Teacher: ${emailToTry}`);
         } else {
-          // 4. Look up username in Admin table
+          // Check Admin table
           console.log(
             `[API_SIGN_IN] Checking Admin table for username: ${username}`
           );
-          ({ data: userData, error: queryError } = await supabaseAdmin
+          const { data: adminData, error: adminError } = await supabaseAdmin
             .from("Admin")
             .select("id, username")
             .eq("username", username)
-            .single());
+            .single();
 
-          if (queryError && queryError.code !== "PGRST116") {
-            console.error(
-              "[API_SIGN_IN] Error Admin lookup:",
-              queryError.message
-            );
-          }
-
-          if (userData?.username) {
-            // Admin table stores username, not email directly
-            const adminId = userData.id; // Get the admin's ID
-
+          if (!adminError && adminData?.username) {
+            // Admin table stores username, get their auth email
             const { data: adminAuthUser, error: getAdminAuthError } =
-              await supabaseAdmin.auth.admin.getUserById(adminId);
+              await supabaseAdmin.auth.admin.getUserById(adminData.id);
 
             if (getAdminAuthError || !adminAuthUser?.user?.email) {
               console.error(
-                `[API_SIGN_IN] Admin username ${username} found (ID: ${adminId}), but could not retrieve their auth email. Error: ${getAdminAuthError?.message}`
+                `[API_SIGN_IN] Admin auth lookup failed for ID: ${adminData.id}`
               );
               return NextResponse.json(
-                {
-                  error:
-                    "Admin configuration error or admin must use email for authentication.",
-                },
+                { error: "Admin authentication error." },
                 { status: 400 }
               );
             }
             emailToTry = adminAuthUser.user.email;
             userRole = "admin";
-            userId = adminId; // Use the ID from the Admin table
-            console.log(
-              `[API_SIGN_IN] Found Admin: ${emailToTry} (Auth Email for Admin ID: ${adminId})`
-            );
+            userId = adminData.id;
+            console.log(`[API_SIGN_IN] Found Admin: ${emailToTry}`);
           }
         }
       }
     }
 
     if (!emailToTry) {
-      console.log(
-        `[API_SIGN_IN] Username "${username}" not found in any table.`
-      );
+      console.log(`[API_SIGN_IN] Username "${username}" not found.`);
       return NextResponse.json(
         { error: "Invalid username or password." },
         { status: 401 }
       );
     }
 
-    // 5. Attempt to sign in with the found email and provided password
-    // Use server-only variables for better security, with fallback to public ones
+    // Attempt authentication with found email
     const supabaseUrl =
       process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseAnonKey =
@@ -187,11 +153,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sign-in successful
     console.log(
-      `[API_SIGN_IN] User ${
-        userId || signInData.user?.id
-      } (${emailToTry}) signed in successfully as ${userRole}.`
+      `[API_SIGN_IN] User ${userId} (${emailToTry}) signed in successfully as ${userRole}.`
     );
     return NextResponse.json(
       {
@@ -203,9 +166,9 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
-    console.error("[API_SIGN_IN] Internal server error:", error, error.stack); // Log stack for reference errors
+    console.error("[API_SIGN_IN] Internal server error:", error.message);
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const studentId = user.id;
     console.log("API: Fetching quests for student:", studentId);
 
-    // First, check the student's level by calculating it from XP points
+    // Get student level from database (simplified query)
     const student = await prisma.student.findUnique({
       where: { id: studentId },
       select: { level: true, xpPoints: true },
@@ -40,16 +40,7 @@ export async function GET(request: NextRequest) {
 
     // Use calculated level from XP points instead of stored level for consistency
     const studentLevel = calculateLevel(student?.xpPoints || 0);
-    const storedLevel = student?.level || 1;
-    console.log(
-      "API: Student calculated level:",
-      studentLevel,
-      "(stored:",
-      storedLevel,
-      ", XP:",
-      student?.xpPoints,
-      ")"
-    );
+    console.log("API: Student level:", studentLevel, "XP:", student?.xpPoints);
 
     // If student is below level 2, return locked state
     if (studentLevel < 2) {
@@ -63,27 +54,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Check if weekly rotation is needed (automatic check)
-    await checkWeeklyRotationNeeded();
-
-    // Check if this student needs quest generation
-    await checkAndGenerateQuestsIfNeeded(studentId);
+    // Get current week start (Monday-based calculation)
+    const weekStart = new Date();
+    const day = weekStart.getDay();
+    const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
+    weekStart.setDate(diff);
+    weekStart.setHours(0, 0, 0, 0);
 
     let formattedQuests: any[] = [];
 
     try {
-      // Get or generate quests for the current week using simplified approach
-      console.log("API: Getting student quests for current week...");
-
-      // Use Monday-based week calculation
-      const weekStart = new Date();
-      const day = weekStart.getDay();
-      const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
-      weekStart.setDate(diff);
-      weekStart.setHours(0, 0, 0, 0);
-
-      // Check for existing student quests
-      let studentQuests = await prisma.studentQuest.findMany({
+      // Get existing student quests for current week
+      const studentQuests = await prisma.studentQuest.findMany({
         where: {
           studentId,
           weekStart: {
@@ -95,107 +77,29 @@ export async function GET(request: NextRequest) {
           quest: true,
         },
         orderBy: { createdAt: "asc" },
+        take: 2, // Limit to 2 quests
       });
 
-      // If no quests exist, return empty array and let frontend handle it
-      if (studentQuests.length === 0) {
-        console.log("API: No quests found for current week");
-        formattedQuests = [];
-      } else {
-        // Convert to frontend format
-        formattedQuests = studentQuests.map((studentQuest) => ({
-          id: studentQuest.id,
-          title: studentQuest.quest.title,
-          description: studentQuest.quest.description,
-          progress: studentQuest.progress,
-          target: studentQuest.target,
-          icon: studentQuest.quest.icon,
-          color: studentQuest.quest.color,
-          category: studentQuest.quest.category.toLowerCase(),
-          isCompleted: studentQuest.isCompleted,
-          completedAt: studentQuest.completedAt,
-        }));
-      }
+      // Convert existing quests to frontend format
+      formattedQuests = studentQuests.map((studentQuest) => ({
+        id: studentQuest.id,
+        title: studentQuest.quest.title,
+        description: studentQuest.quest.description,
+        progress: studentQuest.progress,
+        target: studentQuest.target,
+        icon: studentQuest.quest.icon,
+        color: studentQuest.quest.color,
+        category: studentQuest.quest.category.toLowerCase(),
+        isCompleted: studentQuest.isCompleted,
+        completedAt: studentQuest.completedAt,
+      }));
 
-      console.log("API: Retrieved quests:", studentQuests.length, "quests");
+      console.log("API: Retrieved quests:", formattedQuests.length, "quests");
     } catch (dbError) {
-      console.warn(
-        "API: Quest generation/retrieval failed, using fallback:",
-        dbError
-      );
-
-      // Fallback quests if database fails
-      formattedQuests = [
-        {
-          id: "1",
-          title: "Review 10 mistakes",
-          description: "Learn from your previous incorrect answers",
-          progress: 0,
-          target: 10,
-          icon: "FaExclamationTriangle",
-          color: "orange",
-          category: "core",
-          isCompleted: false,
-          completedAt: null,
-        },
-        {
-          id: "2",
-          title: "Score 80%+ in 3 sessions",
-          description: "Achieve high accuracy in your practice sessions",
-          progress: 0,
-          target: 3,
-          icon: "FaBullseye",
-          color: "green",
-          category: "core",
-          isCompleted: false,
-          completedAt: null,
-        },
-        {
-          id: "3",
-          title: "Subject Specialist",
-          description:
-            "Complete 5+ practice sessions in your chosen subject specialty",
-          progress: 0,
-          target: 5,
-          icon: "FaGraduationCap",
-          color: "blue",
-          category: "subject",
-          isCompleted: false,
-          completedAt: null,
-        },
-        {
-          id: "4",
-          title: "Weekly Warrior",
-          description: "Practice for at least 5 days this week",
-          progress: 0,
-          target: 5,
-          icon: "FaCalendarCheck",
-          color: "green",
-          category: "consistency",
-          isCompleted: false,
-          completedAt: null,
-        },
-        {
-          id: "5",
-          title: "Speed Demon",
-          description: "Complete 10 practice sessions within the week",
-          progress: 0,
-          target: 10,
-          icon: "FaFire",
-          color: "orange",
-          category: "performance",
-          isCompleted: false,
-          completedAt: null,
-        },
-      ];
-      console.log(
-        "API: Using fallback quests:",
-        formattedQuests.length,
-        "quests"
-      );
+      console.warn("API: Quest retrieval failed:", dbError);
+      formattedQuests = [];
     }
 
-    console.log("API: Final formatted quests:", formattedQuests);
     return NextResponse.json({ quests: formattedQuests });
   } catch (error: any) {
     console.error("API: Error fetching weekly quests:", error);

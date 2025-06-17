@@ -35,6 +35,7 @@ import {
   FaThumbsUp,
   FaRandom,
 } from "react-icons/fa";
+import { CuteLoader } from "./ui/CuteLoader";
 
 interface Quest {
   id: string;
@@ -124,7 +125,7 @@ export default function WeeklyQuestsPreview() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <FaSpinner className="animate-spin text-gray-400 text-xl" />
+        <CuteLoader variant="pulse" text="Loading weekly quests..." />
       </div>
     );
   }
@@ -156,8 +157,8 @@ export default function WeeklyQuestsPreview() {
     );
   }
 
-  // Show first 3 quests in preview
-  const previewQuests = questsData.quests.slice(0, 3);
+  // Show first 2 quests in preview (changed from 3 to 2)
+  const previewQuests = questsData.quests.slice(0, 2);
   const completedCount = questsData.quests.filter((q) => q.isCompleted).length;
   const totalCount = questsData.quests.length;
 
@@ -245,11 +246,11 @@ export default function WeeklyQuestsPreview() {
       </div>
 
       {/* Show more indicator */}
-      {questsData.quests.length > 3 && (
+      {questsData.quests.length > 2 && (
         <div className="text-center pt-2 border-t border-gray-100">
           <p className="text-xs text-gray-500">
-            +{questsData.quests.length - 3} more quest
-            {questsData.quests.length - 3 > 1 ? "s" : ""}
+            +{questsData.quests.length - 2} more quest
+            {questsData.quests.length - 2 > 1 ? "s" : ""}
           </p>
         </div>
       )}
