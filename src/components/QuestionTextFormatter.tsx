@@ -68,28 +68,23 @@ const OptionTextFormatter: React.FC<OptionTextFormatterProps> = ({
     const nodes: React.ReactNode[] = [];
     let lastIndex = 0;
 
-    // Pattern for fractions and other math expressions
-    const mathPattern = new RegExp(
+    // Only format fractions in options, leave everything else as plain text
+    const fractionPattern = new RegExp(
       [
         String.raw`(\b\d+\s+\d+\/\d+\b)`,       // Mixed Fractions (e.g., "3 1/4")
         String.raw`(\b\w+\/\w+\b)`,             // Simple Fractions (e.g., "3/4", "10k/4")
-        String.raw`(∠\s?[\w\d]+)`,              // Angles (e.g., "∠CBE")
-        String.raw`(\d+(\.\d+)?%)`,             // Percentages (e.g., "7%")
-        String.raw`([÷×−≤≥≠])`,                 // LaTeX symbols
-        String.raw`([=<>])`,                    // Comparison operators
-        String.raw`([+\-*:])`,                  // ASCII operators
       ].join('|'),
       'g'
     );
 
     let match;
-    while ((match = mathPattern.exec(inputText)) !== null) {
+    while ((match = fractionPattern.exec(inputText)) !== null) {
       // Add plain text before the match
       if (match.index > lastIndex) {
         nodes.push(inputText.substring(lastIndex, match.index));
       }
 
-      const [fullMatch, mixedFraction, simpleFraction, angle, percent, latexSymbol, comparison, operator] = match;
+      const [fullMatch, mixedFraction, simpleFraction] = match;
       const key = `${match.index}`;
 
       if (mixedFraction) {
@@ -98,13 +93,6 @@ const OptionTextFormatter: React.FC<OptionTextFormatterProps> = ({
       } else if (simpleFraction) {
         const [num, den] = simpleFraction.split('/');
         nodes.push(<StackedFraction key={key} numerator={num} denominator={den} />);
-      } else if (angle || percent) {
-        nodes.push(<span key={key} className="font-semibold">{fullMatch}</span>);
-      } else if (latexSymbol) {
-        nodes.push(<span key={key} className="mx-1">{fullMatch}</span>);
-      } else if (comparison || operator) {
-        let symbol = fullMatch.replace('*', '×').replace(':', ' : ').replace('-', '−');
-        nodes.push(<span key={key} className="mx-2">{symbol.trim()}</span>);
       }
       
       lastIndex = match.index + fullMatch.length;
