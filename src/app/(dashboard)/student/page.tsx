@@ -13,6 +13,7 @@ import {
 import StudentCalendar from "@/components/StudentCalendar";
 import { Button } from "@/components/ui/button";
 import XPBar from "@/components/XPBar";
+import WeeklyQuestsPreview from "@/components/WeeklyQuestsPreview";
 
 interface AssignedTask extends PrismaPracticeSessionType {
   subjectName?: string | null;
@@ -195,32 +196,42 @@ const StudentPage = async () => {
           </div>
         </div>
 
-        {/* Right side - Quick Actions and Tasks */}
+        {/* Right side - Weekly Quests and Tasks */}
         <div className="w-full lg:w-80 space-y-6">
-          {/* Quick Actions - moved above tasks */}
+          {/* Weekly Quests - replaced Quick Actions */}
           <div className="bg-white rounded-2xl shadow-xl p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Quick Actions
-            </h2>
-            <div className="space-y-3">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <FaFire className="text-orange-500" />
+                Weekly Quests
+              </h2>
               <Link
-                href="/student/practice"
-                className="block w-full p-3 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-lg text-center font-semibold hover:from-green-700 hover:to-emerald-800 transition-all shadow-md"
+                href="/student/weekly-quests"
+                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
               >
-                🎯 Start Practice Session
+                View All
               </Link>
-              <Link
-                href="/student/weekly-challenge"
-                className="block w-full p-3 bg-gradient-to-r from-purple-600 to-indigo-700 text-white rounded-lg text-center font-semibold hover:from-purple-700 hover:to-indigo-800 transition-all shadow-md"
-              >
-                🏆 Weekly Challenge
-              </Link>
-              <Link
-                href="/student/results"
-                className="block w-full p-3 bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-lg text-center font-semibold hover:from-amber-700 hover:to-orange-800 transition-all shadow-md"
-              >
-                📊 View Results
-              </Link>
+            </div>
+
+            {/* Weekly Quests Preview */}
+            <WeeklyQuestsPreview />
+
+            {/* Quick Actions moved to bottom */}
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="grid grid-cols-1 gap-2">
+                <Link
+                  href="/student/practice"
+                  className="block w-full p-2 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-lg text-center font-medium text-sm hover:from-green-700 hover:to-emerald-800 transition-all"
+                >
+                  🎯 Practice Now
+                </Link>
+                <Link
+                  href="/student/weekly-challenge"
+                  className="block w-full p-2 bg-gradient-to-r from-purple-600 to-indigo-700 text-white rounded-lg text-center font-medium text-sm hover:from-purple-700 hover:to-indigo-800 transition-all"
+                >
+                  🏆 Weekly Challenge
+                </Link>
+              </div>
             </div>
           </div>
 

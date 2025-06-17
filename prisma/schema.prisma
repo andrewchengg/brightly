@@ -47,7 +47,7 @@ model Student {
   studentBadges        StudentBadge[]
   chatSessions         ChatSession[]
   uploadedQuestions    StudentUploadedQuestion[]
-  weeklyQuests         WeeklyQuest[]
+  studentQuests        StudentQuest[]
   questionReports      QuestionReport[]
 }
 
@@ -494,28 +494,49 @@ model ChatMessage {
   @@index([sessionId, timestamp])
 }
 
-model WeeklyQuest {
-  id            String             @id @default(uuid())
-  studentId     String
-  questType     String             // 'earn-xp', 'high-accuracy', etc.
-  title         String
-  description   String
-  target        Int
-  progress      Int                @default(0)
-  isCompleted   Boolean            @default(false)
-  completedAt   DateTime?
-  weekStart     DateTime           // Monday of the week this quest belongs to
-  weekEnd       DateTime           // Sunday of the week this quest belongs to
-  icon          String             // Icon name for frontend
-  color         String             // Color theme
-  category      WeeklyQuestCategory
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  student       Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+model Quest {
+  id                String             @id @default(uuid())
+  questType         String             @unique // 'earn-xp', 'high-accuracy', etc.
+  title             String
+  description       String
+  baseTarget        Int                // Base target value
+  targetFormula     String?            // Formula for level-based scaling (e.g., "base + (level * 25)")
+  icon              String             // Icon name for frontend
+  color             String             // Color theme
+  category          WeeklyQuestCategory
+  isActive          Boolean            @default(true) // Allow enabling/disabling quests
+  minLevel          Int                @default(1)    // Minimum level required for this quest
+  maxLevel          Int?               // Maximum level (null = no limit)
+  rarity            QuestRarity        @default(COMMON) // How often this quest appears
+  xpReward          Int                @default(25)   // XP awarded upon completion
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  // Relations
+  studentQuests     StudentQuest[]
+}
 
-  @@unique([studentId, questType, weekStart])
+model StudentQuest {
+  id            String       @id @default(uuid())
+  studentId     String
+  questId       String
+  target        Int          // Calculated target for this student's level
+  progress      Int          @default(0)
+  isCompleted   Boolean      @default(false)
+  completedAt   DateTime?
+  weekStart     DateTime     // Monday of the week this quest belongs to
+  weekEnd       DateTime     // Sunday of the week this quest belongs to
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  student       Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  quest         Quest        @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, questId, weekStart])
   @@index([studentId, weekStart])
   @@index([weekStart, weekEnd])
+  @@index([questId])
 }
 
 enum MessageRole {
@@ -592,6 +613,13 @@ enum WeeklyQuestCategory {
   PERFORMANCE
   SOCIAL
   LEARNING
+}
+
+enum QuestRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
 }
 
 enum QuestionReportType {
