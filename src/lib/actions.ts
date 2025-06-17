@@ -21,14 +21,21 @@ export const createSubject = async (
   data: SubjectSchema
 ) => {
   try {
-    await prisma.subject.create({
+    const subject = await prisma.subject.create({
       data: {
         name: data.name,
-        teachers: {
-          connect: data.teachers.map((teacherId) => ({ id: teacherId })),
-        },
       },
     });
+
+    // Create SubjectTeacher relationships
+    if (data.teachers && data.teachers.length > 0) {
+      await prisma.subjectTeacher.createMany({
+        data: data.teachers.map((teacherId) => ({
+          subjectId: subject.id,
+          teacherId: teacherId,
+        })),
+      });
+    }
 
     // revalidatePath("/list/subjects");
     return { success: true, error: false };
@@ -49,11 +56,28 @@ export const updateSubject = async (
       },
       data: {
         name: data.name,
-        teachers: {
-          set: data.teachers.map((teacherId) => ({ id: teacherId })),
-        },
       },
     });
+
+    // Update SubjectTeacher relationships
+    if (data.teachers) {
+      // Delete existing relationships
+      await prisma.subjectTeacher.deleteMany({
+        where: {
+          subjectId: data.id,
+        },
+      });
+
+      // Create new relationships
+      if (data.teachers.length > 0) {
+        await prisma.subjectTeacher.createMany({
+          data: data.teachers.map((teacherId) => ({
+            subjectId: data.id!,
+            teacherId: teacherId,
+          })),
+        });
+      }
+    }
 
     // revalidatePath("/list/subjects");
     return { success: true, error: false };
@@ -157,16 +181,17 @@ export const createTeacher = async (
 
     // Create user in Supabase Auth
     try {
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: data.email || `${data.username}@example.com`, // Supabase requires email
-        password: data.password,
-        user_metadata: {
-          role: "teacher",
-          username: data.username,
-          name: data.name,
-        },
-        email_confirm: true, // Auto-confirm email for simplicity
-      });
+      const { data: authData, error: authError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email: data.email || `${data.username}@example.com`, // Supabase requires email
+          password: data.password,
+          user_metadata: {
+            role: "teacher",
+            username: data.username,
+            name: data.name,
+          },
+          email_confirm: true, // Auto-confirm email for simplicity
+        });
 
       if (authError) {
         console.error("Error creating Supabase auth user:", authError);
@@ -178,7 +203,7 @@ export const createTeacher = async (
       console.error("Error creating Supabase auth user:", authError);
     }
 
-    await prisma.teacher.create({
+    const teacher = await prisma.teacher.create({
       data: {
         id: userId,
         username: data.username,
@@ -189,13 +214,19 @@ export const createTeacher = async (
         img: data.img || "",
         bloodType: data.bloodType,
         sex: data.sex,
-        subjects: {
-          connect: data.subjects?.map((subjectId: string) => ({
-            id: parseInt(subjectId),
-          })),
-        },
       },
     });
+
+    // Create subject teacher relationships if subjects are provided
+    if (data.subjects && data.subjects.length > 0) {
+      await prisma.subjectTeacher.createMany({
+        data: data.subjects.map((subjectId: string) => ({
+          teacherId: teacher.id,
+          subjectId: parseInt(subjectId),
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     // revalidatePath("/list/teachers");
     return { success: true, error: false };
@@ -220,7 +251,7 @@ export const updateTeacher = async (
           role: "teacher",
           username: data.username,
           name: data.name,
-        }
+        },
       };
 
       // Only update email if provided
@@ -233,10 +264,8 @@ export const updateTeacher = async (
         updateData.password = data.password;
       }
 
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-        data.id,
-        updateData
-      );
+      const { error: authError } =
+        await supabaseAdmin.auth.admin.updateUserById(data.id, updateData);
 
       if (authError) {
         console.error("Error updating Supabase auth user:", authError);
@@ -258,13 +287,29 @@ export const updateTeacher = async (
         img: data.img || "",
         bloodType: data.bloodType,
         sex: data.sex,
-        subjects: {
-          set: data.subjects?.map((subjectId: string) => ({
-            id: parseInt(subjectId),
-          })),
-        },
       },
     });
+
+    // Handle subject teacher relationships
+    if (data.subjects !== undefined && data.id) {
+      // Remove existing relationships
+      await prisma.subjectTeacher.deleteMany({
+        where: {
+          teacherId: data.id,
+        },
+      });
+
+      // Create new relationships if subjects are provided
+      if (data.subjects.length > 0) {
+        await prisma.subjectTeacher.createMany({
+          data: data.subjects.map((subjectId: string) => ({
+            teacherId: data.id!,
+            subjectId: parseInt(subjectId),
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
     // revalidatePath("/list/teachers");
     return { success: true, error: false };
   } catch (err) {
@@ -281,8 +326,10 @@ export const deleteTeacher = async (
   try {
     // Delete user in Supabase Auth
     try {
-      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(id);
-      
+      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
+        id
+      );
+
       if (authError) {
         console.error("Error deleting Supabase auth user:", authError);
       }
@@ -323,17 +370,18 @@ export const createStudent = async (
 
     try {
       if (supabaseClient && supabaseClient.auth) {
-        const user = await supabaseClient.auth.admin.createUser({
-          email: data.email || `${data.username}@example.com`,
-          password: data.password,
-          user_metadata: {
-            role: "student",
-            username: data.username,
-            name: data.name,
-          },
-          email_confirm: true,
-        });
-        userId = user.user?.id ?? userId;
+        const { data: userData, error: userError } =
+          await supabaseClient.auth.admin.createUser({
+            email: data.email || `${data.username}@example.com`,
+            password: data.password,
+            user_metadata: {
+              role: "student",
+              username: data.username,
+              name: data.name,
+            },
+            email_confirm: true,
+          });
+        userId = userData.user?.id ?? userId;
       } else {
         console.log(
           "Supabase not properly configured, skipping auth user creation"
@@ -350,10 +398,8 @@ export const createStudent = async (
         name: data.name,
         email: data.email || null,
         phone: data.phone || null,
-        address: data.address,
         img: data.img || "",
-        bloodType: data.bloodType,
-        sex: data.sex,
+        schoolLevel: 1,
         gradeId: data.gradeId,
         classId: data.classId,
         parentId: data.parentId,
@@ -362,7 +408,7 @@ export const createStudent = async (
 
     // revalidatePath("/list/students");
     return { success: true, error: false };
-  } catch (err) { 
+  } catch (err) {
     console.log(err);
     return { success: false, error: true };
   }
@@ -386,7 +432,9 @@ export const updateStudent = async (
           },
         });
       } else {
-        console.log("Supabase not properly configured, skipping auth user update");
+        console.log(
+          "Supabase not properly configured, skipping auth user update"
+        );
       }
     } catch (supabaseError) {
       console.log("Error updating Supabase user:", supabaseError);
@@ -397,15 +445,11 @@ export const updateStudent = async (
         id: data.id,
       },
       data: {
-        ...(data.password !== "" && { password: data.password }),
         username: data.username,
         name: data.name,
         email: data.email || null,
         phone: data.phone || null,
-        address: data.address,
         img: data.img || "",
-        bloodType: data.bloodType,
-        sex: data.sex,
         gradeId: data.gradeId,
         classId: data.classId,
         parentId: data.parentId,
@@ -427,7 +471,7 @@ export const deleteStudent = async (
   try {
     try {
       if (supabaseClient && supabaseClient.auth) {
-        await supabaseClient.auth.admin.deleteUserById(id);
+        await supabaseClient.auth.admin.deleteUser(id);
       } else {
         console.log(
           "Supabase not properly configured, skipping auth user deletion"
@@ -444,110 +488,6 @@ export const deleteStudent = async (
     });
 
     // revalidatePath("/list/students");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
-
-export const createExam = async (
-  currentState: CurrentState,
-  data: ExamSchema
-) => {
-  // const { userId, sessionClaims } = auth();
-  // const role = (sessionClaims?.metadata as { role?: string })?.role;
-
-  try {
-    // if (role === "teacher") {
-    //   const teacherLesson = await prisma.lesson.findFirst({
-    //     where: {
-    //       teacherId: userId!,
-    //       id: data.lessonId,
-    //     },
-    //   });
-
-    //   if (!teacherLesson) {
-    //     return { success: false, error: true };
-    //   }
-    // }
-
-    await prisma.exam.create({
-      data: {
-        title: data.title,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        lessonId: data.lessonId,
-      },
-    });
-
-    // revalidatePath("/list/subjects");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
-
-export const updateExam = async (
-  currentState: CurrentState,
-  data: ExamSchema
-) => {
-  // const { userId, sessionClaims } = auth();
-  // const role = (sessionClaims?.metadata as { role?: string })?.role;
-
-  try {
-    // if (role === "teacher") {
-    //   const teacherLesson = await prisma.lesson.findFirst({
-    //     where: {
-    //       teacherId: userId!,
-    //       id: data.lessonId,
-    //     },
-    //   });
-
-    //   if (!teacherLesson) {
-    //     return { success: false, error: true };
-    //   }
-    // }
-
-    await prisma.exam.update({
-      where: {
-        id: data.id,
-      },
-      data: {
-        title: data.title,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        lessonId: data.lessonId,
-      },
-    });
-
-    // revalidatePath("/list/subjects");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
-
-export const deleteExam = async (
-  currentState: CurrentState,
-  data: FormData
-) => {
-  const id = data.get("id") as string;
-
-  // const { userId, sessionClaims } = auth();
-  // const role = (sessionClaims?.metadata as { role?: string })?.role;
-
-  try {
-    await prisma.exam.delete({
-      where: {
-        id: parseInt(id),
-        // ...(role === "teacher" ? { lesson: { teacherId: userId! } } : {}),
-      },
-    });
-
-    // revalidatePath("/list/subjects");
     return { success: true, error: false };
   } catch (err) {
     console.log(err);

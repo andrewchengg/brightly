@@ -14,7 +14,11 @@ const SingleTeacherPage = async ({ params }: { params: { id: string } }) => {
   const teacher = await prisma.teacher.findUnique({
     where: { id: teacherId },
     include: {
-      subjects: true,
+      subjectTeachers: {
+        include: {
+          subject: true,
+        },
+      },
     },
   });
 
@@ -47,9 +51,7 @@ const SingleTeacherPage = async ({ params }: { params: { id: string } }) => {
             </div>
             <div className="w-2/3 flex flex-col justify-between gap-4">
               <div className="flex items-center gap-4">
-                <h1 className="text-xl font-semibold">
-                  {teacher?.name} {teacher?.surname}
-                </h1>
+                <h1 className="text-xl font-semibold">{teacher?.name}</h1>
                 {role === "admin" && (
                   <FormModal
                     table="teacher"

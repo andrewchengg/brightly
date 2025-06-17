@@ -6,9 +6,9 @@ import { classesData, role } from "@/lib/data";
 import Image from "next/image";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { Class, Prisma, Subject, Teacher } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
-type ClassList = Class & { supervisor: Teacher };
+type ClassList = any;
 
 const columns = [
   {
@@ -48,7 +48,7 @@ const ClassListPage = async ({
   const page = searchParams?.page ? parseInt(searchParams.page) : 1;
 
   // Build query with search parameters
-  const query: Prisma.ClassWhereInput = {};
+  const query: any = {};
 
   if (searchParams) {
     if (searchParams.search) {
@@ -76,7 +76,6 @@ const ClassListPage = async ({
       select: {
         id: true,
         name: true,
-        surname: true,
       },
     }),
     prisma.grade.findMany({
@@ -92,14 +91,12 @@ const ClassListPage = async ({
   const renderRow = (item: ClassList) => (
     <tr
       key={item.id}
-              className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-brightPurpleLight"
+      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-brightPurpleLight"
     >
       <td className="flex items-center gap-4 p-4">{item.name}</td>
       <td className="hidden md:table-cell">{item.capacity}</td>
       <td className="hidden md:table-cell">{item.gradeId}</td>
-      <td className="hidden md:table-cell">
-        {item.supervisor.name + " " + item.supervisor.surname}
-      </td>
+      <td className="hidden md:table-cell">{item.supervisor.name}</td>
       <td>
         <div className="flex items-center gap-2">
           {role === "admin" && (

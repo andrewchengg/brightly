@@ -5,11 +5,11 @@ import TableSearch from "@/components/TableSearch";
 import { role, studentsData } from "@/lib/data";
 import Image from "next/image";
 import Link from "next/link";
-import { Class, Grade, Prisma, Student } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 
-type StudentList = Student & { class: Class } & { grade: Grade };
+type StudentList = any;
 
 const columns = [
   {
@@ -89,7 +89,7 @@ const StudentListPage = async ({
   const page = searchParams?.page ? parseInt(searchParams.page) : 1;
 
   // Build query with search parameters
-  const query: Prisma.StudentWhereInput = {};
+  const query: any = {};
 
   if (searchParams) {
     if (searchParams.search) {

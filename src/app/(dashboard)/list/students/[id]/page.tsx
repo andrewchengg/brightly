@@ -5,7 +5,7 @@ import Performance from "@/components/Performance";
 import StudentAttendanceCard from "@/components/StudentAttendanceCard";
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import { Class, Student } from "@prisma/client";
+// Types handled through Prisma queries
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -17,14 +17,12 @@ const SingleStudentPage = async ({
   params: { id: string };
 }) => {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role as string;
 
-  const student:
-    | (Student & {
-        class: Class & { _count: { lessons: number } };
-      })
-    | null = await prisma.student.findUnique({
+  const student: any = await prisma.student.findUnique({
     where: { id },
     include: {
       class: { include: { _count: { select: { lessons: true } } } },
@@ -54,9 +52,7 @@ const SingleStudentPage = async ({
             </div>
             <div className="w-2/3 flex flex-col justify-between gap-4">
               <div className="flex items-center gap-4">
-                <h1 className="text-xl font-semibold">
-                  {student.name}
-                </h1>
+                <h1 className="text-xl font-semibold">{student.name}</h1>
                 {role === "admin" && (
                   <FormContainer table="student" type="update" data={student} />
                 )}

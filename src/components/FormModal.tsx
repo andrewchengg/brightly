@@ -2,7 +2,6 @@
 
 import {
   deleteClass,
-  deleteExam,
   deleteStudent,
   deleteSubject,
   deleteTeacher,
@@ -20,7 +19,7 @@ const deleteActionMap = {
   class: deleteClass,
   teacher: deleteTeacher,
   student: deleteStudent,
-  exam: deleteExam,
+  // exam: deleteExam, // Temporarily disabled - no Exam model
   // TODO: OTHER DELETE ACTIONS
   parent: deleteSubject,
   lesson: deleteSubject,
@@ -29,7 +28,7 @@ const deleteActionMap = {
   attendance: deleteSubject,
   event: deleteSubject,
   announcement: deleteSubject,
-};
+} as any;
 
 // USE LAZY LOADING
 

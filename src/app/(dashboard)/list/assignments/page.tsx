@@ -60,21 +60,20 @@ const AssignmentListPage = async ({
       key={item.id}
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
     >
-      <td className="flex items-center gap-4 p-4">{item.title}</td>
-      <td className="hidden md:table-cell">{item.lesson.name}</td>
-      <td className="hidden md:table-cell">{item.lesson.class.name}</td>
-      <td className="hidden md:table-cell">{item.lesson.teacher.name}</td>
+      <td className="flex items-center gap-4 p-4">{item.name}</td>
+      <td className="hidden md:table-cell">{item.name}</td>
+      <td className="hidden md:table-cell">{item.class.name}</td>
+      <td className="hidden md:table-cell">{item.teacher.name}</td>
       <td className="hidden md:table-cell">
         {new Intl.DateTimeFormat("en-US").format(item.endTime)}
       </td>
       <td>
         <div className="flex items-center gap-2">
           {(role === "admin" ||
-            (role === "teacher" &&
-              item.lesson.teacherId === currentUserId)) && (
+            (role === "teacher" && item.teacherId === currentUserId)) && (
             <>
-              <FormContainer table="assignment" type="update" data={item} />
-              <FormContainer table="assignment" type="delete" id={item.id} />
+              <FormContainer table="lesson" type="update" data={item} />
+              <FormContainer table="lesson" type="delete" id={item.id} />
             </>
           )}
         </div>
@@ -95,12 +94,10 @@ const AssignmentListPage = async ({
       if (value !== undefined) {
         switch (key) {
           case "classId":
-            query.lesson = {
-              classId: parseInt(value),
-            };
+            query.classId = parseInt(value);
             break;
           case "search":
-            query.title = { contains: value, mode: "insensitive" };
+            query.name = { contains: value, mode: "insensitive" };
             break;
           default:
             break;
@@ -115,28 +112,22 @@ const AssignmentListPage = async ({
     case "admin":
       break;
     case "teacher":
-      query.lesson = {
-        teacherId: currentUserId,
-      };
+      query.teacherId = currentUserId;
       break;
     case "student":
-      query.lesson = {
-        class: {
-          students: {
-            some: {
-              id: currentUserId,
-            },
+      query.class = {
+        students: {
+          some: {
+            id: currentUserId,
           },
         },
       };
       break;
     case "parent":
-      query.lesson = {
-        class: {
-          students: {
-            some: {
-              parentId: currentUserId,
-            },
+      query.class = {
+        students: {
+          some: {
+            parentId: currentUserId,
           },
         },
       };
@@ -146,20 +137,16 @@ const AssignmentListPage = async ({
   }
 
   const [data, count] = await prisma.$transaction([
-    prisma.assignment.findMany({
+    prisma.lesson.findMany({
       where: query,
       include: {
-        lesson: {
-          include: {
-            class: true,
-            teacher: true,
-          },
-        },
+        class: true,
+        teacher: true,
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),
     }),
-    prisma.assignment.count({ where: query }),
+    prisma.lesson.count({ where: query }),
   ]);
 
   return (
@@ -179,7 +166,7 @@ const AssignmentListPage = async ({
               <Image src="/sort.png" alt="" width={14} height={14} />
             </button>
             {(role === "admin" || role === "teacher") && (
-              <FormContainer table="assignment" type="create" />
+              <FormContainer table="lesson" type="create" />
             )}
           </div>
         </div>

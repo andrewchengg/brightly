@@ -9,12 +9,8 @@ import {
   subjectSchema,
   SubjectSchema,
 } from "@/lib/formValidationSchemas";
-import {
-  createExam,
-  createSubject,
-  updateExam,
-  updateSubject,
-} from "@/lib/actions";
+import { createSubject, updateSubject } from "@/lib/actions";
+// import { createExam, updateExam } from "@/lib/actions"; // Temporarily disabled - no Exam model
 import { useFormState } from "react-dom";
 import { Dispatch, SetStateAction, useEffect } from "react";
 import { toast } from "react-toastify";
@@ -41,8 +37,17 @@ const ExamForm = ({
 
   // AFTER REACT 19 IT'LL BE USEACTIONSTATE
 
+  // Temporarily disabled - no Exam model
+  // const [state, formAction] = useFormState(
+  //   type === "create" ? createExam : updateExam,
+  //   {
+  //     success: false,
+  //     error: false,
+  //   }
+  // );
+
   const [state, formAction] = useFormState(
-    type === "create" ? createExam : updateExam,
+    createSubject, // Temporary placeholder
     {
       success: false,
       error: false,
@@ -51,7 +56,8 @@ const ExamForm = ({
 
   const onSubmit = handleSubmit((data) => {
     console.log(data);
-    formAction(data);
+    // formAction(data); // Temporarily disabled - no Exam model
+    toast("Exam functionality temporarily disabled");
   });
 
   const router = useRouter();

@@ -5,7 +5,7 @@ import TableSearch from "@/components/TableSearch";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
-import { Class, Lesson, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import Image from "next/image";
 
 const LessonListPage = async ({
@@ -14,7 +14,9 @@ const LessonListPage = async ({
   searchParams: { [key: string]: string | undefined };
 }) => {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role as string;
   const currentUserId = user?.id;
 
@@ -72,9 +74,7 @@ const LessonListPage = async ({
       </td>
       <td className="hidden md:table-cell">{item.subject.name}</td>
       <td className="hidden md:table-cell">{item.class.name}</td>
-      <td className="hidden md:table-cell">
-        {item.teacher.name}
-      </td>
+      <td className="hidden md:table-cell">{item.teacher.name}</td>
       <td>
         <div className="flex items-center gap-2">
           {(role === "admin" ||
@@ -95,7 +95,7 @@ const LessonListPage = async ({
 
   // URL PARAMS CONDITION
 
-  const query: Prisma.LessonWhereInput = {};
+  const query: any = {};
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
@@ -147,11 +147,7 @@ const LessonListPage = async ({
       break;
   }
 
-  type LessonWithDetails = Lesson & {
-    subject: { name: string };
-    class: Class & { name: string };
-    teacher: { name: string };
-  };
+  type LessonWithDetails = any;
 
   const [data, count] = await prisma.$transaction([
     prisma.lesson.findMany({
