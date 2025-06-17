@@ -27,7 +27,6 @@ import {
   FaFlask,
   FaLanguage,
   FaReadme, // Added FaReadme
-  FaBullseye,
   FaPlay,
   FaAtom,
   FaSquareRootAlt,
@@ -308,13 +307,6 @@ export default function SubjectPracticePage({
     router.push(`/student/practice/random?subjectId=${numericSubjectId}`);
   };
 
-  const handleTargetPractice = () => {
-    // Navigate to target practice for this specific subject
-    router.push(
-      `/student/practice/random?subjectId=${numericSubjectId}&mode=target`
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen p-4">
@@ -389,39 +381,6 @@ export default function SubjectPracticePage({
               </div>
               <div className="w-32 h-32 md:w-40 md:h-40 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/20">
                 <FaDice className="text-6xl md:text-7xl text-white" />
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Target Practice Section - Only show for non-Chinese subjects */}
-      {numericSubjectId !== 4 && (
-        <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-slate-700 via-blue-800 to-indigo-900 mb-8 relative">
-          {/* Background decorations */}
-          <div className="absolute top-0 left-0 w-28 h-28 bg-white/5 rounded-full transform -translate-x-14 -translate-y-14"></div>
-          <div className="absolute bottom-0 right-0 w-20 h-20 bg-white/5 rounded-full transform translate-x-10 translate-y-10"></div>
-
-          <div className="p-6 md:p-8 relative z-10">
-            <div className="flex flex-col md:flex-row items-center justify-between">
-              <div className="text-white mb-6 md:mb-0">
-                <h2 className="text-2xl md:text-3xl font-bold mb-2">
-                  Target Practice
-                </h2>
-                <p className="text-blue-100 text-lg mb-4">
-                  Tackle weak areas with this customized session for {pageTitle}
-                </p>
-                <Button
-                  onClick={handleTargetPractice}
-                  size="lg"
-                  className="bg-white/20 text-white hover:bg-white/30 font-bold text-lg px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 backdrop-blur-sm border border-white/20"
-                >
-                  START +100 XP
-                  <FaPlay className="ml-2" />
-                </Button>
-              </div>
-              <div className="w-32 h-32 md:w-40 md:h-40 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/20">
-                <FaBullseye className="text-6xl md:text-7xl text-white" />
               </div>
             </div>
           </div>

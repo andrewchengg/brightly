@@ -14,7 +14,9 @@ const AssignmentListPage = async ({
   searchParams: { [key: string]: string | undefined };
 }) => {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role as string;
   const currentUserId = user?.id;
 
@@ -61,9 +63,7 @@ const AssignmentListPage = async ({
       <td className="flex items-center gap-4 p-4">{item.title}</td>
       <td className="hidden md:table-cell">{item.lesson.name}</td>
       <td className="hidden md:table-cell">{item.lesson.class.name}</td>
-      <td className="hidden md:table-cell">
-        {item.lesson.teacher.name}
-      </td>
+      <td className="hidden md:table-cell">{item.lesson.teacher.name}</td>
       <td className="hidden md:table-cell">
         {new Intl.DateTimeFormat("en-US").format(item.endTime)}
       </td>
@@ -88,7 +88,7 @@ const AssignmentListPage = async ({
 
   // URL PARAMS CONDITION
 
-  const query: Prisma.AssignmentWhereInput = {};
+  const query: any = {};
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
