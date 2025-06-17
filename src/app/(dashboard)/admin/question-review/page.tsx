@@ -113,29 +113,45 @@ const getStatusText = (productionReady: boolean, isRefactored: boolean) => {
 };
 
 // Function to check if any source information contains PSLE
-const isPSLEQuestion = (question: { sourceSchool?: string | null; sourceAssessmentType?: string | null; sourceLevel?: string | null }) => {
-  const hasPSLEInSchool = question.sourceSchool?.toLowerCase().includes('psle') || false;
-  const hasPSLEInAssessment = question.sourceAssessmentType?.toLowerCase().includes('psle') || false;
-  const hasPSLEInLevel = question.sourceLevel?.toLowerCase().includes('psle') || false;
-  
+const isPSLEQuestion = (question: {
+  sourceSchool?: string | null;
+  sourceAssessmentType?: string | null;
+  sourceLevel?: string | null;
+}) => {
+  const hasPSLEInSchool =
+    question.sourceSchool?.toLowerCase().includes("psle") || false;
+  const hasPSLEInAssessment =
+    question.sourceAssessmentType?.toLowerCase().includes("psle") || false;
+  const hasPSLEInLevel =
+    question.sourceLevel?.toLowerCase().includes("psle") || false;
+
   return hasPSLEInSchool || hasPSLEInAssessment || hasPSLEInLevel;
 };
 
 // Function to render source school with PSLE highlighting
-const renderSourceSchool = (question: { sourceSchool?: string | null; sourceYear?: number | null; sourceLevel?: string | null; sourceAssessmentType?: string | null }) => {
+const renderSourceSchool = (question: {
+  sourceSchool?: string | null;
+  sourceYear?: number | null;
+  sourceLevel?: string | null;
+  sourceAssessmentType?: string | null;
+}) => {
   if (!question.sourceSchool) return null;
-  
+
   const isPSLE = isPSLEQuestion(question);
-  
+
   return (
-    <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-      isPSLE 
-        ? 'bg-gradient-to-r from-red-500 to-pink-600 text-white shadow-lg border-2 border-red-300 animate-pulse' 
-        : 'bg-blue-100 text-blue-800 border border-blue-200'
-    }`}>
+    <div
+      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+        isPSLE
+          ? "bg-gradient-to-r from-red-500 to-pink-600 text-white shadow-lg border-2 border-red-300 animate-pulse"
+          : "bg-blue-100 text-blue-800 border border-blue-200"
+      }`}
+    >
       {isPSLE && <span className="mr-1">🏆</span>}
       <span className="font-bold">{question.sourceSchool}</span>
-      {question.sourceYear && <span className="ml-1 opacity-90">({question.sourceYear})</span>}
+      {question.sourceYear && (
+        <span className="ml-1 opacity-90">({question.sourceYear})</span>
+      )}
       {isPSLE && <span className="ml-1">🏆</span>}
     </div>
   );
@@ -163,13 +179,18 @@ export default function QuestionReviewPage() {
   const [currentFilters, setCurrentFilters] = useState<any>({});
 
   // Production review state
-  const [productionReviewQuestions, setProductionReviewQuestions] = useState<TopicQuestionData[]>([]);
-  const [currentProductionReviewIndex, setCurrentProductionReviewIndex] = useState(0);
-  const [totalProductionReviewQuestions, setTotalProductionReviewQuestions] = useState(0);
+  const [productionReviewQuestions, setProductionReviewQuestions] = useState<
+    TopicQuestionData[]
+  >([]);
+  const [currentProductionReviewIndex, setCurrentProductionReviewIndex] =
+    useState(0);
+  const [totalProductionReviewQuestions, setTotalProductionReviewQuestions] =
+    useState(0);
   const [showPSLEQuestions, setShowPSLEQuestions] = useState(false);
 
   // Question preview state - for showing edited preview
-  const [previewQuestion, setPreviewQuestion] = useState<QuestionReviewData | null>(null);
+  const [previewQuestion, setPreviewQuestion] =
+    useState<QuestionReviewData | null>(null);
   const [usePreviewData, setUsePreviewData] = useState(false);
 
   // Fetch subjects with statistics
@@ -219,11 +240,15 @@ export default function QuestionReviewPage() {
   const formatOptionsForClient = (options: any): any[] => {
     if (!options) return [];
 
-    console.log("DEBUG: formatOptionsForClient received:", typeof options, options);
+    console.log(
+      "DEBUG: formatOptionsForClient received:",
+      typeof options,
+      options
+    );
 
     try {
       let parsedOptions = options;
-      
+
       // If it's a string, try to parse it
       if (typeof options === "string") {
         try {
@@ -269,50 +294,58 @@ export default function QuestionReviewPage() {
         }));
       }
 
-      console.warn("Unknown options format:", typeof parsedOptions, parsedOptions);
+      console.warn(
+        "Unknown options format:",
+        typeof parsedOptions,
+        parsedOptions
+      );
       return [];
     } catch (error) {
-      console.error("Error formatting options:", error, "Original options:", options);
+      console.error(
+        "Error formatting options:",
+        error,
+        "Original options:",
+        options
+      );
       return [];
     }
   };
 
   // Fetch a single question for detailed review
-  const fetchQuestionDetail = useCallback(
-    async (questionId: number) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(
-          `/api/questions/review?subjectId=${selectedSubject?.id}&limit=1000`
+  const fetchQuestionDetail = useCallback(async (questionId: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/questions/review?questionId=${questionId}&limit=1000`
+      );
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(
+          errData.error?.message || "Failed to fetch question details"
         );
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(
-            errData.error?.message || "Failed to fetch question details"
-          );
-        }
-        const data = await response.json();
-        const question = data.questions.find((q: any) => q.id === questionId);
-        if (question) {
-          // Format options for the question tester
-          const formattedQuestion = {
-            ...question,
-            options: question.options ? formatOptionsForClient(question.options) : [],
-          };
-          setSelectedQuestion(formattedQuestion);
-        } else {
-          throw new Error("Question not found");
-        }
-      } catch (err: any) {
-        setError(err.message);
-        toast.error(err.message);
-      } finally {
-        setIsLoading(false);
       }
-    },
-    [selectedSubject]
-  );
+      const data = await response.json();
+      const question = data.questions.find((q: any) => q.id === questionId);
+      if (question) {
+        // Format options for the question tester
+        const formattedQuestion = {
+          ...question,
+          options: question.options
+            ? formatOptionsForClient(question.options)
+            : [],
+        };
+        setSelectedQuestion(formattedQuestion);
+      } else {
+        throw new Error("Question not found");
+      }
+    } catch (err: any) {
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Fetch filtered questions
   const fetchFilteredQuestions = useCallback(
@@ -353,38 +386,47 @@ export default function QuestionReviewPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/questions/review?productionReady=false&limit=10000`);
+      const response = await fetch(
+        `/api/questions/review?productionReady=false&limit=10000`
+      );
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(
-          errData.error?.message || "Failed to fetch production review questions"
+          errData.error?.message ||
+            "Failed to fetch production review questions"
         );
       }
       const data = await response.json();
-      
+
       // Filter questions based on PSLE toggle
-      const filteredQuestions = showPSLEQuestions 
-        ? data.questions 
+      const filteredQuestions = showPSLEQuestions
+        ? data.questions
         : data.questions.filter((question: TopicQuestionData) => {
             // Use the centralized PSLE checking function
             return !isPSLEQuestion(question);
           });
-      
+
       setProductionReviewQuestions(filteredQuestions);
       setTotalProductionReviewQuestions(filteredQuestions.length);
       setCurrentProductionReviewIndex(0);
-      
+
       if (filteredQuestions.length > 0) {
         // Format options for the first question and set it as selected
         const firstQuestion = filteredQuestions[0];
         const formattedQuestion = {
           ...firstQuestion,
-          options: firstQuestion.options ? formatOptionsForClient(firstQuestion.options) : [],
+          options: firstQuestion.options
+            ? formatOptionsForClient(firstQuestion.options)
+            : [],
         };
         setSelectedQuestion(formattedQuestion as any);
         setViewMode("productionReview");
       } else {
-        toast.info(`No questions need production review${!showPSLEQuestions ? ' (PSLE questions filtered out)' : ''}!`);
+        toast.info(
+          `No questions need production review${
+            !showPSLEQuestions ? " (PSLE questions filtered out)" : ""
+          }!`
+        );
       }
     } catch (err: any) {
       setError(err.message);
@@ -399,14 +441,16 @@ export default function QuestionReviewPage() {
     if (currentProductionReviewIndex < productionReviewQuestions.length - 1) {
       const nextIndex = currentProductionReviewIndex + 1;
       setCurrentProductionReviewIndex(nextIndex);
-      
+
       const nextQuestion = productionReviewQuestions[nextIndex];
       const formattedQuestion = {
         ...nextQuestion,
-        options: nextQuestion.options ? formatOptionsForClient(nextQuestion.options) : [],
+        options: nextQuestion.options
+          ? formatOptionsForClient(nextQuestion.options)
+          : [],
       };
       setSelectedQuestion(formattedQuestion as any);
-      
+
       // Reset answer state for new question
       setSelectedAnswer(null);
       setTextAnswer("");
@@ -423,14 +467,20 @@ export default function QuestionReviewPage() {
       setCurrentProductionReviewIndex(0);
       setTotalProductionReviewQuestions(0);
     }
-  }, [currentProductionReviewIndex, productionReviewQuestions, formatOptionsForClient]);
+  }, [
+    currentProductionReviewIndex,
+    productionReviewQuestions,
+    formatOptionsForClient,
+  ]);
 
   // Remove current question from production review list (when marked as production ready or deleted)
   const removeCurrentProductionReviewQuestion = useCallback(() => {
-    const updatedQuestions = productionReviewQuestions.filter((_, index) => index !== currentProductionReviewIndex);
+    const updatedQuestions = productionReviewQuestions.filter(
+      (_, index) => index !== currentProductionReviewIndex
+    );
     setProductionReviewQuestions(updatedQuestions);
     setTotalProductionReviewQuestions(updatedQuestions.length);
-    
+
     if (updatedQuestions.length === 0) {
       // No more questions
       toast.success("All production review questions completed!");
@@ -444,15 +494,17 @@ export default function QuestionReviewPage() {
       if (newIndex >= updatedQuestions.length) {
         newIndex = updatedQuestions.length - 1;
       }
-      
+
       setCurrentProductionReviewIndex(newIndex);
       const nextQuestion = updatedQuestions[newIndex];
       const formattedQuestion = {
         ...nextQuestion,
-        options: nextQuestion.options ? formatOptionsForClient(nextQuestion.options) : [],
+        options: nextQuestion.options
+          ? formatOptionsForClient(nextQuestion.options)
+          : [],
       };
       setSelectedQuestion(formattedQuestion as any);
-      
+
       // Reset answer state for new question
       setSelectedAnswer(null);
       setTextAnswer("");
@@ -461,7 +513,11 @@ export default function QuestionReviewPage() {
       setIsAnswerCorrect(false);
       setShowHint(false);
     }
-  }, [currentProductionReviewIndex, productionReviewQuestions, formatOptionsForClient]);
+  }, [
+    currentProductionReviewIndex,
+    productionReviewQuestions,
+    formatOptionsForClient,
+  ]);
 
   useEffect(() => {
     if (viewMode === "subjects") {
@@ -533,15 +589,19 @@ export default function QuestionReviewPage() {
     if (selectedQuestion) {
       try {
         const response = await fetch(
-          `/api/questions/review?subjectId=${selectedQuestion.subject?.id}&limit=1000`
+          `/api/questions/review?questionId=${selectedQuestion.id}&limit=1000`
         );
         if (response.ok) {
           const data = await response.json();
-          const updatedQuestion = data.questions.find((q: any) => q.id === selectedQuestion.id);
+          const updatedQuestion = data.questions.find(
+            (q: any) => q.id === selectedQuestion.id
+          );
           if (updatedQuestion) {
             const formattedQuestion = {
               ...updatedQuestion,
-              options: updatedQuestion.options ? formatOptionsForClient(updatedQuestion.options) : [],
+              options: updatedQuestion.options
+                ? formatOptionsForClient(updatedQuestion.options)
+                : [],
             };
             setSelectedQuestion(formattedQuestion as any);
             // Reset preview to use the fresh data
@@ -551,11 +611,11 @@ export default function QuestionReviewPage() {
           }
         }
       } catch (error) {
-        console.error('Error refreshing question data:', error);
+        console.error("Error refreshing question data:", error);
         toast.success("Question updated successfully!");
       }
     }
-    
+
     // Only navigate away if explicitly requested
     if (shouldNavigateAway) {
       // Handle production review workflow
@@ -563,9 +623,13 @@ export default function QuestionReviewPage() {
         removeCurrentProductionReviewQuestion();
         return;
       }
-      
+
       // If we came from topic questions, refresh that list too
-      if (selectedTopic && viewMode !== "questionDetail" && viewMode !== "productionReview") {
+      if (
+        selectedTopic &&
+        viewMode !== "questionDetail" &&
+        viewMode !== "productionReview"
+      ) {
         fetchTopicQuestions(selectedTopic.id);
         setViewMode("topicQuestions");
         setSelectedQuestion(null);
@@ -577,11 +641,15 @@ export default function QuestionReviewPage() {
     // For production review, move to next question after accepting
     if (viewMode === "productionReview") {
       removeCurrentProductionReviewQuestion();
+      // Scroll to top of the page
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    
+
     // For other modes, just refresh the question data and stay
     await handleQuestionUpdated(false);
+    // Scroll to top of the page
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleQuestionDeleted = () => {
@@ -590,7 +658,7 @@ export default function QuestionReviewPage() {
       removeCurrentProductionReviewQuestion();
       return;
     }
-    
+
     // Go back to the appropriate list view after deletion
     if (selectedTopic) {
       fetchTopicQuestions(selectedTopic.id);
@@ -629,80 +697,92 @@ export default function QuestionReviewPage() {
   }, [selectedQuestion?.id]);
 
   // Function to refresh preview with current form data or latest saved data
-  const refreshPreview = useCallback(async (formData?: any) => {
-    if (!selectedQuestion) return;
-    
-    try {
-      let questionToUse = selectedQuestion;
-      
-      // If no form data provided, fetch latest from database
-      if (!formData) {
-        try {
-          const response = await fetch(
-            `/api/questions/review?subjectId=${selectedQuestion.subject?.id}&limit=1000`
-          );
-          if (response.ok) {
-            const data = await response.json();
-            const latestQuestion = data.questions.find((q: any) => q.id === selectedQuestion.id);
-            if (latestQuestion) {
-              questionToUse = {
-                ...latestQuestion,
-                options: latestQuestion.options ? formatOptionsForClient(latestQuestion.options) : [],
-              };
-            }
-          }
-        } catch (error) {
-          console.warn('Could not fetch latest question data, using form data:', error);
-        }
-      }
-      
-      if (formData) {
-        // Parse options if they're a string
-        let parsedOptions = formData.options;
-        if (typeof formData.options === 'string' && formData.options.trim()) {
+  const refreshPreview = useCallback(
+    async (formData?: any) => {
+      if (!selectedQuestion) return;
+
+      try {
+        let questionToUse = selectedQuestion;
+
+        // If no form data provided, fetch latest from database
+        if (!formData) {
           try {
-            parsedOptions = JSON.parse(formData.options);
-          } catch (e) {
-            console.warn('Could not parse options JSON:', e);
-            parsedOptions = formData.options; // Keep as string if parsing fails
+            const response = await fetch(
+              `/api/questions/review?questionId=${selectedQuestion.id}&limit=1000`
+            );
+            if (response.ok) {
+              const data = await response.json();
+              const latestQuestion = data.questions.find(
+                (q: any) => q.id === selectedQuestion.id
+              );
+              if (latestQuestion) {
+                questionToUse = {
+                  ...latestQuestion,
+                  options: latestQuestion.options
+                    ? formatOptionsForClient(latestQuestion.options)
+                    : [],
+                };
+              }
+            }
+          } catch (error) {
+            console.warn(
+              "Could not fetch latest question data, using form data:",
+              error
+            );
           }
         }
 
-        // Create updated question data for preview using form data
-        const updatedQuestion = {
-          ...questionToUse,
-          text: formData.text || questionToUse.text,
-          questionType: formData.questionType || questionToUse.questionType,
-          options: parsedOptions ? formatOptionsForClient(parsedOptions) : questionToUse.options,
-          correctAnswer: formData.correctAnswer || questionToUse.correctAnswer,
-          hint: formData.hint || questionToUse.hint,
-          explanation: formData.explanation || questionToUse.explanation,
-          difficulty: formData.difficulty || questionToUse.difficulty,
-        };
-        
-        setPreviewQuestion(updatedQuestion as any);
-        setUsePreviewData(true);
-        toast.success("Preview updated with current form data!");
-      } else {
-        // Use latest saved data
-        setPreviewQuestion(questionToUse as any);
-        setUsePreviewData(true);
-        toast.success("Preview refreshed with latest saved data!");
+        if (formData) {
+          // Parse options if they're a string
+          let parsedOptions = formData.options;
+          if (typeof formData.options === "string" && formData.options.trim()) {
+            try {
+              parsedOptions = JSON.parse(formData.options);
+            } catch (e) {
+              console.warn("Could not parse options JSON:", e);
+              parsedOptions = formData.options; // Keep as string if parsing fails
+            }
+          }
+
+          // Create updated question data for preview using form data
+          const updatedQuestion = {
+            ...questionToUse,
+            text: formData.text || questionToUse.text,
+            questionType: formData.questionType || questionToUse.questionType,
+            options: parsedOptions
+              ? formatOptionsForClient(parsedOptions)
+              : questionToUse.options,
+            correctAnswer:
+              formData.correctAnswer || questionToUse.correctAnswer,
+            hint: formData.hint || questionToUse.hint,
+            explanation: formData.explanation || questionToUse.explanation,
+            difficulty: formData.difficulty || questionToUse.difficulty,
+          };
+
+          setPreviewQuestion(updatedQuestion as any);
+          setUsePreviewData(true);
+          toast.success("Preview updated with current form data!");
+        } else {
+          // Use latest saved data
+          setPreviewQuestion(questionToUse as any);
+          setUsePreviewData(true);
+          toast.success("Preview refreshed with latest saved data!");
+        }
+
+        // Reset answer state when preview updates
+        setSelectedAnswer(null);
+        setTextAnswer("");
+        setMultiPartAnswers({});
+        setMultiPartResults({});
+        setIsAnswerCorrect(false);
+        setShowHint(false);
+      } catch (error) {
+        console.error("Error updating preview:", error);
+        toast.error("Failed to update preview. Check your form data.");
       }
-      
-      // Reset answer state when preview updates
-      setSelectedAnswer(null);
-      setTextAnswer("");
-      setMultiPartAnswers({});
-      setMultiPartResults({});
-      setIsAnswerCorrect(false);
-      setShowHint(false);
-      
-    } catch (error) {
-      console.error('Error updating preview:', error);
-      toast.error("Failed to update preview. Check your form data.");
-    }
-  }, [selectedQuestion, formatOptionsForClient]);
+    },
+    [selectedQuestion, formatOptionsForClient]
+  );
 
   // Answer handlers copied exactly from practice page
   const handleAnswerMCQ = useCallback(
@@ -819,8 +899,9 @@ export default function QuestionReviewPage() {
 
   // Question content renderer copied exactly from practice page
   const renderQuestionContent = () => {
-    const questionToRender = usePreviewData && previewQuestion ? previewQuestion : selectedQuestion;
-    
+    const questionToRender =
+      usePreviewData && previewQuestion ? previewQuestion : selectedQuestion;
+
     if (!questionToRender)
       return <p className="text-center text-gray-500">Loading question...</p>;
 
@@ -838,9 +919,9 @@ export default function QuestionReviewPage() {
               questionToRender.options.map((option: any, index: number) => {
                 const optionId = option.id;
                 let optionText = option.text;
-                
+
                 // Debug log and fix if optionText is an object
-                if (typeof optionText === 'object' && optionText !== null) {
+                if (typeof optionText === "object" && optionText !== null) {
                   console.log("DEBUG: optionText is object:", optionText);
                   // Try to extract text from object
                   if (optionText.text) {
@@ -850,7 +931,7 @@ export default function QuestionReviewPage() {
                     optionText = JSON.stringify(optionText);
                   }
                 }
-                
+
                 const optionLetter = String.fromCharCode(65 + index);
                 const isThisSelected = selectedAnswer === optionId;
                 const isThisCorrectDB =
@@ -1059,13 +1140,17 @@ export default function QuestionReviewPage() {
 
   // Render question in "taking" format with student answer functionality - exact copy from practice
   const renderQuestionPreview = (question: QuestionReviewData) => {
-    const questionToDisplay = usePreviewData && previewQuestion ? previewQuestion : question;
-    
+    const questionToDisplay =
+      usePreviewData && previewQuestion ? previewQuestion : question;
+
     return (
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-800">
-            Question Preview (Interactive) {usePreviewData && <span className="text-sm text-green-600">(Updated)</span>}
+            Question Preview (Interactive){" "}
+            {usePreviewData && (
+              <span className="text-sm text-green-600">(Updated)</span>
+            )}
           </h3>
           <div className="flex gap-2">
             <Button
@@ -1104,7 +1189,7 @@ export default function QuestionReviewPage() {
               Topic: {questionToDisplay.topic?.name || "General"}
             </span>
             {/* Source School Display */}
-                                  {renderSourceSchool(questionToDisplay)}
+            {renderSourceSchool(questionToDisplay)}
           </div>
           <span
             className={`text-xs font-medium px-2.5 py-1 rounded-full ${
@@ -1263,30 +1348,38 @@ export default function QuestionReviewPage() {
         {/* PSLE Toggle */}
         <div className="flex items-center justify-center mb-4">
           <div className="flex items-center gap-3 bg-white rounded-lg shadow-md p-3 border">
-            <span className={`text-sm font-medium ${showPSLEQuestions ? 'text-gray-500' : 'text-green-600'}`}>
+            <span
+              className={`text-sm font-medium ${
+                showPSLEQuestions ? "text-gray-500" : "text-green-600"
+              }`}
+            >
               PSLE Questions OFF
             </span>
             <button
               onClick={() => setShowPSLEQuestions(!showPSLEQuestions)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                showPSLEQuestions ? 'bg-indigo-600' : 'bg-gray-200'
+                showPSLEQuestions ? "bg-indigo-600" : "bg-gray-200"
               }`}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  showPSLEQuestions ? 'translate-x-6' : 'translate-x-1'
+                  showPSLEQuestions ? "translate-x-6" : "translate-x-1"
                 }`}
               />
             </button>
-            <span className={`text-sm font-medium ${showPSLEQuestions ? 'text-indigo-600' : 'text-gray-500'}`}>
+            <span
+              className={`text-sm font-medium ${
+                showPSLEQuestions ? "text-indigo-600" : "text-gray-500"
+              }`}
+            >
               PSLE Questions ON
             </span>
           </div>
         </div>
 
         <div className="flex items-center justify-between mb-8">
-          <Button 
-            onClick={fetchProductionReviewQuestions} 
+          <Button
+            onClick={fetchProductionReviewQuestions}
             className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white"
           >
             <FaEye className="mr-2" /> Review Non-Production Questions
@@ -1533,22 +1626,30 @@ export default function QuestionReviewPage() {
         {/* PSLE Toggle */}
         <div className="flex items-center justify-center mb-4">
           <div className="flex items-center gap-3 bg-white rounded-lg shadow-md p-3 border">
-            <span className={`text-sm font-medium ${showPSLEQuestions ? 'text-gray-500' : 'text-green-600'}`}>
+            <span
+              className={`text-sm font-medium ${
+                showPSLEQuestions ? "text-gray-500" : "text-green-600"
+              }`}
+            >
               PSLE Questions OFF
             </span>
             <button
               onClick={() => setShowPSLEQuestions(!showPSLEQuestions)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                showPSLEQuestions ? 'bg-indigo-600' : 'bg-gray-200'
+                showPSLEQuestions ? "bg-indigo-600" : "bg-gray-200"
               }`}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  showPSLEQuestions ? 'translate-x-6' : 'translate-x-1'
+                  showPSLEQuestions ? "translate-x-6" : "translate-x-1"
                 }`}
               />
             </button>
-            <span className={`text-sm font-medium ${showPSLEQuestions ? 'text-indigo-600' : 'text-gray-500'}`}>
+            <span
+              className={`text-sm font-medium ${
+                showPSLEQuestions ? "text-indigo-600" : "text-gray-500"
+              }`}
+            >
               PSLE Questions ON
             </span>
           </div>
@@ -1563,13 +1664,17 @@ export default function QuestionReviewPage() {
               Production Review
             </h1>
             <p className="text-gray-600">
-              Question {currentProductionReviewIndex + 1} of {totalProductionReviewQuestions}
+              Question {currentProductionReviewIndex + 1} of{" "}
+              {totalProductionReviewQuestions}
             </p>
           </div>
-          <Button 
+          <Button
             onClick={goToNextProductionReviewQuestion}
             variant="outline"
-            disabled={currentProductionReviewIndex >= productionReviewQuestions.length - 1}
+            disabled={
+              currentProductionReviewIndex >=
+              productionReviewQuestions.length - 1
+            }
           >
             Skip Question <FaArrowRight className="ml-2" />
           </Button>
@@ -1580,13 +1685,20 @@ export default function QuestionReviewPage() {
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-600">Progress</span>
             <span className="text-sm text-gray-600">
-              {currentProductionReviewIndex + 1} / {totalProductionReviewQuestions}
+              {currentProductionReviewIndex + 1} /{" "}
+              {totalProductionReviewQuestions}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-gradient-to-r from-red-500 to-orange-600 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${((currentProductionReviewIndex + 1) / totalProductionReviewQuestions) * 100}%` }}
+            <div
+              className="bg-gradient-to-r from-red-500 to-orange-600 h-2 rounded-full transition-all duration-300"
+              style={{
+                width: `${
+                  ((currentProductionReviewIndex + 1) /
+                    totalProductionReviewQuestions) *
+                  100
+                }%`,
+              }}
             ></div>
           </div>
         </div>

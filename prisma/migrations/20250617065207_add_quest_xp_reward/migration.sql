@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Quest" ADD COLUMN     "xpReward" INTEGER NOT NULL DEFAULT 25;
