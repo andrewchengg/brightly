@@ -1,6 +1,31 @@
+/*
+Usage Examples:
+
+For Question Text (no fractions):
+<QuestionTextFormatter text="Sam was given some ribbon to tie 2 parcels. He used 7/8 m of ribbon..." />
+// Result: "7/8" will display as plain text
+
+For Option Text (with fractions):
+<OptionTextFormatter text="7/16 m" />
+// Result: "7/16" will display as a stacked fraction
+
+For Option Rendering in Components:
+{options.map((option, index) => (
+  <button key={option.id}>
+    <span className="font-bold mr-2">{String.fromCharCode(65 + index)}.</span>
+    <OptionTextFormatter text={option.text} />
+  </button>
+))}
+*/
+
 import React from 'react';
 
 interface QuestionTextFormatterProps {
+  text: string;
+  className?: string;
+}
+
+interface OptionTextFormatterProps {
   text: string;
   className?: string;
 }
@@ -32,6 +57,79 @@ const MixedFraction: React.FC<{ whole: string; numerator: string; denominator: s
   </span>
 );
 
+/**
+ * Component for formatting option text with fractions
+ */
+const OptionTextFormatter: React.FC<OptionTextFormatterProps> = ({ 
+  text, 
+  className = "" 
+}) => {
+  const formatOptionText = (inputText: string): React.ReactNode[] => {
+    const nodes: React.ReactNode[] = [];
+    let lastIndex = 0;
+
+    // Pattern for fractions and other math expressions
+    const mathPattern = new RegExp(
+      [
+        String.raw`(\b\d+\s+\d+\/\d+\b)`,       // Mixed Fractions (e.g., "3 1/4")
+        String.raw`(\b\w+\/\w+\b)`,             // Simple Fractions (e.g., "3/4", "10k/4")
+        String.raw`(∠\s?[\w\d]+)`,              // Angles (e.g., "∠CBE")
+        String.raw`(\d+(\.\d+)?%)`,             // Percentages (e.g., "7%")
+        String.raw`([÷×−≤≥≠])`,                 // LaTeX symbols
+        String.raw`([=<>])`,                    // Comparison operators
+        String.raw`([+\-*:])`,                  // ASCII operators
+      ].join('|'),
+      'g'
+    );
+
+    let match;
+    while ((match = mathPattern.exec(inputText)) !== null) {
+      // Add plain text before the match
+      if (match.index > lastIndex) {
+        nodes.push(inputText.substring(lastIndex, match.index));
+      }
+
+      const [fullMatch, mixedFraction, simpleFraction, angle, percent, latexSymbol, comparison, operator] = match;
+      const key = `${match.index}`;
+
+      if (mixedFraction) {
+        const [whole, num, den] = mixedFraction.split(/[\s\/]+/);
+        nodes.push(<MixedFraction key={key} whole={whole} numerator={num} denominator={den} />);
+      } else if (simpleFraction) {
+        const [num, den] = simpleFraction.split('/');
+        nodes.push(<StackedFraction key={key} numerator={num} denominator={den} />);
+      } else if (angle || percent) {
+        nodes.push(<span key={key} className="font-semibold">{fullMatch}</span>);
+      } else if (latexSymbol) {
+        nodes.push(<span key={key} className="mx-1">{fullMatch}</span>);
+      } else if (comparison || operator) {
+        let symbol = fullMatch.replace('*', '×').replace(':', ' : ').replace('-', '−');
+        nodes.push(<span key={key} className="mx-2">{symbol.trim()}</span>);
+      }
+      
+      lastIndex = match.index + fullMatch.length;
+    }
+
+    // Add remaining text
+    if (lastIndex < inputText.length) {
+      nodes.push(inputText.substring(lastIndex));
+    }
+    
+    return nodes;
+  };
+
+  const formattedContent = formatOptionText(text);
+
+  return (
+    <span className={className}>
+      {formattedContent}
+    </span>
+  );
+};
+
+/**
+ * Component for formatting question text without fractions
+ */
 const QuestionTextFormatter: React.FC<QuestionTextFormatterProps> = ({ 
   text, 
   className = "" 
@@ -77,60 +175,49 @@ const QuestionTextFormatter: React.FC<QuestionTextFormatterProps> = ({
     
     return ensurePeriodAtEnd(processedText);
   };
-  
+
   /**
-   * Parses the text and formats mathematical expressions.
+   * Formats non-fraction math expressions only
    */
   const formatText = (inputText: string): React.ReactNode[] => {
-    // A single, powerful regex to find all math-related patterns we want to format.
-    // Order is important: more specific patterns (like mixed fractions) must come first.
-    // LaTeX symbols are caught first to preserve them as-is.
-    const masterPattern = new RegExp(
+    const nodes: React.ReactNode[] = [];
+    let lastIndex = 0;
+
+    // Pattern for non-fraction math expressions only
+    const nonFractionMathPattern = new RegExp(
       [
-        String.raw`(\b\d+\s+\d+\/\d+\b)`, // 1. Mixed Fractions (e.g., "4 1/5")
-        String.raw`(\b\w+\/\w+\b)`,       // 2. Simple Fractions (alphanumeric, e.g., "3/4", "10k/4")
-        String.raw`(∠\s?[\w\d]+)`,         // 3. Angles (e.g., "∠CBE")
-        String.raw`(\d+(\.\d+)?%)`,       // 4. Percentages (e.g., "7%")
-        String.raw`([÷×−≤≥≠])`,           // 5. Already-correct LaTeX symbols (preserve as-is)
-        String.raw`([=<>])`,              // 6. Basic comparison operators
-        String.raw`([+\-*:])`,            // 7. ASCII operators (convert to LaTeX)
+        String.raw`(∠\s?[\w\d]+)`,              // Angles (e.g., "∠CBE")
+        String.raw`(\d+(\.\d+)?%)`,             // Percentages (e.g., "7%")
+        String.raw`([÷×−≤≥≠])`,                 // LaTeX symbols
+        String.raw`([=<>])`,                    // Comparison operators
+        String.raw`([+\-*:])`,                  // ASCII operators
       ].join('|'),
       'g'
     );
-    
-    const nodes: React.ReactNode[] = [];
-    let lastIndex = 0;
-    let match;
 
-    while ((match = masterPattern.exec(inputText)) !== null) {
-      // Add the plain text segment before the matched math expression
+    let match;
+    while ((match = nonFractionMathPattern.exec(inputText)) !== null) {
+      // Add plain text before the match
       if (match.index > lastIndex) {
         nodes.push(inputText.substring(lastIndex, match.index));
       }
 
-      const [fullMatch, mixedFraction, simpleFraction, angle, percent, latexSymbol, basicComparison, asciiOperator] = match;
-      
-      if (mixedFraction) {
-        const [whole, num, den] = mixedFraction.split(/[\s\/]+/);
-        nodes.push(<MixedFraction key={`${match.index}`} whole={whole} numerator={num} denominator={den} />);
-      } else if (simpleFraction) {
-        const [num, den] = simpleFraction.split('/');
-        nodes.push(<StackedFraction key={`${match.index}`} numerator={num} denominator={den} />);
-      } else if (angle || percent) {
-        nodes.push(<span key={`${match.index}`} className="font-semibold">{fullMatch}</span>);
+      const [fullMatch, angle, percent, latexSymbol, comparison, operator] = match;
+      const key = `${match.index}`;
+
+      if (angle || percent) {
+        nodes.push(<span key={key} className="font-semibold">{fullMatch}</span>);
       } else if (latexSymbol) {
-        // Already correct LaTeX symbols - preserve as-is with minimal spacing
-        nodes.push(<span key={`${match.index}`} className="mx-1">{fullMatch}</span>);
-      } else if (basicComparison || asciiOperator) {
-        // Convert ASCII operators to LaTeX and add spacing
+        nodes.push(<span key={key} className="mx-1">{fullMatch}</span>);
+      } else if (comparison || operator) {
         let symbol = fullMatch.replace('*', '×').replace(':', ' : ').replace('-', '−');
-        nodes.push(<span key={`${match.index}`} className="mx-2">{symbol.trim()}</span>);
+        nodes.push(<span key={key} className="mx-2">{symbol.trim()}</span>);
       }
       
       lastIndex = match.index + fullMatch.length;
     }
-    
-    // Add any remaining text after the last match
+
+    // Add remaining text
     if (lastIndex < inputText.length) {
       nodes.push(inputText.substring(lastIndex));
     }
@@ -150,3 +237,4 @@ const QuestionTextFormatter: React.FC<QuestionTextFormatterProps> = ({
 };
 
 export default QuestionTextFormatter;
+export { OptionTextFormatter };

@@ -50,10 +50,11 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
     const masterPattern = new RegExp(
       [
         String.raw`(\b\d+\s+\d+\/\d+\b)`,       // 1. Mixed Fractions (e.g., "3 1/4")
-        String.raw`(\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\b)`, // 2. Numeric division (e.g., "480 / 0.15")
-        String.raw`(\b\w+\/\w+\b)`,             // 3. Other fractions (e.g., "10k/4", "3/4 of")
-        String.raw`([=<>≤≥])`,                  // 4. Comparison/Equals Operators
-        String.raw`([+\-−×*])`,                // 5. Arithmetic Operators
+        String.raw`(\([^)]+\)\/[^/\s]+)`,       // 2. Complex fractions with expressions (e.g., "(7 + 8)/4")
+        String.raw`(\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\b)`, // 3. Numeric division (e.g., "480 / 0.15")
+        String.raw`(\b\w+\/\w+\b)`,             // 4. Other fractions (e.g., "10k/4", "3/4 of")
+        String.raw`([=<>≤≥])`,                  // 5. Comparison/Equals Operators
+        String.raw`([+\-−×*])`,                // 6. Arithmetic Operators
       ].join('|'),
       'g'
     );
@@ -68,6 +69,7 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
       const [
         fullMatch, 
         mixedFraction, 
+        complexFraction,
         numericDivision, 
         simpleFraction, 
         comparison, 
@@ -79,6 +81,16 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
       if (mixedFraction) {
         const [whole, num, den] = mixedFraction.split(/[\s\/]+/);
         nodes.push(<MixedFraction key={key} whole={whole} numerator={num} denominator={den} />);
+      } else if (complexFraction) {
+        // Handle complex fractions like (7 + 8)/4
+        const slashIndex = complexFraction.indexOf('/');
+        const numeratorWithParens = complexFraction.substring(0, slashIndex);
+        const denominator = complexFraction.substring(slashIndex + 1);
+        
+        // Remove the parentheses from numerator
+        const numerator = numeratorWithParens.substring(1, numeratorWithParens.length - 1);
+        
+        nodes.push(<StackedFraction key={key} numerator={numerator} denominator={denominator} />);
       } else if (numericDivision) {
         const [num, den] = numericDivision.split('/');
         nodes.push(<span key={key} className="mx-1">{`${num.trim()} ÷ ${den.trim()}`}</span>);

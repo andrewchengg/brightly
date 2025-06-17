@@ -24,7 +24,7 @@ import {
 import Image from "next/image";
 import Pagination from "@/components/Pagination";
 import { QuestionType as PrismaQuestionType } from "@/generated/prisma";
-import QuestionTextFormatter from "@/components/QuestionTextFormatter";
+import QuestionTextFormatter, { OptionTextFormatter } from "@/components/QuestionTextFormatter";
 import ExplanationFormatter from "@/components/ExplanationFormatter";
 
 interface TopicStats {
@@ -876,7 +876,7 @@ export default function QuestionReviewPage() {
                     className={`w-full text-left p-4 rounded-md transition-all duration-150 text-md ${buttonClass}`}
                   >
                     <span className="font-bold mr-2">{optionLetter}.</span>{" "}
-                    {optionText}
+                    <OptionTextFormatter text={optionText} />
                   </button>
                 );
               })
