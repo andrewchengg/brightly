@@ -16,15 +16,12 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Signing you in...");
-  const { isTransitioning, transitionMessage, startTransition } =
-    useTransitionLoader();
+  const { isTransitioning, startTransition } = useTransitionLoader();
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    setLoadingMessage("Signing you in...");
     const typedIdentifier = identifier.trim();
 
     try {
@@ -93,10 +90,8 @@ export default function SignInPage() {
           `[REDIRECT] Auth successful. Checking setup status for role: ${userRole}`
         );
 
-        // Update loading message to show what's happening next
-        setLoadingMessage(
-          "Authentication successful! Setting up your dashboard..."
-        );
+        // Simplified loading - just show loading during redirect
+        startTransition();
 
         // For students, check if they need to complete setup before redirecting
         if (userRole === "student") {
@@ -115,41 +110,26 @@ export default function SignInPage() {
                 "[SIGN_IN] Error checking student setup status:",
                 studentError
               );
-              // If error checking status, go to student dashboard and let StudentSetupCheck handle it
-              setLoadingMessage("Redirecting to your dashboard...");
-              startTransition("Redirecting to your dashboard...");
               router.push("/student");
             } else if (student && !student.initialSetupComplete) {
               console.log(
                 "[SIGN_IN] Student setup incomplete, redirecting to complete-setup"
               );
-              setLoadingMessage("Completing your profile setup...");
-              startTransition("Completing your profile setup...");
               router.push("/student/complete-setup");
             } else {
               console.log(
                 "[SIGN_IN] Student setup complete, redirecting to dashboard"
               );
-              setLoadingMessage("Loading your dashboard...");
-              startTransition("Loading your dashboard...");
               router.push("/student");
             }
           } else {
-            setLoadingMessage("Loading your dashboard...");
-            startTransition("Loading your dashboard...");
             router.push("/student");
           }
         } else {
           // For non-students, redirect to their role dashboard directly
-          setLoadingMessage(`Loading your ${userRole} dashboard...`);
-          startTransition(`Loading your ${userRole} dashboard...`);
           router.push(`/${userRole}`);
         }
         router.refresh();
-
-        // Keep loading state active during navigation
-        // Note: We don't set isLoading to false here to maintain the loading state
-        // until the new page loads
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred during sign-in.");
@@ -162,7 +142,6 @@ export default function SignInPage() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setError(null);
-    setLoadingMessage("Connecting with Google...");
 
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -183,8 +162,7 @@ export default function SignInPage() {
       }
 
       if (data?.url) {
-        setLoadingMessage("Redirecting to Google...");
-        startTransition("Redirecting to Google...");
+        startTransition();
         window.location.href = data.url;
       } else {
         setError("Failed to initiate Google sign-in. Please try again.");
@@ -203,7 +181,7 @@ export default function SignInPage() {
     <>
       <TransitionLoader
         isVisible={isTransitioning}
-        message={transitionMessage}
+        message="Loading your dashboard..."
       />
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         {/* Navigation */}
@@ -307,7 +285,7 @@ export default function SignInPage() {
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed min-h-[40px]"
                 >
                   {isLoading ? (
-                    <StudyLoader text={loadingMessage} theme="dark" />
+                    <StudyLoader text="Signing you in..." theme="dark" />
                   ) : (
                     "Sign in"
                   )}
@@ -335,7 +313,7 @@ export default function SignInPage() {
                   {isLoading ? (
                     <CuteLoader
                       variant="dots"
-                      text={loadingMessage}
+                      text="Connecting with Google..."
                       size="sm"
                     />
                   ) : (

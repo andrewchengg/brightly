@@ -24,7 +24,9 @@ import {
 import Image from "next/image";
 import Pagination from "@/components/Pagination";
 import { QuestionType as PrismaQuestionType } from "@/generated/prisma";
-import QuestionTextFormatter, { OptionTextFormatter } from "@/components/QuestionTextFormatter";
+import QuestionTextFormatter, {
+  OptionTextFormatter,
+} from "@/components/QuestionTextFormatter";
 import ExplanationFormatter from "@/components/ExplanationFormatter";
 
 interface TopicStats {
@@ -198,14 +200,28 @@ export default function QuestionReviewPage() {
     setIsLoading(true);
     setError(null);
     try {
+      console.log("[QUESTION_REVIEW] Fetching subjects...");
       const response = await fetch("/api/subjects/statistics");
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error?.message || "Failed to fetch subjects");
+        const errorMessage =
+          errData.error?.message ||
+          errData.error ||
+          `Failed to fetch subjects (${response.status})`;
+        console.error(
+          "[QUESTION_REVIEW] Error fetching subjects:",
+          errorMessage
+        );
+        throw new Error(errorMessage);
       }
       const data = await response.json();
+      console.log(
+        "[QUESTION_REVIEW] Successfully fetched subjects:",
+        data.subjects?.length || 0
+      );
       setSubjects(data.subjects);
     } catch (err: any) {
+      console.error("[QUESTION_REVIEW] Exception in fetchSubjects:", err);
       setError(err.message);
       toast.error(err.message);
     } finally {
@@ -218,17 +234,32 @@ export default function QuestionReviewPage() {
     setIsLoading(true);
     setError(null);
     try {
+      console.log(
+        "[QUESTION_REVIEW] Fetching topic questions for topic:",
+        topicId
+      );
       const response = await fetch(`/api/questions/topic/${topicId}`);
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(
-          errData.error?.message || "Failed to fetch topic questions"
+        const errorMessage =
+          errData.error?.message ||
+          errData.error ||
+          `Failed to fetch topic questions (${response.status})`;
+        console.error(
+          "[QUESTION_REVIEW] Error fetching topic questions:",
+          errorMessage
         );
+        throw new Error(errorMessage);
       }
       const data = await response.json();
+      console.log(
+        "[QUESTION_REVIEW] Successfully fetched topic questions:",
+        data.questions?.length || 0
+      );
       setSelectedTopic(data.topic);
       setTopicQuestions(data.questions);
     } catch (err: any) {
+      console.error("[QUESTION_REVIEW] Exception in fetchTopicQuestions:", err);
       setError(err.message);
       toast.error(err.message);
     } finally {
@@ -359,19 +390,41 @@ export default function QuestionReviewPage() {
           ...filters,
         });
 
+        console.log(
+          "[QUESTION_REVIEW] Fetching filtered questions with filters:",
+          filters,
+          "page:",
+          page
+        );
         const response = await fetch(`/api/questions/review?${params}`);
         if (!response.ok) {
           const errData = await response.json();
-          throw new Error(
-            errData.error?.message || "Failed to fetch questions"
+          const errorMessage =
+            errData.error?.message ||
+            errData.error ||
+            `Failed to fetch questions (${response.status})`;
+          console.error(
+            "[QUESTION_REVIEW] Error fetching filtered questions:",
+            errorMessage
           );
+          throw new Error(errorMessage);
         }
 
         const data = await response.json();
+        console.log(
+          "[QUESTION_REVIEW] Successfully fetched filtered questions:",
+          data.questions?.length || 0,
+          "total:",
+          data.totalQuestions
+        );
         setFilteredQuestions(data.questions);
         setTotalPages(Math.ceil(data.totalQuestions / 100)); // Fixed to use totalQuestions and updated limit
         setCurrentPage(page);
       } catch (err: any) {
+        console.error(
+          "[QUESTION_REVIEW] Exception in fetchFilteredQuestions:",
+          err
+        );
         setError(err.message);
         toast.error(err.message);
       } finally {
@@ -512,9 +565,9 @@ export default function QuestionReviewPage() {
       setMultiPartResults({});
       setIsAnswerCorrect(false);
       setShowHint(false);
-      
+
       // Scroll to top to show the new question
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [
     currentProductionReviewIndex,
@@ -1806,94 +1859,124 @@ export default function QuestionReviewPage() {
           </div>
         </div>
 
-        {/* Questions Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-          {filteredQuestions.map((question) => {
-            const statusColor = getStatusColor(
-              question.productionReady,
-              question.isRefactored
-            );
-            const statusText = getStatusText(
-              question.productionReady,
-              question.isRefactored
-            );
+        {/* Loading State for Questions */}
+        {isLoading && (
+          <div className="flex justify-center items-center py-12">
+            <FaSpinner className="animate-spin text-2xl text-indigo-600 mr-3" />
+            <span className="text-lg text-gray-600">Loading questions...</span>
+          </div>
+        )}
 
-            return (
-              <div
-                key={question.id}
-                className={`${statusColor.bg} ${statusColor.border} border-2 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow`}
-                onClick={() => handleQuestionSelect(question)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FaCircle className={`text-sm ${statusColor.dot}`} />
-                      <span
-                        className={`text-sm font-medium px-2 py-1 rounded ${statusColor.bg} ${statusColor.text}`}
-                      >
-                        {statusText}
-                      </span>
-                      <span className="text-sm text-gray-600">
-                        ID: {question.id}
-                      </span>
-                      {/* Source School Display */}
-                      {renderSourceSchool(question)}
-                    </div>
-                    <p className="text-gray-800 font-medium line-clamp-2 mb-2">
-                      {question.text.substring(0, 120)}
-                      {question.text.length > 120 ? "..." : ""}
-                    </p>
-                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                      <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          question.difficulty === "EASY"
-                            ? "bg-green-100 text-green-700"
-                            : question.difficulty === "MEDIUM"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {question.difficulty?.toLowerCase()}
-                      </span>
-                      <span>{question.questionType}</span>
-                      {question.imageUrl && (
-                        <FaImage className="text-blue-500" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                        {question.subject.name}
-                      </span>
-                      <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                        {question.topic.name}
-                      </span>
-                      {question.questionGroup && (
-                        <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                          {question.questionGroup.name}
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <div className="text-red-600 font-medium">
+                Error loading questions:
+              </div>
+            </div>
+            <div className="text-red-700 mt-1">{error}</div>
+            <button
+              onClick={() =>
+                fetchFilteredQuestions(currentFilters, currentPage)
+              }
+              className="mt-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Questions Grid */}
+        {!isLoading && !error && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+            {filteredQuestions.map((question) => {
+              const statusColor = getStatusColor(
+                question.productionReady,
+                question.isRefactored
+              );
+              const statusText = getStatusText(
+                question.productionReady,
+                question.isRefactored
+              );
+
+              return (
+                <div
+                  key={question.id}
+                  className={`${statusColor.bg} ${statusColor.border} border-2 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow`}
+                  onClick={() => handleQuestionSelect(question)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FaCircle className={`text-sm ${statusColor.dot}`} />
+                        <span
+                          className={`text-sm font-medium px-2 py-1 rounded ${statusColor.bg} ${statusColor.text}`}
+                        >
+                          {statusText}
                         </span>
-                      )}
+                        <span className="text-sm text-gray-600">
+                          ID: {question.id}
+                        </span>
+                        {/* Source School Display */}
+                        {renderSourceSchool(question)}
+                      </div>
+                      <p className="text-gray-800 font-medium line-clamp-2 mb-2">
+                        {question.text.substring(0, 120)}
+                        {question.text.length > 120 ? "..." : ""}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                        <span
+                          className={`px-2 py-1 rounded text-xs ${
+                            question.difficulty === "EASY"
+                              ? "bg-green-100 text-green-700"
+                              : question.difficulty === "MEDIUM"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {question.difficulty?.toLowerCase()}
+                        </span>
+                        <span>{question.questionType}</span>
+                        {question.imageUrl && (
+                          <FaImage className="text-blue-500" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                          {question.subject.name}
+                        </span>
+                        <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                          {question.topic.name}
+                        </span>
+                        {question.questionGroup && (
+                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                            {question.questionGroup.name}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right text-sm text-gray-500 ml-4">
-                    <div>
-                      Production: {question.productionReady ? "✓" : "✗"}
+                    <div className="text-right text-sm text-gray-500 ml-4">
+                      <div>
+                        Production: {question.productionReady ? "✓" : "✗"}
+                      </div>
+                      <div>Refactored: {question.isRefactored ? "✓" : "✗"}</div>
                     </div>
-                    <div>Refactored: {question.isRefactored ? "✓" : "✗"}</div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {!isLoading && totalPages > 1 && (
           <div className="flex justify-center">
             <Pagination page={currentPage} count={filteredQuestions.length} />
           </div>
         )}
 
-        {filteredQuestions.length === 0 && !isLoading && (
+        {filteredQuestions.length === 0 && !isLoading && !error && (
           <div className="text-center text-gray-500 mt-8">
             <p>No questions found matching the current filters.</p>
           </div>

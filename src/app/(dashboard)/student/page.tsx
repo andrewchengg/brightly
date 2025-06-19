@@ -7,15 +7,31 @@ import {
   PracticeSession as PrismaPracticeSessionType,
   PracticeSessionStatus,
   PracticeSessionType,
-  Student as PrismaStudentType,
 } from "@/generated/prisma";
 
-import StudentCalendar from "@/components/StudentCalendar";
 import { Button } from "@/components/ui/button";
 import XPBar from "@/components/XPBar";
-import WeeklyQuestsPreview from "@/components/WeeklyQuestsPreview";
-import StudentDashboardLoading from "@/components/StudentDashboardLoading";
-import { Suspense } from "react";
+import dynamic from "next/dynamic";
+
+// Lazy load heavy components
+const StudentCalendar = dynamic(() => import("@/components/StudentCalendar"), {
+  loading: () => (
+    <div className="h-64 bg-gray-100 rounded-lg animate-pulse flex items-center justify-center">
+      <span className="text-gray-500">Loading calendar...</span>
+    </div>
+  ),
+});
+
+const WeeklyQuestsPreview = dynamic(
+  () => import("@/components/WeeklyQuestsPreview"),
+  {
+    loading: () => (
+      <div className="h-32 bg-gray-100 rounded-lg animate-pulse flex items-center justify-center">
+        <span className="text-gray-500">Loading quests...</span>
+      </div>
+    ),
+  }
+);
 
 interface AssignedTask extends PrismaPracticeSessionType {
   subjectName?: string | null;
@@ -24,7 +40,6 @@ interface AssignedTask extends PrismaPracticeSessionType {
 }
 
 function getTaskPath(task: AssignedTask): string {
-  // ... (getTaskPath function remains the same as provided previously)
   let path = "/student/practice";
   if (task.type === PracticeSessionType.TOPIC_QUIZ && task.topicId) {
     path = `/student/practice/topic/${task.topicId}?sessionId=${task.id}`;
@@ -38,14 +53,8 @@ function getTaskPath(task: AssignedTask): string {
     if (paperId && task.subjectId) {
       path = `/student/mock-exam?paperId=${paperId}&sessionId=${task.id}&subjectId=${task.subjectId}`;
     } else if (task.subjectId) {
-      console.warn(
-        `Mock exam task (ID: ${task.id}) for subject ${task.subjectId} is missing specific paper identifier. Defaulting path.`
-      );
       path = `/student/mock-exam?sessionId=${task.id}&subjectId=${task.subjectId}`;
     } else {
-      console.warn(
-        `Mock exam task (ID: ${task.id}) is missing subjectId. Cannot form specific link.`
-      );
       path = `/student/mock-exam?sessionId=${task.id}`;
     }
   } else if (task.type === PracticeSessionType.PRACTICE) {
@@ -63,7 +72,7 @@ function getTaskPath(task: AssignedTask): string {
   return path;
 }
 
-const StudentDashboardContent = async () => {
+export default async function StudentPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -76,41 +85,41 @@ const StudentDashboardContent = async () => {
     );
   }
 
-  console.log(`Student dashboard loaded for user: ${userId}`);
-
-  const student = await prisma.student.findUnique({
-    where: { id: userId },
-    select: {
-      name: true,
-      xpPoints: true,
-      currentStreak: true,
-      longestStreak: true,
-      lastActivityDate: true,
-      level: true,
-    },
-  });
+  // Combine database queries for better performance
+  const [student, assignedTasksData] = await Promise.all([
+    prisma.student.findUnique({
+      where: { id: userId },
+      select: {
+        name: true,
+        xpPoints: true,
+        currentStreak: true,
+        longestStreak: true,
+        lastActivityDate: true,
+        level: true,
+      },
+    }),
+    prisma.practiceSession.findMany({
+      where: {
+        studentId: userId,
+        OR: [
+          { status: PracticeSessionStatus.NOT_STARTED },
+          { status: PracticeSessionStatus.IN_PROGRESS },
+        ],
+        assignedByParentId: { not: null },
+      },
+      include: {
+        subject: { select: { id: true, name: true } },
+        topic: { select: { id: true, name: true } },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 5,
+    }),
+  ]);
 
   const xpPoints = student?.xpPoints ?? 0;
   const streak = student?.currentStreak ?? 0;
-
-  const assignedTasksData = await prisma.practiceSession.findMany({
-    where: {
-      studentId: userId,
-      OR: [
-        { status: PracticeSessionStatus.NOT_STARTED },
-        { status: PracticeSessionStatus.IN_PROGRESS },
-      ],
-      assignedByParentId: { not: null },
-    },
-    include: {
-      subject: { select: { id: true, name: true } },
-      topic: { select: { id: true, name: true } },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    take: 5,
-  });
 
   const assignedTasks: AssignedTask[] = assignedTasksData.map((task) => {
     let mockExamPaperIdentifier: AssignedTask["mockExamPaperIdentifier"] = null;
@@ -260,14 +269,4 @@ const StudentDashboardContent = async () => {
       </div>
     </div>
   );
-};
-
-const StudentPage = () => {
-  return (
-    <Suspense fallback={<StudentDashboardLoading />}>
-      <StudentDashboardContent />
-    </Suspense>
-  );
-};
-
-export default StudentPage;
+}
