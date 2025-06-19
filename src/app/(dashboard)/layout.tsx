@@ -3,6 +3,25 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import LogoLink from "@/components/LogoLink";
+import { Suspense } from "react";
+
+// Dashboard loading skeleton for menu
+function DashboardMenuSkeleton() {
+  return (
+    <div className="mt-8 p-6">
+      <div className="flex flex-col gap-4">
+        {Array(5)
+          .fill(0)
+          .map((_, idx) => (
+            <div
+              key={idx}
+              className="h-12 bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl animate-pulse shadow-sm"
+            ></div>
+          ))}
+      </div>
+    </div>
+  );
+}
 
 export default async function DashboardLayout({
   children,
@@ -27,7 +46,9 @@ export default async function DashboardLayout({
           <LogoLink />
         </div>
         <div className="flex-1 overflow-y-auto">
-          <Menu />
+          <Suspense fallback={<DashboardMenuSkeleton />}>
+            <Menu />
+          </Suspense>
         </div>
       </div>
       {/* RIGHT */}

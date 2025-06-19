@@ -14,6 +14,8 @@ import StudentCalendar from "@/components/StudentCalendar";
 import { Button } from "@/components/ui/button";
 import XPBar from "@/components/XPBar";
 import WeeklyQuestsPreview from "@/components/WeeklyQuestsPreview";
+import StudentDashboardLoading from "@/components/StudentDashboardLoading";
+import { Suspense } from "react";
 
 interface AssignedTask extends PrismaPracticeSessionType {
   subjectName?: string | null;
@@ -61,7 +63,7 @@ function getTaskPath(task: AssignedTask): string {
   return path;
 }
 
-const StudentPage = async () => {
+const StudentDashboardContent = async () => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -198,104 +200,73 @@ const StudentPage = async () => {
 
         {/* Right side - Weekly Quests and Tasks */}
         <div className="w-full lg:w-80 space-y-6">
-          {/* Weekly Quests - replaced Quick Actions */}
+          {/* Weekly Quests Preview */}
+          <div className="bg-white rounded-2xl shadow-xl p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <FaTasks className="text-purple-500" />
+              Weekly Quests
+            </h2>
+            <WeeklyQuestsPreview />
+          </div>
+
+          {/* Assigned Tasks Section */}
           <div className="bg-white rounded-2xl shadow-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <FaFire className="text-orange-500" />
-                Weekly Quests
+                <FaPlayCircle className="text-blue-500" />
+                Assigned Tasks
               </h2>
-            </div>
-
-            {/* Weekly Quests Preview */}
-            <WeeklyQuestsPreview />
-
-            {/* Quick Actions moved to bottom */}
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <div className="grid grid-cols-1 gap-2">
-                <Link
-                  href="/student/practice"
-                  className="block w-full p-2 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-lg text-center font-medium text-sm hover:from-green-700 hover:to-emerald-800 transition-all"
-                >
-                  🎯 Practice Now
-                </Link>
-                <Link
-                  href="/student/weekly-challenge"
-                  className="block w-full p-2 bg-gradient-to-r from-purple-600 to-indigo-700 text-white rounded-lg text-center font-medium text-sm hover:from-purple-700 hover:to-indigo-800 transition-all"
-                >
-                  🏆 Weekly Challenge
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Your Tasks - moved below quick actions */}
-          <div className="bg-white rounded-2xl shadow-xl p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <FaTasks className="text-blue-600" />
-              Your Tasks
-              <span className="text-sm font-normal text-gray-500 bg-blue-50 px-2 py-1 rounded-full">
+              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
                 {assignedTasks.length} pending
               </span>
-            </h2>
+            </div>
 
-            {assignedTasks.length > 0 ? (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+            {assignedTasks.length === 0 ? (
+              <p className="text-gray-500 text-sm">
+                No tasks assigned. Check back later!
+              </p>
+            ) : (
+              <div className="space-y-3">
                 {assignedTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="p-3 border rounded-lg hover:shadow-md transition-shadow bg-gray-50 border-gray-200"
+                    className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
                   >
-                    <div className="flex justify-between items-start gap-2 mb-2">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-800 text-sm leading-tight">
-                          {task.title}
-                        </h3>
-                        <p className="text-xs text-gray-600 mt-1">
-                          📚 {task.subjectName || "Subject"}
-                          {task.topicName && ` • 🎯 ${task.topicName}`}
-                          {task.totalQuestions &&
-                            ` • 📝 ${task.totalQuestions} questions`}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-gray-500">
-                            ⏰ Assigned{" "}
-                            {new Date(task.createdAt).toLocaleDateString()}
-                          </span>
-                          {task.examDurationMinutes && (
-                            <span className="text-xs text-gray-500">
-                              ⏱️ {task.examDurationMinutes}min
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <Link
-                        href={`/student/practice/${task.id}`}
-                        className="flex-shrink-0"
-                      >
-                        <Button
-                          size="sm"
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 h-8 text-xs rounded-md flex items-center gap-1"
-                        >
-                          <FaPlayCircle className="text-xs" />
-                          Start
-                        </Button>
-                      </Link>
+                    <h3 className="font-medium text-gray-800 text-sm mb-1">
+                      {task.title}
+                    </h3>
+                    <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        {task.subjectName || "Unknown Subject"}
+                      </span>
+                      {task.topicName && (
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                          {task.topicName}
+                        </span>
+                      )}
                     </div>
+                    <Link
+                      href={getTaskPath(task)}
+                      className="inline-block w-full text-center bg-blue-600 text-white px-3 py-1.5 rounded text-xs hover:bg-blue-700 transition-colors"
+                    >
+                      Start Practice
+                    </Link>
                   </div>
                 ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <FaTasks className="mx-auto text-4xl mb-3 text-gray-300" />
-                <p className="text-sm">No tasks assigned yet</p>
-                <p className="text-xs">New tasks will appear here</p>
               </div>
             )}
           </div>
         </div>
       </div>
     </div>
+  );
+};
+
+const StudentPage = () => {
+  return (
+    <Suspense fallback={<StudentDashboardLoading />}>
+      <StudentDashboardContent />
+    </Suspense>
   );
 };
 
