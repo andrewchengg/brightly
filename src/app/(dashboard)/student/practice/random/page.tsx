@@ -199,12 +199,12 @@ export default function RandomPractice() {
         if (sessionData.subjectId && !currentSubjectId) {
           setCurrentSubjectId(sessionData.subjectId);
         }
-        
+
         // Add subjectId filtering to questions URL if available
         const subjectIdToUse = currentSubjectId || sessionData.subjectId;
         if (subjectIdToUse) {
           // Check if URL already has parameters
-          const separator = questionsUrl.includes('?') ? '&' : '?';
+          const separator = questionsUrl.includes("?") ? "&" : "?";
           questionsUrl += `${separator}subjectId=${subjectIdToUse}`;
         }
 
@@ -669,19 +669,16 @@ export default function RandomPractice() {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
 
-      const response = await fetch(
-        `/api/practice-session/complete`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: currentPracticeSessionId,
-            score: calculatedScore,
-            correctAnswers: correctCount,
-            xpEarned: calculatedScore,
-          }),
-        }
-      );
+      const response = await fetch(`/api/practice-session/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: currentPracticeSessionId,
+          score: calculatedScore,
+          correctAnswers: correctCount,
+          xpEarned: calculatedScore,
+        }),
+      });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || "Failed to finalize session");
@@ -771,17 +768,23 @@ export default function RandomPractice() {
       const correctAnswerId = String(
         currentQuestion.correctAnswer || ""
       ).toLowerCase();
-      
+
       // Find the selected option index
-      const selectedOptionIndex = currentQuestion.options.findIndex(opt => opt.id === optionId);
-      const selectedOptionLetter = String.fromCharCode(65 + selectedOptionIndex).toLowerCase();
-      
+      const selectedOptionIndex = currentQuestion.options.findIndex(
+        (opt) => opt.id === optionId
+      );
+      const selectedOptionLetter = String.fromCharCode(
+        65 + selectedOptionIndex
+      ).toLowerCase();
+
       // Check correctness using multiple methods to handle different formats
-      const isCorrect = 
+      const isCorrect =
         optionId.toLowerCase() === correctAnswerId || // Direct ID match
         selectedOptionLetter === correctAnswerId || // Letter-based match (c for option C)
-        String.fromCharCode(65 + selectedOptionIndex) === String(currentQuestion.correctAnswer) || // Uppercase letter match
-        (selectedOptionIndex + 1).toString() === String(currentQuestion.correctAnswer); // 1-based index match
+        String.fromCharCode(65 + selectedOptionIndex) ===
+          String(currentQuestion.correctAnswer) || // Uppercase letter match
+        (selectedOptionIndex + 1).toString() ===
+          String(currentQuestion.correctAnswer); // 1-based index match
 
       const correctOption = currentQuestion.options.find(
         (opt) => opt.id.toLowerCase() === correctAnswerId
@@ -875,6 +878,10 @@ export default function RandomPractice() {
 
   const handleNextQuestion = useCallback(async () => {
     setShowHint(false);
+    setSelectedAnswer(null); // Reset selected answer to prevent flashing
+    setTextAnswer(""); // Reset text answer too
+    setMultiPartAnswers({}); // Reset multi-part answers
+    setMultiPartResults({}); // Reset multi-part results
     // AI feedback will be handled by the new AI assistant component
     // Chat history can persist if user wants to refer back, or clear it:
     // setChatHistory([]);
@@ -984,13 +991,19 @@ export default function RandomPractice() {
                 const optionLetter = String.fromCharCode(65 + index);
                 const isThisSelected = selectedAnswer === optionId;
                 // Use the same robust checking logic as handleAnswerMCQ
-                const correctAnswerId = String(currentQuestion.correctAnswer || "").toLowerCase();
-                const thisOptionLetter = String.fromCharCode(65 + index).toLowerCase();
-                const isThisCorrectDB = 
+                const correctAnswerId = String(
+                  currentQuestion.correctAnswer || ""
+                ).toLowerCase();
+                const thisOptionLetter = String.fromCharCode(
+                  65 + index
+                ).toLowerCase();
+                const isThisCorrectDB =
                   optionId.toLowerCase() === correctAnswerId || // Direct ID match
                   thisOptionLetter === correctAnswerId || // Letter-based match (c for option C)
-                  String.fromCharCode(65 + index) === String(currentQuestion.correctAnswer) || // Uppercase letter match
-                  (index + 1).toString() === String(currentQuestion.correctAnswer); // 1-based index match
+                  String.fromCharCode(65 + index) ===
+                    String(currentQuestion.correctAnswer) || // Uppercase letter match
+                  (index + 1).toString() ===
+                    String(currentQuestion.correctAnswer); // 1-based index match
 
                 let buttonClass =
                   "bg-white hover:bg-gray-50 border border-gray-300";
@@ -1372,35 +1385,50 @@ export default function RandomPractice() {
                         ) : (
                           <div className="flex items-center text-red-600">
                             <FaTimes className="mr-1" />
-                            <span className="text-xs font-medium">Incorrect</span>
+                            <span className="text-xs font-medium">
+                              Incorrect
+                            </span>
                           </div>
                         )}
                       </div>
                     </div>
-                    
+
                     <p className="text-sm mb-3 text-gray-700 leading-relaxed">
                       {result.question}
                     </p>
-                    
+
                     <div className="space-y-2 text-xs">
                       <div className="flex flex-wrap">
-                        <span className="font-medium text-gray-600 mr-2">Your Answer:</span>
-                        <span className={`${result.correct ? 'text-green-700' : 'text-red-700'} font-medium`}>
-                          {typeof result.userAnswer === 'object' 
-                            ? Object.entries(result.userAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                            : result.userAnswer || 'No answer'}
+                        <span className="font-medium text-gray-600 mr-2">
+                          Your Answer:
+                        </span>
+                        <span
+                          className={`${
+                            result.correct ? "text-green-700" : "text-red-700"
+                          } font-medium`}
+                        >
+                          {typeof result.userAnswer === "object"
+                            ? Object.entries(result.userAnswer)
+                                .map(([key, value]) => `${key}: ${value}`)
+                                .join(", ")
+                            : result.userAnswer || "No answer"}
                         </span>
                       </div>
-                      
+
                       {!result.correct && (
                         <div className="flex flex-wrap">
-                          <span className="font-medium text-gray-600 mr-2">Correct Answer:</span>
+                          <span className="font-medium text-gray-600 mr-2">
+                            Correct Answer:
+                          </span>
                           <span className="text-green-700 font-medium">
-                            {typeof result.correctAnswer === 'object' && result.correctAnswer !== null
-                              ? Array.isArray(result.correctAnswer) 
-                                ? result.correctAnswer.join(', ')
-                                : Object.entries(result.correctAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                              : result.correctAnswer || 'N/A'}
+                            {typeof result.correctAnswer === "object" &&
+                            result.correctAnswer !== null
+                              ? Array.isArray(result.correctAnswer)
+                                ? result.correctAnswer.join(", ")
+                                : Object.entries(result.correctAnswer)
+                                    .map(([key, value]) => `${key}: ${value}`)
+                                    .join(", ")
+                              : result.correctAnswer || "N/A"}
                           </span>
                         </div>
                       )}
@@ -1480,8 +1508,8 @@ export default function RandomPractice() {
           onClose={() => setShowLevelUp(false)}
         />
       )}
-      <ConfettiComponent 
-        trigger={showConfetti} 
+      <ConfettiComponent
+        trigger={showConfetti}
         onComplete={() => setShowConfetti(false)}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">

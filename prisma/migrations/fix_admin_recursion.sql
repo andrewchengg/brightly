@@ -1,0 +1,673 @@
+-- Fix Admin Infinite Recursion - Drop and Recreate Policies
+-- This script fixes the infinite recursion issue in the Admin policies
+
+-- =============================================================================
+-- DROP ALL EXISTING POLICIES
+-- =============================================================================
+
+-- Drop Admin policies
+DROP POLICY IF EXISTS "Admins have full access to Admin table" ON "Admin";
+DROP POLICY IF EXISTS "Admins can view own profile" ON "Admin";
+DROP POLICY IF EXISTS "Admins can insert admin records" ON "Admin";
+DROP POLICY IF EXISTS "Admins can update own profile" ON "Admin";
+DROP POLICY IF EXISTS "Service role can manage admins" ON "Admin";
+
+-- Drop Student policies
+DROP POLICY IF EXISTS "Students can view own profile" ON "Student";
+DROP POLICY IF EXISTS "Students can update own profile" ON "Student";
+DROP POLICY IF EXISTS "Parents can view children" ON "Student";
+DROP POLICY IF EXISTS "Teachers can view class students" ON "Student";
+DROP POLICY IF EXISTS "Admins can manage students" ON "Student";
+
+-- Drop Teacher policies
+DROP POLICY IF EXISTS "Teachers can view own profile" ON "Teacher";
+DROP POLICY IF EXISTS "Teachers can update own profile" ON "Teacher";
+DROP POLICY IF EXISTS "Admins can manage teachers" ON "Teacher";
+
+-- Drop Parent policies
+DROP POLICY IF EXISTS "Parents can view own profile" ON "Parent";
+DROP POLICY IF EXISTS "Parents can update own profile" ON "Parent";
+DROP POLICY IF EXISTS "Admins can manage parents" ON "Parent";
+
+-- Drop Educational content policies
+DROP POLICY IF EXISTS "Authenticated users can read subjects" ON "Subject";
+DROP POLICY IF EXISTS "Authenticated users can read topics" ON "Topic";
+DROP POLICY IF EXISTS "Authenticated users can read questions" ON "Question";
+DROP POLICY IF EXISTS "Authenticated users can read question groups" ON "QuestionGroup";
+DROP POLICY IF EXISTS "Authenticated users can read grades" ON "Grade";
+DROP POLICY IF EXISTS "Authenticated users can read classes" ON "Class";
+DROP POLICY IF EXISTS "Admins can manage subjects" ON "Subject";
+DROP POLICY IF EXISTS "Admins can manage topics" ON "Topic";
+DROP POLICY IF EXISTS "Admins can manage questions" ON "Question";
+DROP POLICY IF EXISTS "Admins can manage question groups" ON "QuestionGroup";
+DROP POLICY IF EXISTS "Admins can manage grades" ON "Grade";
+DROP POLICY IF EXISTS "Admins can manage classes" ON "Class";
+
+-- Drop Practice session policies
+DROP POLICY IF EXISTS "Students can view own practice sessions" ON "PracticeSession";
+DROP POLICY IF EXISTS "Students can update own practice sessions" ON "PracticeSession";
+DROP POLICY IF EXISTS "Parents can view children practice sessions" ON "PracticeSession";
+DROP POLICY IF EXISTS "Teachers can view class practice sessions" ON "PracticeSession";
+DROP POLICY IF EXISTS "Admins can manage practice sessions" ON "PracticeSession";
+
+-- Drop Results policies
+DROP POLICY IF EXISTS "Students can view own results" ON "Result";
+DROP POLICY IF EXISTS "Parents can view children results" ON "Result";
+DROP POLICY IF EXISTS "Teachers can view class results" ON "Result";
+DROP POLICY IF EXISTS "Admins can manage results" ON "Result";
+
+-- Drop Attendance policies
+DROP POLICY IF EXISTS "Students can view own attendance" ON "Attendance";
+DROP POLICY IF EXISTS "Parents can view children attendance" ON "Attendance";
+DROP POLICY IF EXISTS "Teachers can manage lesson attendance" ON "Attendance";
+DROP POLICY IF EXISTS "Admins can manage attendance" ON "Attendance";
+
+-- Drop Lesson policies
+DROP POLICY IF EXISTS "Students can view class lessons" ON "Lesson";
+DROP POLICY IF EXISTS "Teachers can manage own lessons" ON "Lesson";
+DROP POLICY IF EXISTS "Parents can view children lessons" ON "Lesson";
+DROP POLICY IF EXISTS "Admins can manage lessons" ON "Lesson";
+
+-- Drop Event policies
+DROP POLICY IF EXISTS "Students can view relevant events" ON "Event";
+DROP POLICY IF EXISTS "Parents can view relevant events" ON "Event";
+DROP POLICY IF EXISTS "Teachers can view relevant events" ON "Event";
+DROP POLICY IF EXISTS "Admins can manage events" ON "Event";
+
+-- Drop Announcement policies
+DROP POLICY IF EXISTS "Students can view relevant announcements" ON "Announcement";
+DROP POLICY IF EXISTS "Parents can view relevant announcements" ON "Announcement";
+DROP POLICY IF EXISTS "Teachers can manage class announcements" ON "Announcement";
+DROP POLICY IF EXISTS "Admins can manage announcements" ON "Announcement";
+
+-- Drop Chat policies
+DROP POLICY IF EXISTS "Students can manage own chat sessions" ON "ChatSession";
+DROP POLICY IF EXISTS "Parents can view children chat sessions" ON "ChatSession";
+DROP POLICY IF EXISTS "Admins can manage chat sessions" ON "ChatSession";
+DROP POLICY IF EXISTS "Users can manage chat messages in their sessions" ON "ChatMessage";
+
+-- Drop Gamification policies
+DROP POLICY IF EXISTS "Students can view badges" ON "Badge";
+DROP POLICY IF EXISTS "Students can view own student badges" ON "StudentBadge";
+DROP POLICY IF EXISTS "Parents can view children badges" ON "StudentBadge";
+DROP POLICY IF EXISTS "Students can view quests" ON "Quest";
+DROP POLICY IF EXISTS "Students can manage own quest progress" ON "StudentQuest";
+DROP POLICY IF EXISTS "Parents can view children quest progress" ON "StudentQuest";
+DROP POLICY IF EXISTS "Admins can manage badges" ON "Badge";
+DROP POLICY IF EXISTS "Admins can manage student badges" ON "StudentBadge";
+DROP POLICY IF EXISTS "Admins can manage quests" ON "Quest";
+DROP POLICY IF EXISTS "Admins can manage student quests" ON "StudentQuest";
+
+-- Drop Specialized feature policies
+DROP POLICY IF EXISTS "Students can view oral prompts" ON "OralPrompt";
+DROP POLICY IF EXISTS "Students can manage own oral practice attempts" ON "OralPracticeAttempt";
+DROP POLICY IF EXISTS "Parents can view children oral practice" ON "OralPracticeAttempt";
+DROP POLICY IF EXISTS "Students can manage own uploaded questions" ON "StudentUploadedQuestion";
+DROP POLICY IF EXISTS "Teachers can view uploaded questions from their students" ON "StudentUploadedQuestion";
+DROP POLICY IF EXISTS "Students can create question reports" ON "QuestionReport";
+DROP POLICY IF EXISTS "Students can view own question reports" ON "QuestionReport";
+DROP POLICY IF EXISTS "Admins can manage question reports" ON "QuestionReport";
+DROP POLICY IF EXISTS "Teachers can view own subject assignments" ON "SubjectTeacher";
+DROP POLICY IF EXISTS "Admins can manage archived questions" ON "ArchivedOriginalQuestion";
+DROP POLICY IF EXISTS "Admins can manage migrations" ON "_prisma_migrations";
+
+-- =============================================================================
+-- CREATE CORRECTED POLICIES (Fixed to prevent infinite recursion)
+-- =============================================================================
+
+-- =============================================================================
+-- ADMIN POLICIES (Fixed to prevent infinite recursion)
+-- =============================================================================
+
+-- Allow admin users to view their own profile and insert new admin records
+CREATE POLICY "Admins can view own profile" ON "Admin"
+  FOR SELECT USING (auth.uid()::text = id);
+
+CREATE POLICY "Admins can insert admin records" ON "Admin"
+  FOR INSERT WITH CHECK (auth.uid()::text = id);
+
+CREATE POLICY "Admins can update own profile" ON "Admin"
+  FOR UPDATE USING (auth.uid()::text = id);
+
+-- Service role can manage admin records (for admin creation scripts)
+CREATE POLICY "Service role can manage admins" ON "Admin"
+  FOR ALL USING (auth.jwt() ->> 'role' = 'service_role');
+
+-- =============================================================================
+-- STUDENT POLICIES  
+-- =============================================================================
+
+-- Students can view and update their own profile
+CREATE POLICY "Students can view own profile" ON "Student"
+  FOR SELECT USING (auth.uid()::text = id);
+
+CREATE POLICY "Students can update own profile" ON "Student" 
+  FOR UPDATE USING (auth.uid()::text = id);
+
+-- Parents can view their children
+CREATE POLICY "Parents can view children" ON "Student"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Parent" 
+      WHERE "Parent".id = auth.uid()::text 
+      AND "Parent".id = "Student"."parentId"
+    )
+  );
+
+-- Teachers can view students in their supervised classes
+CREATE POLICY "Teachers can view class students" ON "Student"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Teacher" t
+      JOIN "Class" c ON c."supervisorId" = t.id
+      WHERE t.id = auth.uid()::text 
+      AND c.id = "Student"."classId"
+    )
+  );
+
+-- Admins can manage all students (service role or admin user)
+CREATE POLICY "Admins can manage students" ON "Student"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- TEACHER POLICIES
+-- =============================================================================
+
+-- Teachers can view their own profile
+CREATE POLICY "Teachers can view own profile" ON "Teacher"
+  FOR SELECT USING (auth.uid()::text = id);
+
+CREATE POLICY "Teachers can update own profile" ON "Teacher"
+  FOR UPDATE USING (auth.uid()::text = id);
+
+-- Admins can manage all teachers
+CREATE POLICY "Admins can manage teachers" ON "Teacher"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- PARENT POLICIES
+-- =============================================================================
+
+-- Parents can view and update their own profile
+CREATE POLICY "Parents can view own profile" ON "Parent"
+  FOR SELECT USING (auth.uid()::text = id);
+
+CREATE POLICY "Parents can update own profile" ON "Parent"
+  FOR UPDATE USING (auth.uid()::text = id);
+
+-- Admins can manage all parents
+CREATE POLICY "Admins can manage parents" ON "Parent"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- EDUCATIONAL CONTENT POLICIES (PUBLIC READ)
+-- =============================================================================
+
+-- Allow authenticated users to read educational content
+CREATE POLICY "Authenticated users can read subjects" ON "Subject"
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Authenticated users can read topics" ON "Topic"
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Authenticated users can read questions" ON "Question"
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Authenticated users can read question groups" ON "QuestionGroup"
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Authenticated users can read grades" ON "Grade"
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Authenticated users can read classes" ON "Class"
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+-- Admins can manage educational content
+CREATE POLICY "Admins can manage subjects" ON "Subject"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+CREATE POLICY "Admins can manage topics" ON "Topic"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+CREATE POLICY "Admins can manage questions" ON "Question"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+CREATE POLICY "Admins can manage question groups" ON "QuestionGroup"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+CREATE POLICY "Admins can manage grades" ON "Grade"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+CREATE POLICY "Admins can manage classes" ON "Class"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- PRACTICE SESSION POLICIES
+-- =============================================================================
+
+-- Students can view their own practice sessions
+CREATE POLICY "Students can view own practice sessions" ON "PracticeSession"
+  FOR SELECT USING (auth.uid()::text = "studentId");
+
+CREATE POLICY "Students can update own practice sessions" ON "PracticeSession"
+  FOR UPDATE USING (auth.uid()::text = "studentId");
+
+-- Parents can view their children's practice sessions
+CREATE POLICY "Parents can view children practice sessions" ON "PracticeSession"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = "PracticeSession"."studentId"
+      AND s."parentId" = auth.uid()::text
+    )
+  );
+
+-- Teachers can view practice sessions of students in their classes
+CREATE POLICY "Teachers can view class practice sessions" ON "PracticeSession"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      JOIN "Class" c ON c.id = s."classId"
+      WHERE s.id = "PracticeSession"."studentId"
+      AND c."supervisorId" = auth.uid()::text
+    )
+  );
+
+-- Admins can manage all practice sessions
+CREATE POLICY "Admins can manage practice sessions" ON "PracticeSession"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- RESULTS POLICIES
+-- =============================================================================
+
+-- Students can view their own results
+CREATE POLICY "Students can view own results" ON "Result"
+  FOR SELECT USING (auth.uid()::text = "studentId");
+
+-- Parents can view their children's results
+CREATE POLICY "Parents can view children results" ON "Result"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = "Result"."studentId"
+      AND s."parentId" = auth.uid()::text
+    )
+  );
+
+-- Teachers can view results of students in their classes
+CREATE POLICY "Teachers can view class results" ON "Result"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      JOIN "Class" c ON c.id = s."classId"
+      WHERE s.id = "Result"."studentId"
+      AND c."supervisorId" = auth.uid()::text
+    )
+  );
+
+-- Admins can manage all results
+CREATE POLICY "Admins can manage results" ON "Result"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- ATTENDANCE POLICIES
+-- =============================================================================
+
+-- Students can view their own attendance
+CREATE POLICY "Students can view own attendance" ON "Attendance"
+  FOR SELECT USING (auth.uid()::text = "studentId");
+
+-- Parents can view their children's attendance
+CREATE POLICY "Parents can view children attendance" ON "Attendance"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = "Attendance"."studentId"
+      AND s."parentId" = auth.uid()::text
+    )
+  );
+
+-- Teachers can manage attendance for their lessons
+CREATE POLICY "Teachers can manage lesson attendance" ON "Attendance"
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM "Lesson" l
+      WHERE l.id = "Attendance"."lessonId"
+      AND l."teacherId" = auth.uid()::text
+    )
+  );
+
+-- Admins can manage all attendance
+CREATE POLICY "Admins can manage attendance" ON "Attendance"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- LESSON POLICIES
+-- =============================================================================
+
+-- Students can view lessons for their class
+CREATE POLICY "Students can view class lessons" ON "Lesson"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = auth.uid()::text
+      AND s."classId" = "Lesson"."classId"
+    )
+  );
+
+-- Teachers can manage their own lessons
+CREATE POLICY "Teachers can manage own lessons" ON "Lesson"
+  FOR ALL USING (auth.uid()::text = "teacherId");
+
+-- Parents can view lessons for their children's classes
+CREATE POLICY "Parents can view children lessons" ON "Lesson"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s."parentId" = auth.uid()::text
+      AND s."classId" = "Lesson"."classId"
+    )
+  );
+
+-- Admins can manage all lessons
+CREATE POLICY "Admins can manage lessons" ON "Lesson"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- EVENT POLICIES
+-- =============================================================================
+
+-- Students can view events for their class or general events
+CREATE POLICY "Students can view relevant events" ON "Event"
+  FOR SELECT USING (
+    "Event"."classId" IS NULL OR
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = auth.uid()::text
+      AND s."classId" = "Event"."classId"
+    )
+  );
+
+-- Parents can view events for their children's classes or general events
+CREATE POLICY "Parents can view relevant events" ON "Event"
+  FOR SELECT USING (
+    "Event"."classId" IS NULL OR
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s."parentId" = auth.uid()::text
+      AND s."classId" = "Event"."classId"
+    )
+  );
+
+-- Teachers can view events for their classes or general events
+CREATE POLICY "Teachers can view relevant events" ON "Event"
+  FOR SELECT USING (
+    "Event"."classId" IS NULL OR
+    EXISTS (
+      SELECT 1 FROM "Class" c
+      WHERE c.id = "Event"."classId"
+      AND c."supervisorId" = auth.uid()::text
+    )
+  );
+
+-- Admins can manage all events
+CREATE POLICY "Admins can manage events" ON "Event"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- ANNOUNCEMENT POLICIES
+-- =============================================================================
+
+-- Students can view announcements for their class or general announcements
+CREATE POLICY "Students can view relevant announcements" ON "Announcement"
+  FOR SELECT USING (
+    "Announcement"."classId" IS NULL OR
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = auth.uid()::text
+      AND s."classId" = "Announcement"."classId"
+    )
+  );
+
+-- Parents can view announcements for their children's classes or general announcements
+CREATE POLICY "Parents can view relevant announcements" ON "Announcement"
+  FOR SELECT USING (
+    "Announcement"."classId" IS NULL OR
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s."parentId" = auth.uid()::text
+      AND s."classId" = "Announcement"."classId"
+    )
+  );
+
+-- Teachers can view and manage announcements for their classes
+CREATE POLICY "Teachers can manage class announcements" ON "Announcement"
+  FOR ALL USING (
+    "Announcement"."classId" IS NULL OR
+    EXISTS (
+      SELECT 1 FROM "Class" c
+      WHERE c.id = "Announcement"."classId"
+      AND c."supervisorId" = auth.uid()::text
+    )
+  );
+
+-- Admins can manage all announcements
+CREATE POLICY "Admins can manage announcements" ON "Announcement"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- CHAT POLICIES
+-- =============================================================================
+
+-- Students can manage their own chat sessions
+CREATE POLICY "Students can manage own chat sessions" ON "ChatSession"
+  FOR ALL USING (auth.uid()::text = "studentId");
+
+-- Parents can view their children's chat sessions
+CREATE POLICY "Parents can view children chat sessions" ON "ChatSession"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = "ChatSession"."studentId"
+      AND s."parentId" = auth.uid()::text
+    )
+  );
+
+-- Admins can manage all chat sessions
+CREATE POLICY "Admins can manage chat sessions" ON "ChatSession"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- Chat messages follow session permissions
+CREATE POLICY "Users can manage chat messages in their sessions" ON "ChatMessage"
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM "ChatSession" cs
+      WHERE cs.id = "ChatMessage"."sessionId"
+      AND (
+        cs."studentId" = auth.uid()::text OR
+        EXISTS (
+          SELECT 1 FROM "Student" s
+          WHERE s.id = cs."studentId"
+          AND s."parentId" = auth.uid()::text
+        ) OR
+        (auth.jwt() ->> 'role' = 'service_role' OR auth.jwt() -> 'user_metadata' ->> 'role' = 'admin')
+      )
+    )
+  );
+
+-- =============================================================================
+-- GAMIFICATION POLICIES (Badges, Quests)
+-- =============================================================================
+
+-- Students can view all badges and their own earned badges
+CREATE POLICY "Students can view badges" ON "Badge"
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Students can view own student badges" ON "StudentBadge"
+  FOR SELECT USING (auth.uid()::text = "studentId");
+
+-- Parents can view their children's badges
+CREATE POLICY "Parents can view children badges" ON "StudentBadge"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = "StudentBadge"."studentId"
+      AND s."parentId" = auth.uid()::text
+    )
+  );
+
+-- Quest policies
+CREATE POLICY "Students can view quests" ON "Quest"
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Students can manage own quest progress" ON "StudentQuest"
+  FOR ALL USING (auth.uid()::text = "studentId");
+
+CREATE POLICY "Parents can view children quest progress" ON "StudentQuest"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = "StudentQuest"."studentId"
+      AND s."parentId" = auth.uid()::text
+    )
+  );
+
+-- Admins can manage all gamification features
+CREATE POLICY "Admins can manage badges" ON "Badge"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+CREATE POLICY "Admins can manage student badges" ON "StudentBadge"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+CREATE POLICY "Admins can manage quests" ON "Quest"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+CREATE POLICY "Admins can manage student quests" ON "StudentQuest"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- =============================================================================
+-- SPECIALIZED FEATURE POLICIES
+-- =============================================================================
+
+-- Oral practice policies
+CREATE POLICY "Students can view oral prompts" ON "OralPrompt"
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Students can manage own oral practice attempts" ON "OralPracticeAttempt"
+  FOR ALL USING (auth.uid()::text = "studentId");
+
+CREATE POLICY "Parents can view children oral practice" ON "OralPracticeAttempt"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      WHERE s.id = "OralPracticeAttempt"."studentId"
+      AND s."parentId" = auth.uid()::text
+    )
+  );
+
+-- Student uploaded questions
+CREATE POLICY "Students can manage own uploaded questions" ON "StudentUploadedQuestion"
+  FOR ALL USING (auth.uid()::text = "studentId");
+
+CREATE POLICY "Teachers can view uploaded questions from their students" ON "StudentUploadedQuestion"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "Student" s
+      JOIN "Class" c ON c.id = s."classId"
+      WHERE s.id = "StudentUploadedQuestion"."studentId"
+      AND c."supervisorId" = auth.uid()::text
+    )
+  );
+
+-- Question reports
+CREATE POLICY "Students can create question reports" ON "QuestionReport"
+  FOR INSERT WITH CHECK (auth.uid()::text = "studentId");
+
+CREATE POLICY "Students can view own question reports" ON "QuestionReport"
+  FOR SELECT USING (auth.uid()::text = "studentId");
+
+-- Admins can manage all question reports
+CREATE POLICY "Admins can manage question reports" ON "QuestionReport"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- Subject-Teacher relationships
+CREATE POLICY "Teachers can view own subject assignments" ON "SubjectTeacher"
+  FOR SELECT USING (auth.uid()::text = "teacherId");
+
+-- Archived questions (read-only for admins)
+CREATE POLICY "Admins can manage archived questions" ON "ArchivedOriginalQuestion"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  );
+
+-- Prisma migrations (admin only)
+CREATE POLICY "Admins can manage migrations" ON "_prisma_migrations"
+  FOR ALL USING (
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
+  ); 

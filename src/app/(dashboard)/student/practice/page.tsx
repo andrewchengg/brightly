@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,8 +28,9 @@ import {
   FaLaptop, // Kept from update-subjects-page
 } from "react-icons/fa";
 import { LuCalculator } from "react-icons/lu";
+import { useQuestData } from "@/contexts/QuestContext";
 
-// Import only the interface - we'll fetch actual data from API
+// Import quest interface from context
 interface WeeklyQuest {
   id: string;
   title: string;
@@ -108,51 +108,14 @@ const subjects = [
 
 export default function PracticePage() {
   const router = useRouter();
-  const [questsLoading, setQuestsLoading] = useState(true); // Loading state for quest fetch
-  const [weeklyQuests, setWeeklyQuests] = useState<WeeklyQuest[]>([]);
-  const [questsLocked, setQuestsLocked] = useState(false); // New state for locked quests
-  const [studentLevel, setStudentLevel] = useState(1); // Student level
-  const [requiredLevel, setRequiredLevel] = useState(2); // Required level for quests
-  const [lockMessage, setLockMessage] = useState(''); // Lock message
-
-  // Initialize weekly quests on component mount
-  useEffect(() => {
-    fetchWeeklyQuests();
-  }, []);
-
-  const fetchWeeklyQuests = async () => {
-    try {
-      setQuestsLoading(true); // Set loading to true when fetching
-      const response = await fetch('/api/weekly-quests');
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Check if quests are locked
-        if (data.locked) {
-          setQuestsLocked(true);
-          setStudentLevel(data.level);
-          setRequiredLevel(data.requiredLevel);
-          setLockMessage(data.message);
-          setWeeklyQuests([]);
-        } else {
-          setQuestsLocked(false);
-          setWeeklyQuests(data.quests || []);
-        }
-      } else {
-        console.error('Failed to fetch weekly quests:', response.status);
-        setWeeklyQuests([]);
-        setQuestsLocked(false);
-      }
-    } catch (error) {
-      console.error('Error fetching weekly quests:', error);
-      setWeeklyQuests([]);
-      setQuestsLocked(false);
-    } finally {
-      setQuestsLoading(false); // Set loading to false when done
-    }
-  };
-
-
+  const {
+    quests: weeklyQuests,
+    locked: questsLocked,
+    level: studentLevel,
+    requiredLevel,
+    message: lockMessage,
+    loading: questsLoading,
+  } = useQuestData();
 
   // Mock mistakes count - replace with actual data source
   const mistakesCount = 0; // This would come from your data source
@@ -174,8 +137,6 @@ export default function PracticePage() {
   const handleMistakesReview = () => {
     router.push("/student/review");
   };
-
-
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -232,9 +193,22 @@ export default function PracticePage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {questsLoading ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                    <p className="text-sm">Loading weekly quests...</p>
+                  <div className="space-y-3">
+                    {[1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="p-4 bg-gray-50 rounded-lg animate-pulse"
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+                          <div className="flex-1">
+                            <div className="h-4 bg-gray-200 rounded w-24 mb-1"></div>
+                            <div className="h-3 bg-gray-200 rounded w-16"></div>
+                          </div>
+                        </div>
+                        <div className="h-2 bg-gray-200 rounded w-full"></div>
+                      </div>
+                    ))}
                   </div>
                 ) : questsLocked ? (
                   <div className="text-center py-8 text-gray-400">
@@ -242,7 +216,9 @@ export default function PracticePage() {
                       <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
                         <span className="text-2xl">🔒</span>
                       </div>
-                      <h3 className="font-semibold text-gray-600 mb-2">Weekly Quests Locked</h3>
+                      <h3 className="font-semibold text-gray-600 mb-2">
+                        Weekly Quests Locked
+                      </h3>
                       <p className="text-sm mb-2">{lockMessage}</p>
                       <div className="bg-gray-100 rounded-lg p-3 text-xs">
                         <div className="flex items-center justify-center space-x-2">
@@ -260,11 +236,12 @@ export default function PracticePage() {
                 ) : (
                   <div className="text-center py-4 text-gray-500">
                     <p>No weekly quests available</p>
-                    <p className="text-sm">Your weekly quests will be generated automatically on Monday!</p>
+                    <p className="text-sm">
+                      Your weekly quests will be generated automatically on
+                      Monday!
+                    </p>
                   </div>
                 )}
-
-                
               </CardContent>
             </Card>
           </div>
@@ -358,7 +335,7 @@ interface WeeklyQuestCardProps {
   quest: WeeklyQuest;
 }
 
-function WeeklyQuestCard({ quest }: WeeklyQuestCardProps) {
+function WeeklyQuestCard({ quest }: { quest: WeeklyQuest }) {
   // Map icon names to components
   const iconMap: { [key: string]: any } = {
     FaTrophy,
@@ -382,7 +359,7 @@ function WeeklyQuestCard({ quest }: WeeklyQuestCardProps) {
     FaFlask,
     FaGlobe,
   };
-  
+
   const IconComponent = iconMap[quest.icon] || FaTrophy;
   const isCompleted = quest.progress >= quest.target;
   const progressPercentage = Math.min(

@@ -168,14 +168,13 @@ function applyRarityWeights(quests: Quest[]): Quest[] {
   return weighted;
 }
 
-// Get or generate weekly quests for a student
+// Get or generate weekly quests for a student (optimized)
 export async function getStudentWeeklyQuests(
   studentId: string
 ): Promise<StudentQuest[]> {
   const weekStart = getWeekStart();
-  const weekEnd = getWeekEnd(weekStart);
 
-  // Check if student has quests for current week
+  // Single optimized query with all needed data
   const existingQuests = await prisma.studentQuest.findMany({
     where: {
       studentId,
@@ -185,17 +184,37 @@ export async function getStudentWeeklyQuests(
       },
     },
     include: {
-      quest: true,
+      quest: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          icon: true,
+          color: true,
+          category: true,
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
+    take: 2, // Only get 2 quests for performance
   });
 
+  // Return existing quests immediately if found
   if (existingQuests.length >= 2) {
     return existingQuests;
   }
 
-  // Generate new quests if needed
-  return await generateWeeklyQuests(studentId);
+  // Only generate if absolutely necessary and no quests exist
+  if (existingQuests.length === 0) {
+    try {
+      return await generateWeeklyQuests(studentId);
+    } catch (error) {
+      console.error("Quest generation failed:", error);
+      return []; // Return empty array instead of failing
+    }
+  }
+
+  return existingQuests;
 }
 
 // Generate weekly quests for a student

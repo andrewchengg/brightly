@@ -4,16 +4,16 @@ import { cookies } from "next/headers";
 import { generateQuestsForAllStudents } from "@/lib/quest-service";
 import { calculateLevel } from "@/lib/xp-utils";
 import { PrismaClient } from "@/generated/prisma";
-import {
-  checkAndGenerateQuestsIfNeeded,
-  checkWeeklyRotationNeeded,
-} from "@/lib/weekly-quest-scheduler";
 
 const prisma = new PrismaClient();
 
 export const dynamic = "force-dynamic";
 
-// GET /api/weekly-quests - Get current week's quests
+// In-memory cache for quest data (simple optimization)
+const questCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 30 * 1000; // 30 seconds cache
+
+// GET /api/weekly-quests - Get current week's quests (optimized)
 export async function GET(request: NextRequest) {
   const cookieStore = cookies();
   const supabase = createClient();
@@ -25,86 +25,97 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      console.log("API: Authentication failed:", authError);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const studentId = user.id;
-    console.log("API: Fetching quests for student:", studentId);
 
-    // Get student level from database (simplified query)
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      select: { level: true, xpPoints: true },
-    });
-
-    // Use calculated level from XP points instead of stored level for consistency
-    const studentLevel = calculateLevel(student?.xpPoints || 0);
-    console.log("API: Student level:", studentLevel, "XP:", student?.xpPoints);
-
-    // If student is below level 2, return locked state
-    if (studentLevel < 2) {
-      console.log("API: Student below level 2, returning locked state");
-      return NextResponse.json({
-        locked: true,
-        level: studentLevel,
-        requiredLevel: 2,
-        message: "Reach level 2 to unlock weekly quests!",
-        quests: [],
-      });
+    // Check cache first
+    const cacheKey = `quests-${studentId}`;
+    const cached = questCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return NextResponse.json(cached.data);
     }
 
-    // Get current week start (Monday-based calculation)
+    // Single optimized query to get student data and quests
     const weekStart = new Date();
     const day = weekStart.getDay();
     const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
     weekStart.setDate(diff);
     weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    let formattedQuests: any[] = [];
-
-    try {
-      // Get existing student quests for current week
-      const studentQuests = await prisma.studentQuest.findMany({
+    // Single database query with all needed data
+    const [student, studentQuests] = await Promise.all([
+      prisma.student.findUnique({
+        where: { id: studentId },
+        select: { level: true, xpPoints: true },
+      }),
+      prisma.studentQuest.findMany({
         where: {
           studentId,
           weekStart: {
             gte: weekStart,
-            lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+            lt: weekEnd,
           },
         },
         include: {
-          quest: true,
+          quest: {
+            select: {
+              title: true,
+              description: true,
+              icon: true,
+              color: true,
+              category: true,
+            },
+          },
         },
         orderBy: { createdAt: "asc" },
-        take: 2, // Limit to 2 quests
-      });
+        take: 2, // Only get first 2 quests for preview
+      }),
+    ]);
 
-      // Convert existing quests to frontend format
-      formattedQuests = studentQuests.map((studentQuest) => ({
-        id: studentQuest.id,
-        title: studentQuest.quest.title,
-        description: studentQuest.quest.description,
-        progress: studentQuest.progress,
-        target: studentQuest.target,
-        icon: studentQuest.quest.icon,
-        color: studentQuest.quest.color,
-        category: studentQuest.quest.category.toLowerCase(),
-        isCompleted: studentQuest.isCompleted,
-        completedAt: studentQuest.completedAt,
-      }));
+    // Quick level check
+    const studentLevel = calculateLevel(student?.xpPoints || 0);
 
-      console.log("API: Retrieved quests:", formattedQuests.length, "quests");
-    } catch (dbError) {
-      console.warn("API: Quest retrieval failed:", dbError);
-      formattedQuests = [];
+    if (studentLevel < 2) {
+      const result = {
+        locked: true,
+        level: studentLevel,
+        requiredLevel: 2,
+        message: "Reach level 2 to unlock weekly quests!",
+        quests: [],
+      };
+
+      // Cache the result
+      questCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      return NextResponse.json(result);
     }
 
-    return NextResponse.json({ quests: formattedQuests });
+    // Format quests efficiently
+    const formattedQuests = studentQuests.map((sq) => ({
+      id: sq.id,
+      title: sq.quest.title,
+      description: sq.quest.description,
+      progress: sq.progress,
+      target: sq.target,
+      icon: sq.quest.icon,
+      color: sq.quest.color,
+      category: sq.quest.category.toLowerCase(),
+      isCompleted: sq.isCompleted,
+      completedAt: sq.completedAt,
+    }));
+
+    const result = { quests: formattedQuests };
+
+    // Cache the result
+    questCache.set(cacheKey, { data: result, timestamp: Date.now() });
+
+    return NextResponse.json(result);
   } catch (error: any) {
     console.error("API: Error fetching weekly quests:", error);
     return NextResponse.json(
-      { error: "Failed to fetch weekly quests", details: error.message },
+      { error: "Failed to fetch weekly quests" },
       { status: 500 }
     );
   }
@@ -127,31 +138,35 @@ export async function POST(request: NextRequest) {
 
     const { action } = await request.json();
 
-    // Only allow admin actions like quest rotation - no manual refresh for students
     switch (action) {
       case "rotate-all":
-        // Admin function to generate quests for all students
-        console.log("API: Generating quests for all eligible students");
+        // Clear cache when rotating
+        questCache.clear();
         const rotationResult = await generateQuestsForAllStudents();
         return NextResponse.json({
           success: true,
           message: "Quest rotation completed",
           ...rotationResult,
         });
-
+      case "clear-cache":
+        // Admin function to clear cache
+        questCache.clear();
+        return NextResponse.json({
+          success: true,
+          message: "Cache cleared",
+        });
       default:
         return NextResponse.json(
           {
-            error:
-              "Manual quest refresh is not allowed. Weekly quests are automatically generated on Monday.",
+            error: "Invalid action. Use 'rotate-all' or 'clear-cache'.",
           },
-          { status: 403 }
+          { status: 400 }
         );
     }
   } catch (error: any) {
     console.error("API: Error processing weekly quest action:", error);
     return NextResponse.json(
-      { error: "Failed to process action", details: error.message },
+      { error: "Failed to process action" },
       { status: 500 }
     );
   }

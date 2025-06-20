@@ -179,24 +179,30 @@ function ReportQuestionModal({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Type of Problem</label>
+              <label className="block text-sm font-medium mb-1">
+                Type of Problem
+              </label>
               <select
                 className="w-full border rounded p-2"
                 value={reportType}
-                onChange={e => setReportType(e.target.value)}
+                onChange={(e) => setReportType(e.target.value)}
                 required
               >
-                {QUESTION_REPORT_TYPES.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                {QUESTION_REPORT_TYPES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
+              <label className="block text-sm font-medium mb-1">
+                Description
+              </label>
               <textarea
                 className="w-full border rounded p-2 min-h-[80px]"
                 value={description}
-                onChange={e => setDescription(e.target.value)}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe the issue..."
                 required
               />
@@ -814,29 +820,26 @@ export default function TopicalPracticePage() {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
 
-      const response = await fetch(
-        `/api/practice-session/complete`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: currentPracticeSessionId,
-            score: calculatedScore,
-            correctAnswers: correctCount,
-            xpEarned: calculatedScore,
-          }),
-        }
-      );
+      const response = await fetch(`/api/practice-session/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: currentPracticeSessionId,
+          score: calculatedScore,
+          correctAnswers: correctCount,
+          xpEarned: calculatedScore,
+        }),
+      });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || "Failed to finalize session");
       }
 
       setSessionFinalized(true);
-      
+
       // Trigger confetti for session completion
       setShowConfetti(true);
-      
+
       const levelUpInfo = await awardXPAndStreak(calculatedScore);
       if (levelUpInfo) {
         setNewLevel(levelUpInfo.newLevel);
@@ -909,23 +912,29 @@ export default function TopicalPracticePage() {
       const correctAnswerId = String(
         currentQuestion.correctAnswer || ""
       ).toLowerCase();
-      
+
       // Find the selected option index
-      const selectedOptionIndex = currentQuestion.options.findIndex(opt => opt.id === optionId);
-      const selectedOptionLetter = String.fromCharCode(65 + selectedOptionIndex).toLowerCase();
-      
+      const selectedOptionIndex = currentQuestion.options.findIndex(
+        (opt) => opt.id === optionId
+      );
+      const selectedOptionLetter = String.fromCharCode(
+        65 + selectedOptionIndex
+      ).toLowerCase();
+
       // Check correctness using multiple methods to handle different formats
-      const isCorrect = 
+      const isCorrect =
         optionId.toLowerCase() === correctAnswerId || // Direct ID match
         selectedOptionLetter === correctAnswerId || // Letter-based match (c for option C)
-        String.fromCharCode(65 + selectedOptionIndex) === String(currentQuestion.correctAnswer) || // Uppercase letter match
-        (selectedOptionIndex + 1).toString() === String(currentQuestion.correctAnswer); // 1-based index match
-      
+        String.fromCharCode(65 + selectedOptionIndex) ===
+          String(currentQuestion.correctAnswer) || // Uppercase letter match
+        (selectedOptionIndex + 1).toString() ===
+          String(currentQuestion.correctAnswer); // 1-based index match
+
       // Trigger confetti for correct answers
       if (isCorrect) {
         setShowConfetti(true);
       }
-      
+
       const correctOption = currentQuestion.options.find(
         (opt) => opt.id.toLowerCase() === correctAnswerId
       );
@@ -968,12 +977,12 @@ export default function TopicalPracticePage() {
             .toLowerCase(),
         ];
     const isCorrect = cAnsArr.includes(userAnswer.toLowerCase());
-    
+
     // Trigger confetti for correct answers
     if (isCorrect) {
       setShowConfetti(true);
     }
-    
+
     const feedback = isCorrect
       ? "Great job!"
       : `Incorrect. Correct: "${cAnsArr.join(" or ")}".`;
@@ -1009,12 +1018,12 @@ export default function TopicalPracticePage() {
     }
     setMultiPartResults(currentPartResults);
     setSelectedAnswer(JSON.stringify(multiPartAnswers));
-    
+
     // Trigger confetti for correct answers
     if (allPartsCorrect) {
       setShowConfetti(true);
     }
-    
+
     const feedback = allPartsCorrect
       ? "All parts correct!"
       : "Some parts incorrect.";
@@ -1026,6 +1035,10 @@ export default function TopicalPracticePage() {
   const handleNextQuestion = useCallback(async () => {
     setShowHint(false);
     setAiMessage(null);
+    setSelectedAnswer(null);
+    setTextAnswer("");
+    setMultiPartAnswers({});
+    setMultiPartResults({});
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex((prevIndex) => prevIndex + 1);
     } else {
@@ -1226,13 +1239,19 @@ export default function TopicalPracticePage() {
                 const optionLetter = String.fromCharCode(65 + index);
                 const isThisSelected = selectedAnswer === optionId;
                 // Use the same robust checking logic as handleAnswerMCQ
-                const correctAnswerId = String(currentQuestion.correctAnswer || "").toLowerCase();
-                const thisOptionLetter = String.fromCharCode(65 + index).toLowerCase();
-                const isThisCorrectDB = 
+                const correctAnswerId = String(
+                  currentQuestion.correctAnswer || ""
+                ).toLowerCase();
+                const thisOptionLetter = String.fromCharCode(
+                  65 + index
+                ).toLowerCase();
+                const isThisCorrectDB =
                   optionId.toLowerCase() === correctAnswerId || // Direct ID match
                   thisOptionLetter === correctAnswerId || // Letter-based match (c for option C)
-                  String.fromCharCode(65 + index) === String(currentQuestion.correctAnswer) || // Uppercase letter match
-                  (index + 1).toString() === String(currentQuestion.correctAnswer); // 1-based index match
+                  String.fromCharCode(65 + index) ===
+                    String(currentQuestion.correctAnswer) || // Uppercase letter match
+                  (index + 1).toString() ===
+                    String(currentQuestion.correctAnswer); // 1-based index match
                 let buttonClass =
                   "bg-white hover:bg-gray-50 border border-gray-300";
                 if (selectedAnswer !== null) {
@@ -1397,18 +1416,23 @@ export default function TopicalPracticePage() {
               Submit All Parts
             </Button>
             {selectedAnswer !== null && (
-              <div className={`mt-3 p-3 rounded-md text-sm ${
-                isAnswerCorrect 
-                  ? "bg-green-50 border-l-4 border-green-400 text-green-800"
-                  : "bg-red-50 border-l-4 border-red-400 text-red-800"
-              }`}>
+              <div
+                className={`mt-3 p-3 rounded-md text-sm ${
+                  isAnswerCorrect
+                    ? "bg-green-50 border-l-4 border-green-400 text-green-800"
+                    : "bg-red-50 border-l-4 border-red-400 text-red-800"
+                }`}
+              >
                 <p className="font-medium mb-2">
-                  {aiMessage || (isAnswerCorrect ? "All parts correct!" : "Some parts incorrect.")}
+                  {aiMessage ||
+                    (isAnswerCorrect
+                      ? "All parts correct!"
+                      : "Some parts incorrect.")}
                 </p>
                 {currentQuestion.explanation && (
                   <div className="border-t pt-2">
                     <p className="font-semibold mb-2">Explanation:</p>
-                    <ExplanationFormatter 
+                    <ExplanationFormatter
                       explanation={currentQuestion.explanation}
                       className="text-gray-700"
                     />
@@ -1507,8 +1531,8 @@ export default function TopicalPracticePage() {
             onClose={() => setShowLevelUp(false)}
           />
         )}
-        <ConfettiComponent 
-          trigger={showConfetti} 
+        <ConfettiComponent
+          trigger={showConfetti}
           onComplete={() => setShowConfetti(false)}
         />
         <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
@@ -1578,35 +1602,50 @@ export default function TopicalPracticePage() {
                         ) : (
                           <div className="flex items-center text-red-600">
                             <FaTimes className="mr-1" />
-                            <span className="text-xs font-medium">Incorrect</span>
+                            <span className="text-xs font-medium">
+                              Incorrect
+                            </span>
                           </div>
                         )}
                       </div>
                     </div>
-                    
+
                     <p className="text-sm mb-3 text-gray-700 leading-relaxed">
                       {result.question}
                     </p>
-                    
+
                     <div className="space-y-2 text-xs">
                       <div className="flex flex-wrap">
-                        <span className="font-medium text-gray-600 mr-2">Your Answer:</span>
-                        <span className={`${result.correct ? 'text-green-700' : 'text-red-700'} font-medium`}>
-                          {typeof result.userAnswer === 'object' 
-                            ? Object.entries(result.userAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                            : result.userAnswer || 'No answer'}
+                        <span className="font-medium text-gray-600 mr-2">
+                          Your Answer:
+                        </span>
+                        <span
+                          className={`${
+                            result.correct ? "text-green-700" : "text-red-700"
+                          } font-medium`}
+                        >
+                          {typeof result.userAnswer === "object"
+                            ? Object.entries(result.userAnswer)
+                                .map(([key, value]) => `${key}: ${value}`)
+                                .join(", ")
+                            : result.userAnswer || "No answer"}
                         </span>
                       </div>
-                      
+
                       {!result.correct && (
                         <div className="flex flex-wrap">
-                          <span className="font-medium text-gray-600 mr-2">Correct Answer:</span>
+                          <span className="font-medium text-gray-600 mr-2">
+                            Correct Answer:
+                          </span>
                           <span className="text-green-700 font-medium">
-                            {typeof result.correctAnswer === 'object' && result.correctAnswer !== null
-                              ? Array.isArray(result.correctAnswer) 
-                                ? result.correctAnswer.join(', ')
-                                : Object.entries(result.correctAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                              : result.correctAnswer || 'N/A'}
+                            {typeof result.correctAnswer === "object" &&
+                            result.correctAnswer !== null
+                              ? Array.isArray(result.correctAnswer)
+                                ? result.correctAnswer.join(", ")
+                                : Object.entries(result.correctAnswer)
+                                    .map(([key, value]) => `${key}: ${value}`)
+                                    .join(", ")
+                              : result.correctAnswer || "N/A"}
                           </span>
                         </div>
                       )}
@@ -1693,8 +1732,8 @@ export default function TopicalPracticePage() {
           onClose={() => setShowLevelUp(false)}
         />
       )}
-      <ConfettiComponent 
-        trigger={showConfetti} 
+      <ConfettiComponent
+        trigger={showConfetti}
         onComplete={() => setShowConfetti(false)}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
@@ -1749,7 +1788,7 @@ export default function TopicalPracticePage() {
               {/* Report Button */}
               <button
                 className="ml-4 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
-                onClick={e => {
+                onClick={(e) => {
                   e.stopPropagation();
                   setShowReportModal(true);
                 }}
@@ -1772,19 +1811,21 @@ export default function TopicalPracticePage() {
             )}
             {renderQuestionContent()}
 
-            {selectedAnswer !== null && 
-              currentQuestion.explanation && 
+            {selectedAnswer !== null &&
+              currentQuestion.explanation &&
               currentQuestion.questionType !== "MULTI_PART" && (
-                <div className={`mt-4 p-3 rounded-md text-sm ${
-                  isAnswerCorrect 
-                    ? "bg-green-50 border-l-4 border-green-400"
-                    : "bg-blue-50 border-l-4 border-blue-400"
-                }`}>
+                <div
+                  className={`mt-4 p-3 rounded-md text-sm ${
+                    isAnswerCorrect
+                      ? "bg-green-50 border-l-4 border-green-400"
+                      : "bg-blue-50 border-l-4 border-blue-400"
+                  }`}
+                >
                   <div>
                     <p className="font-semibold text-gray-700 mb-3">
                       Explanation:
                     </p>
-                    <ExplanationFormatter 
+                    <ExplanationFormatter
                       explanation={currentQuestion.explanation}
                       className="text-gray-700"
                     />

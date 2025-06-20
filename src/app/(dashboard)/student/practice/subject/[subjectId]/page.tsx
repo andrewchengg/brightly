@@ -218,6 +218,7 @@ export default function SubjectPracticePage({
     null
   );
   const [loading, setLoading] = useState(true);
+  const [masteryLoading, setMasteryLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const displayConfig = subjectDisplayConfig[
@@ -230,7 +231,7 @@ export default function SubjectPracticePage({
   const SubjectIcon = displayConfig.icon;
 
   useEffect(() => {
-    async function fetchDataForSubject() {
+    async function fetchInitialData() {
       if (isNaN(numericSubjectId)) {
         setError("Invalid Subject ID.");
         setLoading(false);
@@ -239,36 +240,72 @@ export default function SubjectPracticePage({
       setLoading(true);
       setError(null);
       try {
-        const subjectRes = await fetch(`/api/subjects/${numericSubjectId}`);
-        if (!subjectRes.ok)
+        // Fetch subject and topics in parallel (fast queries)
+        const [subjectRes, topicsRes] = await Promise.all([
+          fetch(`/api/subjects/${numericSubjectId}`),
+          numericSubjectId !== 4
+            ? fetch(`/api/topics?subjectId=${numericSubjectId}`)
+            : Promise.resolve(null),
+        ]);
+
+        if (!subjectRes.ok) {
           throw new Error(
             "Failed to fetch subject details. Subject might not exist."
           );
+        }
         const subjectData: SubjectDetails = await subjectRes.json();
         setCurrentSubject(subjectData);
 
-        if (numericSubjectId !== 4) {
-          const topicsRes = await fetch(
-            `/api/topics?subjectId=${numericSubjectId}`
-          );
-          if (!topicsRes.ok)
+        if (numericSubjectId !== 4 && topicsRes) {
+          if (!topicsRes.ok) {
             throw new Error("Failed to fetch topics for this subject.");
+          }
           const topicsData: Topic[] = await topicsRes.json();
 
-          const masteryRes = await fetch(
-            `/api/student/mastery?subjectId=${numericSubjectId}`
-          );
-          let masteryData: Array<{
-            topicId: number;
-            masteryPercentage: number;
-          }> = [];
-          if (masteryRes.ok) {
-            masteryData = await masteryRes.json();
-          } else {
-            console.warn("Could not fetch mastery data, defaulting to 0%.");
-          }
+          // Set topics immediately with 0% mastery (skeleton state)
+          const initialTopics = topicsData.map((topic) => ({
+            ...topic,
+            masteryPercentage: 0,
+            subject: { id: subjectData.id, name: subjectData.name },
+          }));
+          setTopicsWithMastery(initialTopics);
+        }
 
-          const enrichedTopics = topicsData.map((topic) => {
+        setLoading(false);
+
+        // Now fetch mastery data asynchronously (slow query)
+        if (numericSubjectId !== 4) {
+          fetchMasteryData(numericSubjectId, subjectData);
+        }
+      } catch (err: any) {
+        console.error(`Error fetching data for subject ${subjectId}:`, err);
+        setError(err.message || "Failed to load data.");
+        setLoading(false);
+      }
+    }
+
+    async function fetchMasteryData(
+      subjectId: number,
+      subjectData: SubjectDetails
+    ) {
+      try {
+        const masteryRes = await fetch(
+          `/api/student/mastery?subjectId=${subjectId}`
+        );
+        let masteryData: Array<{
+          topicId: number;
+          masteryPercentage: number;
+        }> = [];
+
+        if (masteryRes.ok) {
+          masteryData = await masteryRes.json();
+        } else {
+          console.warn("Could not fetch mastery data, defaulting to 0%.");
+        }
+
+        // Update topics with actual mastery data
+        setTopicsWithMastery((prevTopics) =>
+          prevTopics.map((topic) => {
             const masteryEntry = masteryData.find(
               (m) => m.topicId === topic.id
             );
@@ -277,20 +314,17 @@ export default function SubjectPracticePage({
               masteryPercentage: masteryEntry
                 ? masteryEntry.masteryPercentage
                 : 0,
-              subject: { id: subjectData.id, name: subjectData.name },
             };
-          });
-          setTopicsWithMastery(enrichedTopics);
-        }
-      } catch (err: any) {
-        console.error(`Error fetching data for subject ${subjectId}:`, err);
-        setError(err.message || "Failed to load data.");
+          })
+        );
+      } catch (err) {
+        console.warn("Failed to load mastery data:", err);
       } finally {
-        setLoading(false);
+        setMasteryLoading(false);
       }
     }
 
-    fetchDataForSubject();
+    fetchInitialData();
   }, [numericSubjectId, subjectId]);
 
   const handleGeneralNavigate = (path?: string) => {
@@ -412,7 +446,11 @@ export default function SubjectPracticePage({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {topicsWithMastery.map((topic) => (
-            <TopicCard key={topic.id} topic={topic} />
+            <TopicCard
+              key={topic.id}
+              topic={topic}
+              masteryLoading={masteryLoading}
+            />
           ))}
         </div>
       )}
@@ -422,8 +460,9 @@ export default function SubjectPracticePage({
 
 interface TopicCardProps {
   topic: TopicWithMastery;
+  masteryLoading: boolean;
 }
-function TopicCard({ topic }: TopicCardProps) {
+function TopicCard({ topic, masteryLoading }: TopicCardProps) {
   const router = useRouter();
 
   // Function to get topic-specific icon based on topic name/subject
@@ -548,7 +587,11 @@ function TopicCard({ topic }: TopicCardProps) {
             </h2>
           </div>
           <div className="bg-white rounded-full h-10 w-10 flex items-center justify-center shadow-sm flex-shrink-0 ml-2">
-            <MasteryIcon className={`${mastery.color} text-lg`} />
+            {masteryLoading ? (
+              <FaSpinner className="animate-spin text-lg text-gray-500" />
+            ) : (
+              <MasteryIcon className={`${mastery.color} text-lg`} />
+            )}
           </div>
         </div>
       </div>
@@ -561,17 +604,25 @@ function TopicCard({ topic }: TopicCardProps) {
             <span className="text-xs font-medium text-gray-700">
               Mastery Level
             </span>
-            <span
-              className={`text-xs font-semibold ${mastery.color} bg-gray-100 px-2 py-0.5 rounded-full`}
-            >
-              {mastery.label}
-            </span>
+            {masteryLoading ? (
+              <div className="bg-gray-200 animate-pulse rounded-full h-4 w-16"></div>
+            ) : (
+              <span
+                className={`text-xs font-semibold ${mastery.color} bg-gray-100 px-2 py-0.5 rounded-full`}
+              >
+                {mastery.label}
+              </span>
+            )}
           </div>
-          <ProgressBar
-            value={topic.masteryPercentage}
-            className="h-2 bg-gray-200"
-            progressClassName={`${mastery.progressColor} transition-all duration-500 ease-out`}
-          />
+          {masteryLoading ? (
+            <div className="h-2 bg-gray-200 rounded-full animate-pulse"></div>
+          ) : (
+            <ProgressBar
+              value={topic.masteryPercentage}
+              className="h-2 bg-gray-200"
+              progressClassName={`${mastery.progressColor} transition-all duration-500 ease-out`}
+            />
+          )}
           <div className="flex justify-end mt-4">
             <div className="bg-indigo-100 group-hover:bg-indigo-200 rounded-full p-2 transition-colors duration-200">
               <FaArrowRight className="text-indigo-600 group-hover:text-indigo-800 h-4 w-4 group-hover:translate-x-0.5 transition-all duration-200" />

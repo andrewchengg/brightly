@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   FaTrophy,
   FaBullseye,
@@ -8,7 +8,6 @@ import {
   FaCalendarCheck,
   FaCheckCircle,
   FaLock,
-  FaSpinner,
   FaExclamationTriangle,
   FaChartLine,
   FaCrown,
@@ -35,27 +34,7 @@ import {
   FaThumbsUp,
   FaRandom,
 } from "react-icons/fa";
-import { CuteLoader } from "./ui/CuteLoader";
-
-interface Quest {
-  id: string;
-  title: string;
-  description: string;
-  progress: number;
-  target: number;
-  icon: string;
-  color: string;
-  category: string;
-  isCompleted: boolean;
-}
-
-interface QuestResponse {
-  quests: Quest[];
-  locked?: boolean;
-  level?: number;
-  requiredLevel?: number;
-  message?: string;
-}
+import { useQuestData } from "@/contexts/QuestContext";
 
 const iconMap: { [key: string]: React.ComponentType<any> } = {
   FaTrophy,
@@ -103,49 +82,64 @@ const colorMap: { [key: string]: string } = {
 };
 
 export default function WeeklyQuestsPreview() {
-  const [questsData, setQuestsData] = useState<QuestResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { quests, locked, level, requiredLevel, message, loading, error } =
+    useQuestData();
 
-  useEffect(() => {
-    const fetchQuests = async () => {
-      try {
-        const response = await fetch("/api/weekly-quests");
-        const data = await response.json();
-        setQuestsData(data);
-      } catch (error) {
-        console.error("Error fetching weekly quests:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchQuests();
-  }, []);
-
+  // Fast loading skeleton
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <CuteLoader variant="pulse" text="Loading weekly quests..." />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg animate-pulse">
+          <div>
+            <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded w-24"></div>
+          </div>
+          <div className="text-right">
+            <div className="h-6 bg-gray-200 rounded w-12 mb-1"></div>
+            <div className="w-16 h-2 bg-gray-200 rounded-full"></div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {[1, 2].map((i) => (
+            <div key={i} className="p-3 bg-gray-50 rounded-lg animate-pulse">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-200 rounded w-28 mb-2"></div>
+                  <div className="h-2 bg-gray-200 rounded w-full"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
-  if (questsData?.locked) {
+  // Error state
+  if (error && quests.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <FaExclamationTriangle className="text-red-400 text-2xl mx-auto mb-2" />
+        <p className="text-sm text-red-600 mb-2">{error}</p>
+      </div>
+    );
+  }
+
+  if (locked) {
     return (
       <div className="text-center py-6">
         <FaLock className="text-gray-400 text-2xl mx-auto mb-2" />
         <p className="text-sm text-gray-600 mb-1">Weekly Quests Locked</p>
         <p className="text-xs text-gray-500">
-          Reach Level {questsData.requiredLevel} to unlock
+          Reach Level {requiredLevel} to unlock
         </p>
-        <p className="text-xs text-gray-400 mt-1">
-          Current Level: {questsData.level}
-        </p>
+        <p className="text-xs text-gray-400 mt-1">Current Level: {level}</p>
       </div>
     );
   }
 
-  if (!questsData?.quests || questsData.quests.length === 0) {
+  if (quests.length === 0) {
     return (
       <div className="text-center py-6">
         <FaTrophy className="text-gray-400 text-2xl mx-auto mb-2" />
@@ -157,10 +151,10 @@ export default function WeeklyQuestsPreview() {
     );
   }
 
-  // Show first 2 quests in preview (changed from 3 to 2)
-  const previewQuests = questsData.quests.slice(0, 2);
-  const completedCount = questsData.quests.filter((q) => q.isCompleted).length;
-  const totalCount = questsData.quests.length;
+  // Show first 2 quests in preview
+  const previewQuests = quests.slice(0, 2);
+  const completedCount = quests.filter((q) => q.isCompleted).length;
+  const totalCount = quests.length;
 
   return (
     <div className="space-y-3">
@@ -176,12 +170,19 @@ export default function WeeklyQuestsPreview() {
         </div>
         <div className="text-right">
           <div className="text-lg font-bold text-indigo-600">
-            {Math.round((completedCount / totalCount) * 100)}%
+            {totalCount > 0
+              ? Math.round((completedCount / totalCount) * 100)
+              : 0}
+            %
           </div>
           <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
-              style={{ width: `${(completedCount / totalCount) * 100}%` }}
+              style={{
+                width: `${
+                  totalCount > 0 ? (completedCount / totalCount) * 100 : 0
+                }%`,
+              }}
             />
           </div>
         </div>
@@ -193,7 +194,7 @@ export default function WeeklyQuestsPreview() {
           const IconComponent = iconMap[quest.icon] || FaTrophy;
           const colorClass = colorMap[quest.color] || colorMap.amber;
           const progressPercent = Math.min(
-            (quest.progress / quest.target) * 100,
+            quest.target > 0 ? (quest.progress / quest.target) * 100 : 0,
             100
           );
 
@@ -246,11 +247,11 @@ export default function WeeklyQuestsPreview() {
       </div>
 
       {/* Show more indicator */}
-      {questsData.quests.length > 2 && (
+      {quests.length > 2 && (
         <div className="text-center pt-2 border-t border-gray-100">
           <p className="text-xs text-gray-500">
-            +{questsData.quests.length - 2} more quest
-            {questsData.quests.length - 2 > 1 ? "s" : ""}
+            +{quests.length - 2} more quest
+            {quests.length - 2 > 1 ? "s" : ""}
           </p>
         </div>
       )}

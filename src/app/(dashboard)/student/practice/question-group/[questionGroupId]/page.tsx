@@ -584,28 +584,25 @@ export default function QuestionGroupPracticePage() {
     try {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
-      const response = await fetch(
-        `/api/practice-session/complete`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: currentPracticeSessionId,
-            score: calculatedScore,
-            correctAnswers: correctCount,
-            xpEarned: calculatedScore,
-          }),
-        }
-      );
+      const response = await fetch(`/api/practice-session/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: currentPracticeSessionId,
+          score: calculatedScore,
+          correctAnswers: correctCount,
+          xpEarned: calculatedScore,
+        }),
+      });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || "Failed to finalize session");
       }
       setSessionFinalized(true);
-      
+
       // Trigger confetti for session completion
       setShowConfetti(true);
-      
+
       const levelUpInfo = await awardXPAndStreak(calculatedScore);
       if (levelUpInfo) {
         setNewLevel(levelUpInfo.newLevel);
@@ -682,12 +679,12 @@ export default function QuestionGroupPracticePage() {
       const correctAnswerDisplayText = correctOption
         ? correctOption.text
         : `ID: ${currentQuestion.correctAnswer}`;
-      
+
       // Trigger confetti for correct answers
       if (isCorrect) {
         setShowConfetti(true);
       }
-      
+
       setAiMessage(
         isCorrect
           ? "Great job!"
@@ -724,12 +721,12 @@ export default function QuestionGroupPracticePage() {
             .toLowerCase(),
         ];
     const isCorrect = cAnsArr.includes(userAnswer.toLowerCase());
-    
+
     // Trigger confetti for correct answers
     if (isCorrect) {
       setShowConfetti(true);
     }
-    
+
     const feedback = isCorrect
       ? "Great job!"
       : `Incorrect. Correct: "${cAnsArr.join(" or ")}".`;
@@ -766,12 +763,12 @@ export default function QuestionGroupPracticePage() {
     }
     setMultiPartResults(currentPartResults);
     setSelectedAnswer(JSON.stringify(multiPartAnswers));
-    
+
     // Trigger confetti for correct answers
     if (allPartsCorrect) {
       setShowConfetti(true);
     }
-    
+
     const feedback = allPartsCorrect
       ? "All parts correct!"
       : "Some parts incorrect.";
@@ -783,6 +780,10 @@ export default function QuestionGroupPracticePage() {
   const handleNextQuestion = useCallback(async () => {
     setShowHint(false);
     setAiMessage(null);
+    setSelectedAnswer(null);
+    setTextAnswer("");
+    setMultiPartAnswers({});
+    setMultiPartResults({});
     if (questions.length === 0) {
       // If no questions, go directly to summary
       setShowSummary(true);
@@ -1280,8 +1281,8 @@ export default function QuestionGroupPracticePage() {
             onClose={() => setShowLevelUp(false)}
           />
         )}
-        <ConfettiComponent 
-          trigger={showConfetti} 
+        <ConfettiComponent
+          trigger={showConfetti}
           onComplete={() => setShowConfetti(false)}
         />
         <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
@@ -1351,35 +1352,50 @@ export default function QuestionGroupPracticePage() {
                         ) : (
                           <div className="flex items-center text-red-600">
                             <FaTimes className="mr-1" />
-                            <span className="text-xs font-medium">Incorrect</span>
+                            <span className="text-xs font-medium">
+                              Incorrect
+                            </span>
                           </div>
                         )}
                       </div>
                     </div>
-                    
+
                     <p className="text-sm mb-3 text-gray-700 leading-relaxed">
                       {result.question}
                     </p>
-                    
+
                     <div className="space-y-2 text-xs">
                       <div className="flex flex-wrap">
-                        <span className="font-medium text-gray-600 mr-2">Your Answer:</span>
-                        <span className={`${result.correct ? 'text-green-700' : 'text-red-700'} font-medium`}>
-                          {typeof result.userAnswer === 'object' 
-                            ? Object.entries(result.userAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                            : result.userAnswer || 'No answer'}
+                        <span className="font-medium text-gray-600 mr-2">
+                          Your Answer:
+                        </span>
+                        <span
+                          className={`${
+                            result.correct ? "text-green-700" : "text-red-700"
+                          } font-medium`}
+                        >
+                          {typeof result.userAnswer === "object"
+                            ? Object.entries(result.userAnswer)
+                                .map(([key, value]) => `${key}: ${value}`)
+                                .join(", ")
+                            : result.userAnswer || "No answer"}
                         </span>
                       </div>
-                      
+
                       {!result.correct && (
                         <div className="flex flex-wrap">
-                          <span className="font-medium text-gray-600 mr-2">Correct Answer:</span>
+                          <span className="font-medium text-gray-600 mr-2">
+                            Correct Answer:
+                          </span>
                           <span className="text-green-700 font-medium">
-                                                       {typeof result.correctAnswer === 'object' && result.correctAnswer !== null
-                               ? Array.isArray(result.correctAnswer) 
-                                 ? result.correctAnswer.join(', ')
-                                 : Object.entries(result.correctAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                               : result.correctAnswer || 'N/A'}
+                            {typeof result.correctAnswer === "object" &&
+                            result.correctAnswer !== null
+                              ? Array.isArray(result.correctAnswer)
+                                ? result.correctAnswer.join(", ")
+                                : Object.entries(result.correctAnswer)
+                                    .map(([key, value]) => `${key}: ${value}`)
+                                    .join(", ")
+                              : result.correctAnswer || "N/A"}
                           </span>
                         </div>
                       )}
@@ -1444,8 +1460,8 @@ export default function QuestionGroupPracticePage() {
           onClose={() => setShowLevelUp(false)}
         />
       )}
-      <ConfettiComponent 
-        trigger={showConfetti} 
+      <ConfettiComponent
+        trigger={showConfetti}
         onComplete={() => setShowConfetti(false)}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
@@ -1510,19 +1526,21 @@ export default function QuestionGroupPracticePage() {
                   </div>
                 )}
                 {renderQuestionContent()}
-                {selectedAnswer !== null && 
-                  currentQuestion?.explanation && 
+                {selectedAnswer !== null &&
+                  currentQuestion?.explanation &&
                   currentQuestion?.questionType !== "MULTI_PART" && (
-                    <div className={`mt-4 p-3 rounded-md text-sm ${
-                      isAnswerCorrect 
-                        ? "bg-green-50 border-l-4 border-green-400"
-                        : "bg-blue-50 border-l-4 border-blue-400"
-                    }`}>
+                    <div
+                      className={`mt-4 p-3 rounded-md text-sm ${
+                        isAnswerCorrect
+                          ? "bg-green-50 border-l-4 border-green-400"
+                          : "bg-blue-50 border-l-4 border-blue-400"
+                      }`}
+                    >
                       <div>
                         <p className="font-semibold text-gray-700 mb-3">
                           Explanation:
                         </p>
-                        <ExplanationFormatter 
+                        <ExplanationFormatter
                           explanation={currentQuestion.explanation}
                           className="text-gray-700"
                         />
@@ -1621,7 +1639,9 @@ export default function QuestionGroupPracticePage() {
                     currentQuestion.explanation || undefined,
                     currentQuestion.hint,
                     selectedAnswer || undefined,
-                    selectedAnswer !== null ? isAnswerCorrect || false : undefined
+                    selectedAnswer !== null
+                      ? isAnswerCorrect || false
+                      : undefined
                   )
                 : undefined
             }

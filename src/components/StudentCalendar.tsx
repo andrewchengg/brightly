@@ -358,8 +358,16 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
 
   return (
     <div className={className}>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800">Your Schedule</h2>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            Your Schedule
+          </h2>
+          <p className="text-gray-600 mt-1">
+            Manage your events and track your practice
+          </p>
+        </div>
         <Button
           onClick={() => {
             setIsEditing(false);
@@ -372,24 +380,24 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             });
             setShowAddModal(true);
           }}
-          className="flex items-center gap-2 bg-purple-800 hover:bg-purple-900 text-white"
+          className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
         >
-          <FaCalendarPlus size={14} />
+          <FaCalendarPlus size={16} />
           <span>Add Event</span>
         </Button>
       </div>
 
       {/* Navigation Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl shadow-sm border border-slate-200">
         {/* Left side - Navigation buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button
             onClick={navigateToPrev}
             variant="outline"
             size="sm"
-            className="flex items-center gap-1"
+            className="flex items-center gap-2 border-slate-300 hover:bg-slate-100 hover:border-slate-400 transition-all duration-200"
           >
-            <FaChevronLeft size={12} />
+            <FaChevronLeft size={14} />
             <span className="hidden sm:inline">Previous</span>
           </Button>
 
@@ -397,9 +405,9 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={navigateToToday}
             variant="outline"
             size="sm"
-            className="flex items-center gap-1 px-3"
+            className="flex items-center gap-2 px-4 border-indigo-300 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all duration-200"
           >
-            <FaCalendarDay size={12} />
+            <FaCalendarDay size={14} />
             <span>Today</span>
           </Button>
 
@@ -407,16 +415,16 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={navigateToNext}
             variant="outline"
             size="sm"
-            className="flex items-center gap-1"
+            className="flex items-center gap-2 border-slate-300 hover:bg-slate-100 hover:border-slate-400 transition-all duration-200"
           >
             <span className="hidden sm:inline">Next</span>
-            <FaChevronRight size={12} />
+            <FaChevronRight size={14} />
           </Button>
         </div>
 
         {/* Center - Current view title */}
         <div className="flex items-center gap-4">
-          <h3 className="text-lg font-medium text-gray-800 min-w-0">
+          <h3 className="text-xl font-semibold text-slate-800 min-w-0">
             {getViewTitle()}
           </h3>
 
@@ -426,18 +434,22 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
               type="date"
               value={moment(date).format("YYYY-MM-DD")}
               onChange={(e) => handleDateJump(e.target.value)}
-              className="w-auto text-sm"
+              className="w-auto text-sm border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
         </div>
 
         {/* Right side - View selector */}
-        <div className="flex items-center gap-1 bg-white rounded-md border">
+        <div className="flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1">
           <Button
             onClick={() => setView(Views.MONTH)}
             variant={view === Views.MONTH ? "default" : "ghost"}
             size="sm"
-            className="rounded-r-none text-xs px-2 py-1"
+            className={`rounded-lg text-sm px-4 py-2 transition-all duration-200 ${
+              view === Views.MONTH
+                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
+                : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+            }`}
           >
             Month
           </Button>
@@ -445,7 +457,11 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={() => setView(Views.WEEK)}
             variant={view === Views.WEEK ? "default" : "ghost"}
             size="sm"
-            className="rounded-none text-xs px-2 py-1"
+            className={`rounded-lg text-sm px-4 py-2 transition-all duration-200 ${
+              view === Views.WEEK
+                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
+                : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+            }`}
           >
             Week
           </Button>
@@ -453,51 +469,195 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={() => setView(Views.DAY)}
             variant={view === Views.DAY ? "default" : "ghost"}
             size="sm"
-            className="rounded-l-none text-xs px-2 py-1"
+            className={`rounded-lg text-sm px-4 py-2 transition-all duration-200 ${
+              view === Views.DAY
+                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
+                : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+            }`}
           >
             Day
           </Button>
         </div>
       </div>
 
-      <div className="h-[500px] bg-white rounded-lg border relative">
+      <div className="h-[650px] bg-white rounded-2xl border border-slate-200 shadow-lg relative overflow-hidden">
         <style jsx global>{`
-          /* Practice completed days - simple dot */
+          /* Custom calendar styling */
+          .rbc-calendar {
+            font-family: inherit;
+          }
+
+          .rbc-toolbar {
+            display: none !important; /* Hide the built-in toolbar to prevent duplication */
+          }
+
+          .rbc-month-view,
+          .rbc-agenda-view,
+          .rbc-time-view {
+            border: none;
+          }
+
+          /* Dynamic font sizing based on view */
+          ${view === Views.MONTH
+            ? `
+            .rbc-header {
+              background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+              border-bottom: 1px solid #e2e8f0;
+              padding: 12px 8px;
+              font-weight: 600;
+              font-size: 14px;
+              color: #475569;
+            }
+            
+            .rbc-date-cell {
+              padding: 8px;
+              font-weight: 500;
+              font-size: 14px;
+            }
+            
+            .rbc-event {
+              border-radius: 8px;
+              border: none;
+              padding: 4px 8px;
+              font-size: 12px;
+              font-weight: 500;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            
+            .rbc-month-row {
+              min-height: 70px;
+            }
+          `
+            : view === Views.WEEK
+            ? `
+            .rbc-header {
+              background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+              border-bottom: 1px solid #e2e8f0;
+              padding: 8px 6px;
+              font-weight: 600;
+              font-size: 12px;
+              color: #475569;
+            }
+            
+            .rbc-date-cell {
+              padding: 4px;
+              font-weight: 500;
+              font-size: 12px;
+            }
+            
+            .rbc-event {
+              border-radius: 6px;
+              border: none;
+              padding: 2px 6px;
+              font-size: 10px;
+              font-weight: 500;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+            
+            .rbc-time-slot {
+              font-size: 11px;
+            }
+            
+            .rbc-time-header-content {
+              font-size: 11px;
+            }
+          `
+            : `
+            .rbc-header {
+              background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+              border-bottom: 1px solid #e2e8f0;
+              padding: 6px 4px;
+              font-weight: 600;
+              font-size: 11px;
+              color: #475569;
+            }
+            
+            .rbc-date-cell {
+              padding: 2px;
+              font-weight: 500;
+              font-size: 11px;
+            }
+            
+            .rbc-event {
+              border-radius: 4px;
+              border: none;
+              padding: 2px 4px;
+              font-size: 9px;
+              font-weight: 500;
+              box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            }
+            
+            .rbc-time-slot {
+              font-size: 10px;
+            }
+            
+            .rbc-time-header-content {
+              font-size: 10px;
+            }
+            
+            .rbc-time-content {
+              font-size: 9px;
+            }
+          `}
+
+          .rbc-today {
+            background-color: rgba(99, 102, 241, 0.1);
+          }
+
+          .rbc-selected {
+            background-color: rgba(99, 102, 241, 0.2);
+          }
+
+          /* Practice completed days - modern dot */
           .practice-completed::after {
             content: "";
             position: absolute;
-            bottom: 4px;
-            right: 4px;
+            bottom: 6px;
+            right: 6px;
             width: 8px;
             height: 8px;
-            background: #22c55e;
+            background: linear-gradient(135deg, #10b981, #059669);
             border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
           }
 
-          /* Today + practiced - green dot with subtle glow */
+          /* Today + practiced - enhanced green dot */
           .practice-today-completed::after {
             content: "";
             position: absolute;
-            bottom: 4px;
-            right: 4px;
-            width: 8px;
-            height: 8px;
-            background: #22c55e;
+            bottom: 6px;
+            right: 6px;
+            width: 10px;
+            height: 10px;
+            background: linear-gradient(135deg, #10b981, #059669);
             border-radius: 50%;
-            box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+            animation: pulse 2s infinite;
           }
 
-          /* Today + not practiced - subtle orange dot */
+          /* Today + not practiced - modern orange dot */
           .practice-today-pending::after {
             content: "";
             position: absolute;
-            bottom: 4px;
-            left: 4px;
-            width: 6px;
-            height: 6px;
-            background: #f59e0b;
+            bottom: 6px;
+            left: 6px;
+            width: 8px;
+            height: 8px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
             border-radius: 50%;
-            opacity: 0.7;
+            box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+          }
+
+          @keyframes pulse {
+            0%,
+            100% {
+              transform: scale(1);
+              opacity: 1;
+            }
+            50% {
+              transform: scale(1.1);
+              opacity: 0.8;
+            }
           }
         `}</style>
         <Calendar
@@ -505,7 +665,6 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
           events={events}
           startAccessor="start"
           endAccessor="end"
-          views={["month", "week", "day"]}
           view={view}
           date={date}
           onView={handleViewChange}
@@ -514,16 +673,25 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
           onSelectEvent={handleSelectEvent}
           selectable
           popup
-          style={{ height: "100%", padding: "10px" }}
+          toolbar={false} // This removes the built-in toolbar completely
+          style={{
+            height: "100%",
+            padding: "18px",
+          }}
           eventPropGetter={(event) => ({
             style: {
-              backgroundColor: event.type === "lesson" ? "#059669" : "#4f46e5",
-              borderRadius: "4px",
-              opacity: 0.8,
+              backgroundColor:
+                event.type === "lesson"
+                  ? "linear-gradient(135deg, #059669, #047857)"
+                  : "linear-gradient(135deg, #6366f1, #4f46e5)",
+              borderRadius: "8px",
+              opacity: 0.9,
               color: "white",
               border: "0px",
               display: "block",
               cursor: "pointer",
+              fontWeight: "500",
+              fontSize: "12px",
             },
           })}
           dayPropGetter={(date) => {
@@ -537,8 +705,8 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             let className = "";
 
             if (isToday && hasPracticed) {
-              backgroundColor = "#dcfce7"; // light green
-              border = "2px solid #16a34a"; // green border
+              backgroundColor = "#ecfdf5"; // light green
+              border = "2px solid #10b981"; // green border
               className = "practice-today-completed";
             } else if (isToday && !hasPracticed) {
               backgroundColor = "#fef3c7"; // light yellow
@@ -546,6 +714,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
               className = "practice-today-pending";
             } else if (isToday) {
               backgroundColor = "#f0f9ff"; // light blue
+              border = "2px solid #3b82f6"; // blue border
             } else if (hasPracticed) {
               backgroundColor = "#f0fdf4"; // very light green
               border = "1px solid #22c55e"; // green border
@@ -557,6 +726,8 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                 backgroundColor,
                 border,
                 position: "relative" as const,
+                borderRadius: "8px",
+                transition: "all 0.2s ease",
               },
               className,
               title: hasPracticed
@@ -572,63 +743,83 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-indigo-600 rounded"></div>
-          <span>Personal Events</span>
+      <div className="flex flex-wrap items-center gap-6 mt-6 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-sm"></div>
+          <span className="text-sm font-medium text-slate-700">
+            Personal Events
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-600 rounded"></div>
-          <span>Class Lessons</span>
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg shadow-sm"></div>
+          <span className="text-sm font-medium text-slate-700">
+            Class Lessons
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-lg">⭐</span>
-          <span>Practice Completed</span>
+          <span className="text-sm font-medium text-slate-700">
+            Practice Completed
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-lg">🎯</span>
-          <span>Practice Today!</span>
+          <span className="text-sm font-medium text-slate-700">
+            Practice Today!
+          </span>
         </div>
       </div>
 
       {/* Event Details Modal */}
       {showEventModal && selectedEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md p-6 bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">{selectedEvent.title}</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowEventModal(false)}
-              >
-                <FaTimes />
-              </Button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md bg-white shadow-2xl border-0 rounded-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-bold mb-1">
+                    {selectedEvent.title}
+                  </h3>
+                  <div className="flex items-center gap-2 text-indigo-100">
+                    <FaCalendarAlt size={14} />
+                    <span className="text-sm">
+                      {moment(selectedEvent.start).format("MMMM D, YYYY")}
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowEventModal(false)}
+                  className="text-white hover:bg-white/20 rounded-full p-2"
+                >
+                  <FaTimes size={16} />
+                </Button>
+              </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600 mb-2">
-                  <FaCalendarAlt className="inline mr-2" />
-                  {moment(selectedEvent.start).format("MMMM D, YYYY")}
-                </p>
-                <p className="text-sm text-gray-600 mb-2">
-                  <FaClock className="inline mr-2" />
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-slate-600">
+                <FaClock className="text-indigo-500" size={16} />
+                <span className="font-medium">
                   {moment(selectedEvent.start).format("h:mm A")} -{" "}
                   {moment(selectedEvent.end).format("h:mm A")}
-                </p>
-                {selectedEvent.description && (
-                  <p className="text-sm text-gray-700 mt-3 p-3 bg-gray-50 rounded">
-                    {selectedEvent.description}
-                  </p>
-                )}
+                </span>
               </div>
 
+              {selectedEvent.description && (
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <p className="text-slate-700 leading-relaxed">
+                    {selectedEvent.description}
+                  </p>
+                </div>
+              )}
+
               {selectedEvent.type === "personal" ? (
-                <div className="flex gap-2 pt-4">
+                <div className="flex gap-3 pt-4">
                   <Button
                     onClick={() => handleEditEvent(selectedEvent)}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg transition-all duration-200"
                   >
                     <FaEdit className="mr-2" size={14} />
                     Edit
@@ -644,7 +835,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                       }
                     }}
                     variant="outline"
-                    className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
+                    className="flex-1 text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400 transition-all duration-200"
                   >
                     <FaTrash className="mr-2" size={14} />
                     Delete
@@ -652,7 +843,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                 </div>
               ) : (
                 <div className="pt-4">
-                  <p className="text-sm text-gray-500 text-center">
+                  <p className="text-sm text-slate-500 text-center p-4 bg-slate-50 rounded-xl">
                     Class lessons cannot be modified from here
                   </p>
                 </div>
@@ -664,28 +855,31 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
 
       {/* Add/Edit Event Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md p-6 bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">
-                {isEditing ? "Edit Event" : "Add New Event"}
-              </h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setShowAddModal(false);
-                  setIsEditing(false);
-                  setSelectedEvent(null);
-                }}
-              >
-                <FaTimes />
-              </Button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md bg-white shadow-2xl border-0 rounded-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold">
+                  {isEditing ? "Edit Event" : "Add New Event"}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setIsEditing(false);
+                    setSelectedEvent(null);
+                  }}
+                  className="text-white hover:bg-white/20 rounded-full p-2"
+                >
+                  <FaTimes size={16} />
+                </Button>
+              </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="p-6 space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Title *
                 </label>
                 <Input
@@ -695,12 +889,12 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                     setFormData({ ...formData, title: e.target.value })
                   }
                   placeholder="Enter event title"
-                  className="w-full"
+                  className="w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Description
                 </label>
                 <Textarea
@@ -710,12 +904,12 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                   }
                   placeholder="Enter event description (optional)"
                   rows={3}
-                  className="w-full"
+                  className="w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Date *
                 </label>
                 <div className="relative">
@@ -725,15 +919,15 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                     onChange={(e) =>
                       setFormData({ ...formData, date: e.target.value })
                     }
-                    className="w-full pl-10"
+                    className="w-full pl-12 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl"
                   />
-                  <FaCalendarAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <FaCalendarAlt className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Start Time *
                   </label>
                   <div className="relative">
@@ -743,14 +937,14 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                       onChange={(e) =>
                         setFormData({ ...formData, startTime: e.target.value })
                       }
-                      className="w-full pl-10"
+                      className="w-full pl-12 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl"
                     />
-                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <FaClock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
                     End Time *
                   </label>
                   <div className="relative">
@@ -760,18 +954,18 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                       onChange={(e) =>
                         setFormData({ ...formData, endTime: e.target.value })
                       }
-                      className="w-full pl-10"
+                      className="w-full pl-12 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl"
                     />
-                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <FaClock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-4">
+              <div className="flex gap-3 pt-4">
                 <Button
                   onClick={isEditing ? updateEvent : addEvent}
                   disabled={loading}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
                 >
                   {loading
                     ? isEditing
@@ -788,7 +982,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                     setIsEditing(false);
                     setSelectedEvent(null);
                   }}
-                  className="flex-1"
+                  className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200"
                 >
                   Cancel
                 </Button>

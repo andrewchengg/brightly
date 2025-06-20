@@ -1,15 +1,23 @@
--- Comprehensive RLS Policies for Educational Platform (Fixed Type Casting)
--- Production-ready security policies with proper UUID/TEXT casting
+-- Comprehensive RLS Policies for Educational Platform (Fixed Infinite Recursion)
+-- Production-ready security policies with proper UUID/TEXT casting and no circular dependencies
 
 -- =============================================================================
--- ADMIN POLICIES
+-- ADMIN POLICIES (Fixed to prevent infinite recursion)
 -- =============================================================================
 
--- Admins have full access to everything
-CREATE POLICY "Admins have full access to Admin table" ON "Admin"
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
-  );
+-- Allow admin users to view their own profile and insert new admin records
+CREATE POLICY "Admins can view own profile" ON "Admin"
+  FOR SELECT USING (auth.uid()::text = id);
+
+CREATE POLICY "Admins can insert admin records" ON "Admin"
+  FOR INSERT WITH CHECK (auth.uid()::text = id);
+
+CREATE POLICY "Admins can update own profile" ON "Admin"
+  FOR UPDATE USING (auth.uid()::text = id);
+
+-- Service role can manage admin records (for admin creation scripts)
+CREATE POLICY "Service role can manage admins" ON "Admin"
+  FOR ALL USING (auth.jwt() ->> 'role' = 'service_role');
 
 -- =============================================================================
 -- STUDENT POLICIES  
@@ -43,10 +51,11 @@ CREATE POLICY "Teachers can view class students" ON "Student"
     )
   );
 
--- Admins can manage all students
+-- Admins can manage all students (service role or admin user)
 CREATE POLICY "Admins can manage students" ON "Student"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -63,7 +72,8 @@ CREATE POLICY "Teachers can update own profile" ON "Teacher"
 -- Admins can manage all teachers
 CREATE POLICY "Admins can manage teachers" ON "Teacher"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -80,7 +90,8 @@ CREATE POLICY "Parents can update own profile" ON "Parent"
 -- Admins can manage all parents
 CREATE POLICY "Admins can manage parents" ON "Parent"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -109,32 +120,38 @@ CREATE POLICY "Authenticated users can read classes" ON "Class"
 -- Admins can manage educational content
 CREATE POLICY "Admins can manage subjects" ON "Subject"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 CREATE POLICY "Admins can manage topics" ON "Topic"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 CREATE POLICY "Admins can manage questions" ON "Question"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 CREATE POLICY "Admins can manage question groups" ON "QuestionGroup"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 CREATE POLICY "Admins can manage grades" ON "Grade"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 CREATE POLICY "Admins can manage classes" ON "Class"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -172,7 +189,8 @@ CREATE POLICY "Teachers can view class practice sessions" ON "PracticeSession"
 -- Admins can manage all practice sessions
 CREATE POLICY "Admins can manage practice sessions" ON "PracticeSession"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -207,7 +225,8 @@ CREATE POLICY "Teachers can view class results" ON "Result"
 -- Admins can manage all results
 CREATE POLICY "Admins can manage results" ON "Result"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -241,7 +260,8 @@ CREATE POLICY "Teachers can manage lesson attendance" ON "Attendance"
 -- Admins can manage all attendance
 CREATE POLICY "Admins can manage attendance" ON "Attendance"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -275,7 +295,8 @@ CREATE POLICY "Parents can view children lessons" ON "Lesson"
 -- Admins can manage all lessons
 CREATE POLICY "Admins can manage lessons" ON "Lesson"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -318,7 +339,8 @@ CREATE POLICY "Teachers can view relevant events" ON "Event"
 -- Admins can manage all events
 CREATE POLICY "Admins can manage events" ON "Event"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -361,7 +383,8 @@ CREATE POLICY "Teachers can manage class announcements" ON "Announcement"
 -- Admins can manage all announcements
 CREATE POLICY "Admins can manage announcements" ON "Announcement"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -385,7 +408,8 @@ CREATE POLICY "Parents can view children chat sessions" ON "ChatSession"
 -- Admins can manage all chat sessions
 CREATE POLICY "Admins can manage chat sessions" ON "ChatSession"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- Chat messages follow session permissions
@@ -401,7 +425,7 @@ CREATE POLICY "Users can manage chat messages in their sessions" ON "ChatMessage
           WHERE s.id = cs."studentId"
           AND s."parentId" = auth.uid()::text
         ) OR
-        EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+        (auth.jwt() ->> 'role' = 'service_role' OR auth.jwt() -> 'user_metadata' ->> 'role' = 'admin')
       )
     )
   );
@@ -446,22 +470,26 @@ CREATE POLICY "Parents can view children quest progress" ON "StudentQuest"
 -- Admins can manage all gamification features
 CREATE POLICY "Admins can manage badges" ON "Badge"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 CREATE POLICY "Admins can manage student badges" ON "StudentBadge"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 CREATE POLICY "Admins can manage quests" ON "Quest"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 CREATE POLICY "Admins can manage student quests" ON "StudentQuest"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- =============================================================================
@@ -508,7 +536,8 @@ CREATE POLICY "Students can view own question reports" ON "QuestionReport"
 -- Admins can manage all question reports
 CREATE POLICY "Admins can manage question reports" ON "QuestionReport"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- Subject-Teacher relationships
@@ -518,11 +547,13 @@ CREATE POLICY "Teachers can view own subject assignments" ON "SubjectTeacher"
 -- Archived questions (read-only for admins)
 CREATE POLICY "Admins can manage archived questions" ON "ArchivedOriginalQuestion"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   );
 
 -- Prisma migrations (admin only)
 CREATE POLICY "Admins can manage migrations" ON "_prisma_migrations"
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM "Admin" WHERE "Admin".id = auth.uid()::text)
+    auth.jwt() ->> 'role' = 'service_role' OR
+    auth.jwt() -> 'user_metadata' ->> 'role' = 'admin'
   ); 

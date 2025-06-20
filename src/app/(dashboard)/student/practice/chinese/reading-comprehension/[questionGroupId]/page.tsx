@@ -480,6 +480,7 @@ export default function ReadingComprehensionPassagePracticePage() {
   // --- Navigation Callbacks ---
   const handleNextQuestion = useCallback(async () => {
     setShowHint(false);
+    setSelectedAnswer(null);
     if (questions.length === 0) {
       setShowSummary(true);
       await finalizePracticeSessionInDb();
@@ -656,40 +657,57 @@ export default function ReadingComprehensionPassagePracticePage() {
                           {result.correct ? (
                             <div className="flex items-center text-green-600">
                               <FaCheck className="mr-1" />
-                              <span className="text-xs font-medium">Correct</span>
+                              <span className="text-xs font-medium">
+                                Correct
+                              </span>
                             </div>
                           ) : (
                             <div className="flex items-center text-red-600">
                               <FaTimes className="mr-1" />
-                              <span className="text-xs font-medium">Incorrect</span>
+                              <span className="text-xs font-medium">
+                                Incorrect
+                              </span>
                             </div>
                           )}
                         </div>
                       </div>
-                      
+
                       <p className="text-sm mb-3 text-gray-700 leading-relaxed">
                         {result.question}
                       </p>
-                      
+
                       <div className="space-y-2 text-xs">
                         <div className="flex flex-wrap">
-                          <span className="font-medium text-gray-600 mr-2">Your Answer:</span>
-                          <span className={`${result.correct ? 'text-green-700' : 'text-red-700'} font-medium`}>
-                            {typeof result.userAnswer === 'object' 
-                              ? Object.entries(result.userAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                              : result.userAnswer || 'No answer'}
+                          <span className="font-medium text-gray-600 mr-2">
+                            Your Answer:
+                          </span>
+                          <span
+                            className={`${
+                              result.correct ? "text-green-700" : "text-red-700"
+                            } font-medium`}
+                          >
+                            {typeof result.userAnswer === "object"
+                              ? Object.entries(result.userAnswer)
+                                  .map(([key, value]) => `${key}: ${value}`)
+                                  .join(", ")
+                              : result.userAnswer || "No answer"}
                           </span>
                         </div>
-                        
+
                         {!result.correct && (
                           <div className="flex flex-wrap">
-                            <span className="font-medium text-gray-600 mr-2">Correct Answer:</span>
+                            <span className="font-medium text-gray-600 mr-2">
+                              Correct Answer:
+                            </span>
                             <span className="text-green-700 font-medium">
-                              {typeof result.correctAnswer === 'object' && result.correctAnswer !== null
-                                ? Array.isArray(result.correctAnswer) 
-                                  ? result.correctAnswer.join(', ')
-                                  : Object.entries(result.correctAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                                : result.correctAnswer || 'N/A'}
+                              {typeof result.correctAnswer === "object" &&
+                              result.correctAnswer !== null
+                                ? Array.isArray(result.correctAnswer)
+                                  ? result.correctAnswer.join(", ")
+                                  : Object.entries(result.correctAnswer)
+                                      .map(([key, value]) => `${key}: ${value}`)
+                                      .join(", ")
+                                : result.correctAnswer || "N/A"}
                             </span>
                           </div>
                         )}
@@ -807,7 +825,9 @@ export default function ReadingComprehensionPassagePracticePage() {
                 selectedAnswer={selectedAnswer}
                 isAnswerCorrect={isAnswerCorrect}
                 showHint={showHint}
-                onAnswerSelect={(optionId: string) => onClozeOptionSelect(optionId)}
+                onAnswerSelect={(optionId: string) =>
+                  onClozeOptionSelect(optionId)
+                }
                 onShowHint={() => setShowHint(true)}
                 onNextQuestion={handleNextQuestion}
                 loading={loading}
@@ -846,7 +866,9 @@ export default function ReadingComprehensionPassagePracticePage() {
                     currentQuestion.explanation || undefined,
                     currentQuestion.hint,
                     selectedAnswer || undefined,
-                    selectedAnswer !== null ? isAnswerCorrect || false : undefined
+                    selectedAnswer !== null
+                      ? isAnswerCorrect || false
+                      : undefined
                   )
                 : undefined
             }

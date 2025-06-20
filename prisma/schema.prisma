@@ -313,6 +313,9 @@ model StudentAnswer {
   question          Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([practiceSessionId, questionId])
+  @@index([practiceSessionId])
+  @@index([questionId])
+  @@index([attemptedAt])
 }
 
 model Result {
