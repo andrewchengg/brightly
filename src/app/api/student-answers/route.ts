@@ -1,82 +1,65 @@
 // src/app/api/student-answers/route.ts
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@/generated/prisma'; 
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@/generated/prisma";
 
 const prisma = new PrismaClient();
 
 interface StudentAnswerCreateRequest {
   practiceSessionId: string;
   questionId: number;
-  submittedAnswer: any; 
+  submittedAnswer: any;
   isCorrect: boolean;
-  pointsEarned: number; 
-  attemptedAt?: string; 
+  pointsEarned: number;
+  attemptedAt?: string;
 }
 
 export async function POST(request: Request) {
   try {
-    const bodyArrayOrObject = await request.json(); 
-    
-    // Ensure body is an array
-    const bodyArray = Array.isArray(bodyArrayOrObject) ? bodyArrayOrObject : [bodyArrayOrObject];
+    const body = await request.json();
+    const {
+      practiceSessionId,
+      questionId,
+      submittedAnswer,
+      isCorrect,
+      pointsEarned,
+    } = body;
 
-    if (bodyArray.length === 0) {
-        return NextResponse.json({ error: 'No student answers provided.'}, {status: 400});
+    if (!practiceSessionId || !questionId) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
-    
-    const createdAnswers = [];
 
-    for (const ans of bodyArray) {
-        const { 
-          practiceSessionId, 
-          questionId, 
-          submittedAnswer, 
-          isCorrect, 
-          pointsEarned, 
-          attemptedAt 
-        } = ans as StudentAnswerCreateRequest;
+    // Use upsert to handle duplicate submissions (overwrite if answer already exists)
+    const studentAnswer = await prisma.studentAnswer.upsert({
+      where: {
+        practiceSessionId_questionId: {
+          practiceSessionId,
+          questionId: parseInt(questionId, 10),
+        },
+      },
+      update: {
+        submittedAnswer,
+        isCorrect: Boolean(isCorrect),
+        pointsEarned: parseInt(pointsEarned, 10) || 0,
+        attemptedAt: new Date(),
+      },
+      create: {
+        practiceSessionId,
+        questionId: parseInt(questionId, 10),
+        submittedAnswer,
+        isCorrect: Boolean(isCorrect),
+        pointsEarned: parseInt(pointsEarned, 10) || 0,
+        attemptedAt: new Date(),
+      },
+    });
 
-        if (!practiceSessionId || questionId === undefined || submittedAnswer === undefined || isCorrect === undefined || pointsEarned === undefined) {
-          console.warn('Skipping invalid student answer object:', ans);
-          continue; 
-        }
-
-        const studentAnswer = await prisma.studentAnswer.upsert({
-          where: {
-            practiceSessionId_questionId: { 
-              practiceSessionId: practiceSessionId,
-              questionId: Number(questionId),
-            }
-          },
-          update: {
-            submittedAnswer: submittedAnswer, 
-            isCorrect: isCorrect,
-            pointsEarned: Number(pointsEarned), 
-            attemptedAt: attemptedAt ? new Date(attemptedAt) : new Date(),
-            updatedAt: new Date(),
-          },
-          create: {
-            practiceSessionId: practiceSessionId,
-            questionId: Number(questionId),
-            submittedAnswer: submittedAnswer,
-            isCorrect: isCorrect,
-            pointsEarned: Number(pointsEarned),
-            attemptedAt: attemptedAt ? new Date(attemptedAt) : new Date(),
-          }
-        });
-        createdAnswers.push(studentAnswer);
-        console.log("API: StudentAnswer saved/updated:", studentAnswer.id);
-    }
-    
-    if (createdAnswers.length === 0 && bodyArray.length > 0) {
-        return NextResponse.json({ error: 'All submitted answers were invalid.'}, {status: 400});
-    }
-    return NextResponse.json(createdAnswers, { status: 201 });
-
+    return NextResponse.json(studentAnswer);
   } catch (error: any) {
-    console.error('API: Error saving student answer(s):', error);
+    console.error("Error saving student answer:", error);
     return NextResponse.json(
-      { error: error.message || 'Failed to save student answer(s)', details: error.stack },
+      { error: "Failed to save answer" },
       { status: 500 }
     );
   } finally {

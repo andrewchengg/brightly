@@ -10,9 +10,8 @@ import {
   PracticeSessionType,
   QuestionType as PrismaQuestionType,
 } from "@/generated/prisma";
-import safeStorage from "@/lib/safeStorage";
 import { useSupabaseUser } from "@/lib/hooks/auth";
-import LevelUpNotification from "@/components/LevelUpNotification"; // Import LevelUpNotification
+import LevelUpNotification from "@/components/LevelUpNotification";
 import ExplanationFormatter from "@/components/ExplanationFormatter";
 import QuestionTextFormatter from "@/components/QuestionTextFormatter";
 import {
@@ -51,7 +50,7 @@ interface QuestionClient {
   options: OptionClient[];
   correctAnswer: string | string[] | Record<string, string> | null;
   hint?: string;
-  explanation?: string | null; // Added explanation
+  explanation?: string | null;
   topic: {
     id: number;
     name: string;
@@ -64,22 +63,23 @@ interface QuestionClient {
   topicName?: string;
 }
 
-interface LocalStoragePracticeProgress {
-  questions: QuestionClient[];
-  currentQuestionIndex: number;
-  score: number;
-  answeredQuestions: Record<number, string | Record<string, string>>; // Allow multi-part
-  questionResults: {
-    id: number;
-    correct: boolean;
-    question: string;
-    userAnswer: string | Record<string, string>;
-    correctAnswer: string | string[] | Record<string, string> | null;
-  }[];
-  sessionFinalized?: boolean;
-  practiceSessionId?: string | null;
-  subjectId?: number | null;
-  topicId?: number | null;
+interface StudentAnswerData {
+  questionId: number;
+  submittedAnswer: string | Record<string, string>;
+  isCorrect: boolean;
+  pointsEarned: number;
+}
+
+interface SessionData {
+  id: string;
+  studentId: string;
+  status: PracticeSessionStatus;
+  subjectId: number | null;
+  topicId: number | null;
+  score: number | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+  studentAnswers: StudentAnswerData[];
 }
 
 export default function RandomPractice() {
@@ -88,21 +88,28 @@ export default function RandomPractice() {
     typeof window !== "undefined" ? window.location.search : ""
   );
   const existingSessionId = searchParams.get("sessionId");
-  const urlSubjectId = searchParams.get("subjectId"); // Get subjectId from URL
+  const urlSubjectId = searchParams.get("subjectId");
+
   const [questions, setQuestions] = useState<QuestionClient[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [score, setScore] = useState(0);
-  const [loading, setLoading] = useState<boolean | string>(true); // Can be string for specific states
+  const [loading, setLoading] = useState<boolean | string>(true);
   const [splitPosition, setSplitPosition] = useState(65);
   const [answeredQuestions, setAnsweredQuestions] = useState<
     Record<number, string | Record<string, string>>
   >({});
   const [showSummary, setShowSummary] = useState(false);
   const [questionResults, setQuestionResults] = useState<
-    LocalStoragePracticeProgress["questionResults"]
+    {
+      id: number;
+      correct: boolean;
+      question: string;
+      userAnswer: string | Record<string, string>;
+      correctAnswer: string | string[] | Record<string, string> | null;
+    }[]
   >([]);
   const [textAnswer, setTextAnswer] = useState("");
   const [multiPartAnswers, setMultiPartAnswers] = useState<
@@ -110,7 +117,7 @@ export default function RandomPractice() {
   >({});
   const [multiPartResults, setMultiPartResults] = useState<
     Record<string, boolean>
-  >({}); // For individual part correctness
+  >({});
   const [sessionFinalized, setSessionFinalized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPracticeSessionId, setCurrentPracticeSessionId] = useState<
@@ -120,7 +127,7 @@ export default function RandomPractice() {
   const [userId, setUserId] = useState<string | null>(null);
 
   const [currentSubjectId, setCurrentSubjectId] = useState<number | null>(
-    urlSubjectId ? parseInt(urlSubjectId, 10) : null // Initialize from URL parameter
+    urlSubjectId ? parseInt(urlSubjectId, 10) : null
   );
   const [currentTopicId, setCurrentTopicId] = useState<number | null>(null);
 
@@ -140,9 +147,6 @@ export default function RandomPractice() {
     if (authUserIsLoaded) {
       if (authUser) {
         setUserId(authUser.id);
-        if (safeStorage.getItem("userId", "local") !== authUser.id) {
-          safeStorage.setItem("userId", authUser.id, "local");
-        }
       } else {
         toast.error("User session not found. Please sign in.");
         router.push("/sign-in");
@@ -150,11 +154,12 @@ export default function RandomPractice() {
     }
   }, [authUser, authUserIsLoaded, router]);
 
+  // Load existing session from database
   const loadExistingSession = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string): Promise<boolean> => {
       if (!userId || !sessionId) {
         setError("Missing user or session information.");
-        return null;
+        return false;
       }
 
       try {
@@ -162,319 +167,278 @@ export default function RandomPractice() {
           `/api/student/practice-sessions/${sessionId}`
         );
         if (!response.ok) {
-          const errData = await response.json().catch(() => ({
-            error: { message: "Failed to load session" },
-          }));
-          throw new Error(errData.error?.message || "Failed to load session");
+          throw new Error("Failed to load session");
         }
 
-        const sessionData = await response.json();
+        const sessionData: SessionData = await response.json();
 
-        // Update the existing session to IN_PROGRESS if it's NOT_STARTED
+        // Verify session belongs to current user
+        if (sessionData.studentId !== userId) {
+          throw new Error("Session does not belong to current user");
+        }
+
+        // Update session to IN_PROGRESS if it's NOT_STARTED
         if (sessionData.status === PracticeSessionStatus.NOT_STARTED) {
-          const updateResponse = await fetch(
-            `/api/practice-sessions/${sessionId}`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                status: PracticeSessionStatus.IN_PROGRESS,
-              }),
-            }
-          );
-          if (!updateResponse.ok) {
-            console.warn("Failed to update session status to IN_PROGRESS");
-          }
+          await fetch(`/api/practice-sessions/${sessionId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              status: PracticeSessionStatus.IN_PROGRESS,
+            }),
+          });
         }
 
         setCurrentPracticeSessionId(sessionId);
+        setCurrentSubjectId(sessionData.subjectId);
+        setCurrentTopicId(sessionData.topicId);
+        setScore(sessionData.score || 0);
 
-        // Fetch questions based on the session details (either by topic or random)
+        // Fetch questions based on session's subjectId
         let questionsUrl = "/api/questions/random?limit=10";
+        if (sessionData.subjectId) {
+          questionsUrl += `&subjectId=${sessionData.subjectId}`;
+        }
         if (sessionData.topicId) {
-          questionsUrl = `/api/questions/random?topicId=${sessionData.topicId}&limit=10`;
-          setCurrentTopicId(sessionData.topicId);
-        }
-        // Only set subjectId from session if not already set from URL
-        if (sessionData.subjectId && !currentSubjectId) {
-          setCurrentSubjectId(sessionData.subjectId);
-        }
-
-        // Add subjectId filtering to questions URL if available
-        const subjectIdToUse = currentSubjectId || sessionData.subjectId;
-        if (subjectIdToUse) {
-          // Check if URL already has parameters
-          const separator = questionsUrl.includes("?") ? "&" : "?";
-          questionsUrl += `${separator}subjectId=${subjectIdToUse}`;
+          questionsUrl += `&topicId=${sessionData.topicId}`;
         }
 
         const questionsResponse = await fetch(questionsUrl);
         if (!questionsResponse.ok) {
           throw new Error("Failed to load questions");
         }
-        const questions: QuestionClient[] = await questionsResponse.json();
+        const fetchedQuestions: QuestionClient[] =
+          await questionsResponse.json();
 
-        if (!Array.isArray(questions) || questions.length === 0) {
+        if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
           throw new Error("No questions available.");
         }
 
-        // Also update the totalQuestions in the session if it wasn't set
-        if (!sessionData.totalQuestions || sessionData.totalQuestions === 0) {
-          await fetch(`/api/practice-sessions/${sessionId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              totalQuestions: questions.length,
-            }),
-          });
+        setQuestions(fetchedQuestions);
+
+        // Build answered questions map from StudentAnswer records
+        const answeredQuestionsMap: Record<
+          number,
+          string | Record<string, string>
+        > = {};
+        const results: typeof questionResults = [];
+
+        sessionData.studentAnswers.forEach((answer) => {
+          answeredQuestionsMap[answer.questionId] = answer.submittedAnswer;
+
+          const question = fetchedQuestions.find(
+            (q) => q.id === answer.questionId
+          );
+          if (question) {
+            results.push({
+              id: answer.questionId,
+              correct: answer.isCorrect,
+              question: question.text,
+              userAnswer: answer.submittedAnswer,
+              correctAnswer: question.correctAnswer,
+            });
+          }
+        });
+
+        setAnsweredQuestions(answeredQuestionsMap);
+        setQuestionResults(results);
+
+        // Find current question index (first unanswered question)
+        const firstUnansweredIndex = fetchedQuestions.findIndex(
+          (q) => !answeredQuestionsMap.hasOwnProperty(q.id)
+        );
+
+        if (firstUnansweredIndex === -1) {
+          // All questions answered, show summary
+          setCurrentQuestionIndex(fetchedQuestions.length);
+          setShowSummary(true);
+          setSessionFinalized(true);
+        } else {
+          setCurrentQuestionIndex(firstUnansweredIndex);
         }
 
-        setQuestions(questions);
-        return sessionId;
+        return true;
       } catch (err: any) {
         setError(`Could not load existing session: ${err.message}`);
-        return null;
-      }
-    },
-    [userId, currentSubjectId]
-  );
-
-  const createNewPracticeSession = useCallback(
-    async (fetchedQuestions: QuestionClient[]) => {
-      if (!userId) {
-        setError("User information is missing. Cannot start session.");
-        return null;
-      }
-      if (fetchedQuestions.length === 0) {
-        setError("No questions available to start a session.");
-        return null;
-      }
-
-      const firstQuestion = fetchedQuestions[0];
-      const subjectIdForSession = firstQuestion?.topic?.subjectId;
-      const topicIdForSession = firstQuestion?.topic?.id;
-
-      // Only update subjectId if it's not already set from URL
-      if (!currentSubjectId) {
-        setCurrentSubjectId(
-          subjectIdForSession ? Number(subjectIdForSession) : null
-        );
-      }
-      setCurrentTopicId(topicIdForSession ? Number(topicIdForSession) : null);
-
-      try {
-        const response = await fetch("/api/practice-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            studentId: userId,
-            title: `Random Practice - ${new Date().toLocaleDateString()}`,
-            type: PracticeSessionType.PRACTICE,
-            status: PracticeSessionStatus.IN_PROGRESS,
-            totalQuestions: fetchedQuestions.length,
-            subjectId: subjectIdForSession,
-            topicId: topicIdForSession,
-          }),
-        });
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({
-            error: { message: "Failed to parse session creation error" },
-          }));
-          throw new Error(
-            errData.error?.message ||
-              errData.error ||
-              "Failed to create practice session"
-          );
-        }
-        const sessionData = await response.json();
-        setCurrentPracticeSessionId(sessionData.id);
-        return sessionData.id;
-      } catch (err: any) {
-        setError(`Could not start a new practice session: ${err.message}`);
-        return null;
+        return false;
       }
     },
     [userId]
   );
 
-  const fetchRandomQuestionsAndStartSession = useCallback(async () => {
-    if (!userId) return;
-
-    safeStorage.removeItem(`randomPracticeProgress_${userId}`, "local");
-    setLoading(true);
-    setError(null);
-    setCurrentQuestionIndex(0);
-    setScore(0);
-    setAnsweredQuestions({});
-    setQuestionResults([]);
-    setSessionFinalized(false);
-    setCurrentPracticeSessionId(null);
+  // Create new practice session in database
+  const createNewPracticeSession = useCallback(async (): Promise<
+    string | null
+  > => {
+    if (!userId) {
+      setError("User information is missing. Cannot start session.");
+      return null;
+    }
 
     try {
-      // Build the API URL with subjectId if available
-      let apiUrl = "/api/questions/random?limit=10";
-      if (currentSubjectId) {
-        apiUrl += `&subjectId=${currentSubjectId}`;
-      }
+      const response = await fetch("/api/practice-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: userId,
+          title: `Random Practice - ${new Date().toLocaleDateString()}`,
+          type: PracticeSessionType.PRACTICE,
+          status: PracticeSessionStatus.IN_PROGRESS,
+          totalQuestions: 10, // We'll update this when we fetch questions
+          subjectId: currentSubjectId,
+          topicId: currentTopicId,
+        }),
+      });
 
-      const response = await fetch(apiUrl);
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({
-          error: { message: `API error: ${response.status}` },
-        }));
+        const errData = await response.json();
         throw new Error(
-          errorData.error?.message || `API error: ${response.status}`
+          errData.error?.message || "Failed to create practice session"
         );
       }
-      const data: QuestionClient[] = await response.json();
 
-      if (!Array.isArray(data) || data.length === 0) {
+      const sessionData = await response.json();
+      setCurrentPracticeSessionId(sessionData.id);
+      return sessionData.id;
+    } catch (err: any) {
+      setError(`Could not start a new practice session: ${err.message}`);
+      return null;
+    }
+  }, [userId, currentSubjectId, currentTopicId]);
+
+  // Find or create session and load questions
+  const initializePracticeSession = useCallback(async () => {
+    if (!userId) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      let sessionId: string | null = null;
+
+      // If there's an existing session ID from URL, use that
+      if (existingSessionId) {
+        const success = await loadExistingSession(existingSessionId);
+        if (success) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Look for existing IN_PROGRESS session for this user and subject
+      if (currentSubjectId) {
+        const existingSessionResponse = await fetch(
+          `/api/student/${userId}/practice-sessions?status=IN_PROGRESS&subjectId=${currentSubjectId}&limit=1`
+        );
+
+        if (existingSessionResponse.ok) {
+          const sessions = await existingSessionResponse.json();
+          if (sessions.length > 0) {
+            const success = await loadExistingSession(sessions[0].id);
+            if (success) {
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      }
+
+      // Create new session
+      sessionId = await createNewPracticeSession();
+      if (!sessionId) {
+        setError("Failed to create practice session");
+        setLoading(false);
+        return;
+      }
+
+      // Fetch questions
+      let questionsUrl = "/api/questions/random?limit=10";
+      if (currentSubjectId) {
+        questionsUrl += `&subjectId=${currentSubjectId}`;
+      }
+
+      const questionsResponse = await fetch(questionsUrl);
+      if (!questionsResponse.ok) {
+        throw new Error("Failed to load questions");
+      }
+
+      const fetchedQuestions: QuestionClient[] = await questionsResponse.json();
+      if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
         throw new Error("No questions were returned from the API.");
       }
 
-      const newSessionId = await createNewPracticeSession(data);
-      if (newSessionId) {
-        setQuestions(data);
-      } else {
-        setError(
-          "Fetched questions but failed to start a new practice session in the database."
-        );
-        setQuestions([]);
-      }
+      setQuestions(fetchedQuestions);
+
+      // Update session with actual question count
+      await fetch(`/api/practice-sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          totalQuestions: fetchedQuestions.length,
+        }),
+      });
+
+      // Reset state for new session
+      setCurrentQuestionIndex(0);
+      setScore(0);
+      setAnsweredQuestions({});
+      setQuestionResults([]);
+      setSessionFinalized(false);
     } catch (error: any) {
-      setError(error.message || "Failed to load questions. Please try again.");
-      setQuestions([]);
+      setError(error.message || "Failed to initialize practice session.");
     } finally {
       setLoading(false);
     }
-  }, [userId, createNewPracticeSession, currentSubjectId]);
+  }, [
+    userId,
+    currentSubjectId,
+    existingSessionId,
+    loadExistingSession,
+    createNewPracticeSession,
+  ]);
 
+  // Save student answer to database immediately
+  const saveStudentAnswerToDb = useCallback(
+    async (
+      question: QuestionClient,
+      submittedAnswer: string | Record<string, string>,
+      isCorrect: boolean,
+      pointsEarned: number
+    ) => {
+      if (!currentPracticeSessionId) return;
+
+      try {
+        const response = await fetch("/api/student-answers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            practiceSessionId: currentPracticeSessionId,
+            questionId: question.id,
+            submittedAnswer,
+            isCorrect,
+            pointsEarned,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to save answer");
+        }
+      } catch (err: any) {
+        toast.error(`Answer save failed: ${err.message}`);
+      }
+    },
+    [currentPracticeSessionId]
+  );
+
+  // Initialize session when user and subjectId are ready
   useEffect(() => {
     if (!userId) {
       setLoading(true);
       return;
     }
+    initializePracticeSession();
+  }, [userId, initializePracticeSession]);
 
-    setLoading(true);
-
-    // If there's an existing session ID from URL, load that instead of localStorage
-    if (existingSessionId) {
-      loadExistingSession(existingSessionId).then((success) => {
-        if (success) {
-          // Clear any old localStorage since we're using an existing session
-          safeStorage.removeItem(`randomPracticeProgress_${userId}`, "local");
-        }
-        setLoading(false);
-      });
-      return;
-    }
-
-    // Otherwise, check localStorage for resumable session
-    const savedProgressString = safeStorage.getItem(
-      `randomPracticeProgress_${userId}`,
-      "local"
-    );
-    let resumableSessionFound = false;
-    if (savedProgressString) {
-      try {
-        const progress: LocalStoragePracticeProgress =
-          JSON.parse(savedProgressString);
-
-        // Check if the saved progress matches the requested subjectId
-        const subjectIdMismatch =
-          currentSubjectId && progress.subjectId !== currentSubjectId;
-
-        if (subjectIdMismatch) {
-          safeStorage.removeItem(`randomPracticeProgress_${userId}`, "local");
-        } else if (
-          progress.questions?.length > 0 &&
-          !progress.sessionFinalized &&
-          progress.practiceSessionId
-        ) {
-          setQuestions(progress.questions);
-          setCurrentQuestionIndex(progress.currentQuestionIndex || 0);
-          setScore(progress.score || 0);
-          setAnsweredQuestions(
-            (progress.answeredQuestions as Record<
-              number,
-              string | Record<string, string>
-            >) || {}
-          ); // Cast here
-          setQuestionResults(progress.questionResults || []);
-          setCurrentPracticeSessionId(progress.practiceSessionId);
-          // Keep the URL subjectId if present, otherwise use saved progress
-          if (!currentSubjectId) {
-            setCurrentSubjectId(progress.subjectId || null);
-          }
-          setCurrentTopicId(progress.topicId || null);
-          setSessionFinalized(false);
-          if (progress.currentQuestionIndex >= progress.questions.length) {
-            setShowSummary(true);
-            setSessionFinalized(true);
-          }
-          resumableSessionFound = true;
-        } else {
-          safeStorage.removeItem(`randomPracticeProgress_${userId}`, "local");
-        }
-      } catch (error) {
-        safeStorage.removeItem(`randomPracticeProgress_${userId}`, "local");
-      }
-    }
-
-    if (!resumableSessionFound) {
-      fetchRandomQuestionsAndStartSession();
-    } else {
-      setLoading(false);
-    }
-  }, [
-    userId,
-    fetchRandomQuestionsAndStartSession,
-    existingSessionId,
-    loadExistingSession,
-    currentSubjectId,
-  ]);
-
-  useEffect(() => {
-    if (
-      typeof loading === "string" ||
-      loading ||
-      !userId ||
-      questions.length === 0 ||
-      !currentPracticeSessionId ||
-      showSummary
-    )
-      return;
-    const progress: LocalStoragePracticeProgress = {
-      questions,
-      currentQuestionIndex,
-      score,
-      answeredQuestions: answeredQuestions as Record<number, string>, // Cast back if necessary, ensure compatibility
-      questionResults,
-      sessionFinalized,
-      practiceSessionId: currentPracticeSessionId,
-      subjectId: currentSubjectId,
-      topicId: currentTopicId,
-    };
-    safeStorage.setItem(
-      `randomPracticeProgress_${userId}`,
-      JSON.stringify(progress),
-      "local"
-    );
-  }, [
-    questions,
-    currentQuestionIndex,
-    score,
-    answeredQuestions,
-    questionResults,
-    sessionFinalized,
-    loading,
-    userId,
-    currentPracticeSessionId,
-    showSummary,
-    currentSubjectId,
-    currentTopicId,
-  ]);
-
+  // Load current question state from answers
   useEffect(() => {
     if (currentQuestion) {
       const currentQuestionId = currentQuestion.id;
@@ -483,11 +447,10 @@ export default function RandomPractice() {
       setIsAnswerCorrect(null);
       setTextAnswer("");
       setMultiPartAnswers({});
-      setMultiPartResults({}); // Reset individual part results
+      setMultiPartResults({});
       setSelectedAnswer(null);
 
       if (savedUserAnswerContent !== undefined) {
-        // Check if an answer exists for this question
         const questionType = currentQuestion.questionType;
         let isCorrectForSaved = false;
 
@@ -549,16 +512,10 @@ export default function RandomPractice() {
             String(savedUserAnswerContent).toLowerCase();
         }
         setIsAnswerCorrect(isCorrectForSaved);
-        // Set AI message based on saved answer
-        // This was causing AI message to persist; removed auto-setting AI message here to allow fresh interaction
-        // AI feedback will be handled by the new AI assistant component
-      } else {
-        // AI feedback will be handled by the new AI assistant component
       }
       setShowHint(false);
-      // setChatHistory([]); // Don't clear chat history on question change if user might want to refer back
     }
-  }, [currentQuestionIndex, questions, answeredQuestions, currentQuestion]); // Removed aiMessage from deps
+  }, [currentQuestionIndex, questions, answeredQuestions, currentQuestion]);
 
   const awardXPAndStreak = useCallback(
     async (xpToAdd: number) => {
@@ -627,41 +584,6 @@ export default function RandomPractice() {
     [userId, sessionFinalized]
   );
 
-  const saveStudentAnswerToDb = useCallback(
-    async (
-      question: QuestionClient,
-      userAnswer: string | Record<string, string>,
-      isCorrect: boolean,
-      points: number
-    ) => {
-      if (!currentPracticeSessionId) {
-        toast.error("Error saving: No active session.");
-        return;
-      }
-      try {
-        const response = await fetch("/api/student-answers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            practiceSessionId: currentPracticeSessionId,
-            questionId: question.id,
-            submittedAnswer: userAnswer,
-            isCorrect,
-            pointsEarned: points,
-            attemptedAt: new Date().toISOString(),
-          }),
-        });
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || "Failed to save answer");
-        }
-      } catch (err: any) {
-        toast.error(`Answer save failed: ${err.message}`);
-      }
-    },
-    [currentPracticeSessionId]
-  );
-
   const finalizePracticeSessionInDb = useCallback(async () => {
     if (!currentPracticeSessionId || !userId || sessionFinalized) return;
     setLoading("submitting");
@@ -695,8 +617,7 @@ export default function RandomPractice() {
         setShowLevelUp(true);
       }
 
-      if (userId)
-        safeStorage.removeItem(`randomPracticeProgress_${userId}`, "local");
+      // Session completed - data is stored in database
       toast.success("Practice session completed and results saved!");
     } catch (err: any) {
       toast.error(`Session finalization error: ${err.message}`);
@@ -840,8 +761,7 @@ export default function RandomPractice() {
       !currentQuestion ||
       typeof currentQuestion.correctAnswer !== "object" ||
       currentQuestion.correctAnswer === null ||
-      Array.isArray(currentQuestion.correctAnswer) ||
-      selectedAnswer !== null
+      Array.isArray(currentQuestion.correctAnswer)
     )
       return;
 
@@ -897,12 +817,11 @@ export default function RandomPractice() {
   }, [currentQuestionIndex, questions.length, finalizePracticeSessionInDb]);
 
   const completeSessionAndStartNew = useCallback(async () => {
-    if (userId)
-      safeStorage.removeItem(`randomPracticeProgress_${userId}`, "local");
+    // Starting new session - no need to clear localStorage as we're using database
     setShowSummary(false);
     setShowLevelUp(false); // Reset level up notification state
-    await fetchRandomQuestionsAndStartSession();
-  }, [userId, fetchRandomQuestionsAndStartSession]);
+    await initializePracticeSession();
+  }, [initializePracticeSession]);
 
   const clearProgressAndExit = useCallback(async () => {
     const confirmExit =
@@ -911,8 +830,7 @@ export default function RandomPractice() {
         "Are you sure you want to exit? All progress for this session will be lost."
       );
     if (confirmExit) {
-      if (userId)
-        safeStorage.removeItem(`randomPracticeProgress_${userId}`, "local");
+      // Session being discarded - no need to clear localStorage as we're using database
       if (currentPracticeSessionId) {
         try {
           const response = await fetch(
@@ -1284,7 +1202,7 @@ export default function RandomPractice() {
           <div className="flex flex-col gap-3">
             <Button
               className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm w-full"
-              onClick={fetchRandomQuestionsAndStartSession}
+              onClick={initializePracticeSession}
             >
               <FaRedo className="mr-2" /> Try Again
             </Button>
