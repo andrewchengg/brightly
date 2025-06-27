@@ -430,6 +430,79 @@ export default function QuestionEditorForm({
     <div className="space-y-8">
       {renderQuestionPreview()}
 
+      {/* Action Buttons - All moved to top */}
+      <div className="space-y-4">
+        {/* Main Action Buttons */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-blue-800 mb-1">
+                Question Actions
+              </h3>
+              <p className="text-sm text-blue-600">
+                Review, edit, and manage this question using the actions below.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                type="button"
+                onClick={handleSubmit((data) => onSubmit(data, true))}
+                disabled={isSubmitting || uploading}
+                className="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2"
+              >
+                {isSubmitting ? <FaSpinner className="animate-spin mr-2" /> : null}
+                Accept & Mark Production Ready
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSubmit((data) => onSubmit(data, false))}
+                disabled={isSubmitting || uploading}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2"
+              >
+                {isSubmitting ? <FaSpinner className="animate-spin mr-2" /> : null}
+                Save Changes
+              </Button>
+              {onRefreshPreview && (
+                <Button
+                  type="button"
+                  onClick={() => onRefreshPreview(getValues())}
+                  disabled={isSubmitting || uploading}
+                  variant="outline"
+                  className="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 px-4 py-2"
+                >
+                  🔄 Refresh Preview
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Delete Question Section */}
+        {onQuestionDeleted && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-red-800 mb-1">
+                  Danger Zone
+                </h3>
+                <p className="text-sm text-red-600">
+                  Delete this question permanently. This action cannot be undone and will remove all associated data.
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isSubmitting || isDeleting}
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700 px-4 py-2 whitespace-nowrap"
+              >
+                <FaTrash className="mr-2" /> Delete Question
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
       <form
         onSubmit={handleSubmit((data) => onSubmit(data, false))}
         className="space-y-6 bg-white p-6 rounded-lg shadow-md border"
@@ -714,59 +787,9 @@ export default function QuestionEditorForm({
             <FaPaste className="mr-2" /> Load Refactored JSON
           </Button>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 mt-2">
-          <Button
-            type="submit"
-            disabled={isSubmitting || uploading}
-            className="flex-1"
-          >
-            {isSubmitting ? <FaSpinner className="animate-spin mr-2" /> : null}{" "}
-            Save Changes
-          </Button>
-          {onRefreshPreview && (
-            <Button
-              type="button"
-              onClick={() => onRefreshPreview(getValues())}
-              disabled={isSubmitting || uploading}
-              variant="outline"
-              className="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
-            >
-              🔄 Refresh Preview
-            </Button>
-          )}
-          <Button
-            type="button"
-            onClick={handleSubmit((data) => onSubmit(data, true))}
-            disabled={isSubmitting || uploading}
-            className="flex-1 bg-green-600 hover:bg-green-700"
-          >
-            {isSubmitting ? <FaSpinner className="animate-spin mr-2" /> : null}{" "}
-            Accept & Mark Production Ready
-          </Button>
-        </div>
 
-        {/* Delete Question Section */}
-        {onQuestionDeleted && (
-          <div className="mt-6 pt-6 border-t border-red-200">
-            <div className="bg-red-50 p-4 rounded-lg">
-              <h4 className="text-lg font-semibold text-red-800 mb-2">
-                Danger Zone
-              </h4>
-              <p className="text-sm text-red-600 mb-4">
-                Delete this question permanently. This action cannot be undone and will remove all associated data including student answers and reports.
-              </p>
-              <Button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={isSubmitting || isDeleting}
-                variant="destructive"
-                className="bg-red-600 hover:bg-red-700"
-              >
-                <FaTrash className="mr-2" /> Delete Question
-              </Button>
-            </div>
-          </div>
-        )}
+
+
       </form>
 
       {/* Delete Confirmation Dialog */}
