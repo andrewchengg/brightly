@@ -45,8 +45,9 @@ export async function middleware(req: NextRequest) {
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     const publicPaths = [
       "/",
@@ -73,43 +74,21 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith(p)
     );
 
-    if (!session) {
+    if (!user || authError) {
       if (isPublicPath || isSetupPath) {
-        // Allow unauthenticated access to setup paths if they are designed for it (e.g. initial PIN login for student)
         return response;
       }
       const redirectUrl = new URL("/sign-in", req.url);
       return NextResponse.redirect(redirectUrl);
     }
 
-    // User IS authenticated
-    const {
-      data: { user: authenticatedUser },
-      error: getUserError,
-    } = await supabase.auth.getUser();
-
-    if (getUserError || !authenticatedUser) {
-      console.warn(
-        "Middleware: getUser failed despite session. Invalidating.",
-        getUserError
-      );
-      if (isPublicPath || isSetupPath) return response;
-      const redirectUrl = new URL("/sign-in", req.url);
-      // Consider explicitly deleting cookies on `response` here
-      return NextResponse.redirect(redirectUrl);
-    }
-
     const userRole =
-      (authenticatedUser.user_metadata?.role as string | undefined) ||
-      "student";
+      (user.user_metadata?.role as string | undefined) || "student";
 
-    // If user is authenticated and is on a setup path, allow them.
     if (isSetupPath) {
-      // Further checks can be done on the page itself if needed (e.g. student trying parent setup)
       return response;
     }
 
-    // If authenticated user tries to access general sign-in/sign-up, redirect them.
     if (
       (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up")) &&
       pathname !== "/"
@@ -118,7 +97,6 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(dashboardUrl);
     }
 
-    // Role-based access for other protected routes
     for (const [routePattern, allowedRoles] of Object.entries(routeAccessMap)) {
       const regex = new RegExp(`^${routePattern}(\\/.*|$)`);
       if (regex.test(pathname)) {
@@ -130,9 +108,6 @@ export async function middleware(req: NextRequest) {
       }
     }
 
-    // If no specific rule matched, but user is authenticated, allow (e.g., default dashboard)
-    // This also implies that if a user is on their dashboard (e.g., /student), and their role matches an entry in routeAccessMap,
-    // the loop above would have already returned `response`. If not, this final return handles it.
     return response;
   } catch (error) {
     console.error("Middleware error:", error);
