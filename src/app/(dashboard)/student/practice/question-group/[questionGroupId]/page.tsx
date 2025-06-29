@@ -12,6 +12,7 @@ import {
   QuestionGroup,
 } from "@/generated/prisma";
 import safeStorage from "@/lib/safeStorage";
+import { soundEffects } from "@/lib/soundEffects";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
 import ExplanationFormatter from "@/components/ExplanationFormatter";
@@ -47,6 +48,7 @@ import {
 import ConfettiComponent from "@/components/Confetti";
 // ... other imports
 import PassageDisplay from "@/components/Practice/PassageDisplay";
+import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import ClozeQuestionOptions from "@/components/Practice/ClozeQuestionOptions";
 import { FaRegListAlt } from "react-icons/fa"; // If not already imported
 import { DifficultyLevel } from "@/generated/prisma"; // If not already imported
@@ -149,6 +151,7 @@ export default function QuestionGroupPracticePage() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -607,6 +610,7 @@ export default function QuestionGroupPracticePage() {
       if (levelUpInfo) {
         setNewLevel(levelUpInfo.newLevel);
         setShowLevelUp(true);
+        soundEffects.playLevelUpSound();
       }
       safeStorage.removeItem(localStorageKey, "local");
       toast.success("Practice completed and results saved!");
@@ -680,9 +684,10 @@ export default function QuestionGroupPracticePage() {
         ? correctOption.text
         : `ID: ${currentQuestion.correctAnswer}`;
 
-      // Trigger confetti for correct answers
+      // Trigger confetti and sound for correct answers
       if (isCorrect) {
         setShowConfetti(true);
+        soundEffects.playSuccessSound();
       }
 
       setAiMessage(
@@ -722,9 +727,10 @@ export default function QuestionGroupPracticePage() {
         ];
     const isCorrect = cAnsArr.includes(userAnswer.toLowerCase());
 
-    // Trigger confetti for correct answers
+    // Trigger confetti and sound for correct answers
     if (isCorrect) {
       setShowConfetti(true);
+      soundEffects.playSuccessSound();
     }
 
     const feedback = isCorrect
@@ -764,9 +770,10 @@ export default function QuestionGroupPracticePage() {
     setMultiPartResults(currentPartResults);
     setSelectedAnswer(JSON.stringify(multiPartAnswers));
 
-    // Trigger confetti for correct answers
+    // Trigger confetti and sound for correct answers
     if (allPartsCorrect) {
       setShowConfetti(true);
+      soundEffects.playSuccessSound();
     }
 
     const feedback = allPartsCorrect
@@ -809,13 +816,23 @@ export default function QuestionGroupPracticePage() {
     await fetchQuestionGroupAndStartSession();
   }, [localStorageKey, fetchQuestionGroupAndStartSession]);
 
-  const exitToSubjectPractice = useCallback(async () => {
+  const handleExitConfirm = useCallback(() => {
+    // Exit immediately without waiting for API call
     if (currentSubjectId) {
       router.push(`/student/practice/subject/${currentSubjectId}`);
     } else {
       router.push("/student/practice");
     }
-  }, [currentSubjectId, router]);
+
+    // Clean up session in background if needed
+    if (localStorageKey) {
+      safeStorage.removeItem(localStorageKey, "local");
+    }
+  }, [currentSubjectId, router, localStorageKey]);
+
+  const exitToSubjectPractice = useCallback(() => {
+    setShowExitDialog(true);
+  }, []);
 
   const handleSendMessage = useCallback(async () => {
     if (!userMessage.trim() || !currentQuestion) return;
@@ -1463,6 +1480,19 @@ export default function QuestionGroupPracticePage() {
       <ConfettiComponent
         trigger={showConfetti}
         onComplete={() => setShowConfetti(false)}
+      />
+      <ExitPracticeDialog
+        isOpen={showExitDialog}
+        onClose={() => setShowExitDialog(false)}
+        onExit={handleExitConfirm}
+        title="Exit Question Group Practice?"
+        subtitle="You're working on a passage with questions"
+        currentProgress={{
+          currentQuestion: questions.length > 0 ? currentQuestionIndex + 1 : 1,
+          totalQuestions: questions.length,
+          score: score,
+          correctAnswers: questionResults.filter((r) => r.correct).length,
+        }}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
         <button

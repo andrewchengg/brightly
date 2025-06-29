@@ -1,0 +1,148 @@
+import React from "react";
+import {
+  FaExclamationTriangle,
+  FaTimes,
+  FaArrowLeft,
+  FaSave,
+} from "react-icons/fa";
+import { Button } from "@/components/ui/button";
+
+interface ExitPracticeDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onExit: () => void;
+  onSaveAndExit?: () => void;
+  title?: string;
+  subtitle?: string;
+  currentProgress?: {
+    currentQuestion: number;
+    totalQuestions: number;
+    score: number;
+    correctAnswers: number;
+  };
+  showSaveOption?: boolean;
+}
+
+export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
+  isOpen,
+  onClose,
+  onExit,
+  onSaveAndExit,
+  title = "Exit Practice Session?",
+  subtitle = "Are you sure you want to leave this practice session?",
+  currentProgress,
+  showSaveOption = false,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md mx-4 animate-in fade-in zoom-in duration-200">
+        {/* Header */}
+        <div className="relative p-6 border-b border-gray-100">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1"
+          >
+            <FaTimes size={16} />
+          </button>
+
+          <div className="flex items-center">
+            <div className="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mr-4">
+              <FaExclamationTriangle className="text-amber-600 text-xl" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                {title}
+              </h3>
+              <p className="text-sm text-gray-600">{subtitle}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Summary */}
+        {currentProgress && (
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+            <div className="text-sm text-gray-700 mb-2">
+              <strong>Your Current Progress:</strong>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Questions:</span>
+                <span className="font-medium text-gray-900">
+                  {currentProgress.currentQuestion} /{" "}
+                  {currentProgress.totalQuestions}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Score:</span>
+                <span className="font-medium text-amber-600">
+                  {currentProgress.score} XP
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Correct:</span>
+                <span className="font-medium text-green-600">
+                  {currentProgress.correctAnswers}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Progress:</span>
+                <span className="font-medium text-indigo-600">
+                  {Math.round(
+                    (currentProgress.currentQuestion /
+                      currentProgress.totalQuestions) *
+                      100
+                  )}
+                  %
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Warning Message */}
+        <div className="px-6 py-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">
+              <strong>⚠️ Warning:</strong> If you exit without saving, your
+              progress for this session will be lost.
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 p-6 pt-0">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Stay & Continue
+          </Button>
+
+          {showSaveOption && onSaveAndExit && (
+            <Button
+              onClick={onSaveAndExit}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <FaSave className="mr-2" size={14} />
+              Save & Exit
+            </Button>
+          )}
+
+          <Button
+            onClick={onExit}
+            variant="outline"
+            className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+          >
+            <FaArrowLeft className="mr-2" size={14} />
+            Exit Without Saving
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ExitPracticeDialog;

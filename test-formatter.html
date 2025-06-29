@@ -1,97 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Formatter Test</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .test-section {
-            margin: 20px 0;
-            padding: 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .test-input {
-            background-color: #f5f5f5;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 3px;
-            font-family: monospace;
-        }
-        .test-output {
-            background-color: #e8f4f8;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 3px;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+      .test-input {
+        background-color: #f5f5f5;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 3px;
+        font-family: monospace;
+      }
+      .test-output {
+        background-color: #e8f4f8;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 3px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Formatter Testing</h1>
-    
+
     <div class="test-section">
-        <h3>Test Case 1: Spacing Issues</h3>
-        <div class="test-input">
-            Input: "9.00+ 6 = $1.50"<br>
-            Expected: "9.00 + 6 = $1.50"
-        </div>
-        <div class="test-output" id="test1-output">
-            <!-- Will be populated by JavaScript -->
-        </div>
+      <h3>Test Case 1: Spacing Issues</h3>
+      <div class="test-input">
+        Input: "9.00+ 6 = $1.50"<br />
+        Expected: "9.00 + 6 = $1.50"
+      </div>
+      <div class="test-output" id="test1-output">
+        <!-- Will be populated by JavaScript -->
+      </div>
     </div>
 
     <div class="test-section">
-        <h3>Test Case 2: More Spacing Issues</h3>
-        <div class="test-input">
-            Input: "8.20- 6.00 = $2.20"<br>
-            Expected: "8.20 - 6.00 = $2.20"
-        </div>
-        <div class="test-output" id="test2-output">
-            <!-- Will be populated by JavaScript -->
-        </div>
+      <h3>Test Case 2: More Spacing Issues</h3>
+      <div class="test-input">
+        Input: "8.20- 6.00 = $2.20"<br />
+        Expected: "8.20 - 6.00 = $2.20"
+      </div>
+      <div class="test-output" id="test2-output">
+        <!-- Will be populated by JavaScript -->
+      </div>
     </div>
 
     <div class="test-section">
-        <h3>Test Case 3: Line Breaks</h3>
-        <div class="test-input">
-            Input: "Step 1. First sentence. Step 2. Second sentence."<br>
-            Expected: Two separate lines with proper breaks
-        </div>
-        <div class="test-output" id="test3-output">
-            <!-- Will be populated by JavaScript -->
-        </div>
+      <h3>Test Case 3: Line Breaks</h3>
+      <div class="test-input">
+        Input: "Step 1. First sentence. Step 2. Second sentence."<br />
+        Expected: Two separate lines with proper breaks
+      </div>
+      <div class="test-output" id="test3-output">
+        <!-- Will be populated by JavaScript -->
+      </div>
     </div>
 
     <script>
-        // Simple test of the regex patterns we're using
-        function testSpacing(text) {
-            let result = text
-                // Ensure proper spacing around mathematical operators
-                .replace(/(\w+|\d+|\)|\])\s*([+\-×÷=])\s*(\w+|\d+|\(|\[)/g, '$1 $2 $3')
-                // Handle edge cases where operators are adjacent to characters  
-                .replace(/([+\-×÷=])(\w+|\d+|\(|\[)/g, '$1 $2')
-                .replace(/(\w+|\d+|\)|\])([+\-×÷=])/g, '$1 $2')
-                // Clean up multiple spaces
-                .replace(/\s+/g, ' ')
-                .trim();
-            return result;
-        }
+      // Simple test of the regex patterns we're using
+      function testSpacing(text) {
+        let result = text
+          // Ensure proper spacing around mathematical operators
+          .replace(
+            /(\w+|\d+|\)|\])\s*([+\-×÷=])\s*(\w+|\d+|\(|\[)/g,
+            "$1 $2 $3"
+          )
+          // Handle edge cases where operators are adjacent to characters
+          .replace(/([+\-×÷=])(\w+|\d+|\(|\[)/g, "$1 $2")
+          .replace(/(\w+|\d+|\)|\])([+\-×÷=])/g, "$1 $2")
+          // Clean up multiple spaces
+          .replace(/\s+/g, " ")
+          .trim();
+        return result;
+      }
 
-        // Test the patterns
-        document.getElementById('test1-output').innerHTML = 
-            'Result: "' + testSpacing('9.00+ 6 = $1.50') + '"';
-        
-        document.getElementById('test2-output').innerHTML = 
-            'Result: "' + testSpacing('8.20- 6.00 = $2.20') + '"';
-        
-        document.getElementById('test3-output').innerHTML = 
-            'Result: "' + testSpacing('Step 1. First sentence. Step 2. Second sentence.') + '"';
+      // Test the patterns
+      document.getElementById("test1-output").innerHTML =
+        'Result: "' + testSpacing("9.00+ 6 = $1.50") + '"';
+
+      document.getElementById("test2-output").innerHTML =
+        'Result: "' + testSpacing("8.20- 6.00 = $2.20") + '"';
+
+      document.getElementById("test3-output").innerHTML =
+        'Result: "' +
+        testSpacing("Step 1. First sentence. Step 2. Second sentence.") +
+        '"';
     </script>
-</body>
-</html> 
+  </body>
+</html>

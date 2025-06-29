@@ -19,7 +19,7 @@ import {
   FaTimesCircle,
   FaLightbulb,
 } from "react-icons/fa";
-import ExplanationFormatter from '@/components/ExplanationFormatter';
+import ExplanationFormatter from "@/components/ExplanationFormatter";
 
 interface SessionDetails {
   id: string;
@@ -422,7 +422,9 @@ export default function ParentSessionDetailsPage() {
                         Explanation:
                       </div>
                       <div className="text-sm text-gray-700">
-                        <ExplanationFormatter explanation={answer.question.explanation} />
+                        <ExplanationFormatter
+                          explanation={answer.question.explanation}
+                        />
                       </div>
                     </div>
                   )}

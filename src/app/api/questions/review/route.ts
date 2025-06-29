@@ -1,17 +1,20 @@
 // src/app/api/questions/review/route.ts
 import { NextResponse, type NextRequest } from "next/server";
-import { PrismaClient } from "@/generated/prisma";
+import { prisma } from "@/lib/prisma"; // Use singleton client for better performance
 import { ITEM_PER_PAGE } from "@/lib/settings"; // Assuming you have this
-
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get("page") || "1", 10);
-  const limit = parseInt(
+  const requestedLimit = parseInt(
     searchParams.get("limit") || ITEM_PER_PAGE.toString(),
     10
   );
+
+  // CRITICAL: Prevent fetching too many records at once for performance
+  const MAX_LIMIT = 1000; // Prevent database overload
+  const limit = Math.min(requestedLimit, MAX_LIMIT);
+
   const subjectId = searchParams.get("subjectId");
   const topicId = searchParams.get("topicId");
   const difficulty = searchParams.get("difficulty");
@@ -78,38 +81,45 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    if (questionId && questionId !== "undefined" && !isNaN(parseInt(questionId, 10))) {
+    if (
+      questionId &&
+      questionId !== "undefined" &&
+      !isNaN(parseInt(questionId, 10))
+    ) {
       whereCondition.id = parseInt(questionId, 10);
     }
 
-    // Only apply default filter for questions needing review if explicitly requesting "show all"
-    // Otherwise, when filters are applied, show results based on those filters
-    // When no filters are specified, show all questions (don't default to filtering)
-
-    const questions = await prisma.question.findMany({
-      where: whereCondition,
-      include: {
-        topic: { select: { id: true, name: true, subjectId: true } },
-        subject: { select: { id: true, name: true } },
-        questionGroup: { select: { id: true, name: true } },
-        tags: { include: { tag: true } },
-      },
-      orderBy: {
-        createdAt: "asc", // Or by ID, or some other deterministic order
-      },
-      skip,
-      take: limit,
-    });
-
-    const totalQuestions = await prisma.question.count({
-      where: whereCondition,
-    });
+    // OPTIMIZATION: Use parallel queries for better performance
+    const [questions, totalQuestions] = await Promise.all([
+      prisma.question.findMany({
+        where: whereCondition,
+        include: {
+          topic: { select: { id: true, name: true, subjectId: true } },
+          subject: { select: { id: true, name: true } },
+          questionGroup: { select: { id: true, name: true } },
+          tags: { include: { tag: true } },
+        },
+        orderBy: {
+          createdAt: "asc", // Or by ID, or some other deterministic order
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.question.count({
+        where: whereCondition,
+      }),
+    ]);
 
     return NextResponse.json({
       questions,
       totalQuestions,
       currentPage: page,
       totalPages: Math.ceil(totalQuestions / limit),
+      limit: limit,
+      // Add warning if limit was capped
+      ...(requestedLimit > MAX_LIMIT && {
+        warning: `Limit capped at ${MAX_LIMIT} for performance. Use pagination for more results.`,
+      }),
     });
   } catch (error: any) {
     console.error("API: Error fetching questions for review:", error);
@@ -117,7 +127,6 @@ export async function GET(request: NextRequest) {
       { error: "Failed to fetch questions for review", details: error.message },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
+  // Note: No $disconnect() needed with singleton pattern
 }

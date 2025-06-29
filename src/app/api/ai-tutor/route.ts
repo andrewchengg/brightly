@@ -192,9 +192,9 @@ export async function POST(req: NextRequest) {
 
     // Call OpenRouter API with safety parameters
     const response = await openai.chat.completions.create({
-      model: "anthropic/claude-3.5-haiku", // Using Claude 3.5 Haiku for educational content
+      model: "anthropic/claude-sonnet-4", // Using Claude Sonnet 4 for educational content
       messages: openAIMessages,
-      max_tokens: 400,
+      max_tokens: 300, // Reduced from 400 for faster responses
       temperature: 0.7,
       // Remove frequency_penalty and presence_penalty as they may not be supported by all models
     });

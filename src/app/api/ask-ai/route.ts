@@ -261,10 +261,10 @@ IMPORTANT: If asked anything inappropriate or off-topic, respond with: "I'm here
     // Call OpenRouter API with safety parameters
     const response = await openai.chat.completions.create({
       model: imageBase64
-        ? "anthropic/claude-3.5-haiku"
-        : "anthropic/claude-3.5-haiku", // Using Claude for both text and image
+        ? "anthropic/claude-sonnet-4"
+        : "anthropic/claude-sonnet-4", // Using Claude Sonnet 4 for both text and image
       messages: messages,
-      max_tokens: 600,
+      max_tokens: 500, // Reduced from 600 for faster responses
       temperature: 0.7,
       // Remove frequency_penalty and presence_penalty as they may not be supported by all models
     });

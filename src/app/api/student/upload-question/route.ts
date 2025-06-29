@@ -7,6 +7,23 @@ import {
 } from "@/generated/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { saveQuestionImageIfNeeded } from "@/lib/image-storage";
+import OpenAI from "openai";
+
+const getOpenRouterClient = () => {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OpenRouter API key is not configured");
+  }
+
+  return new OpenAI({
+    apiKey: apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+      "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
+      "X-Title": "Brightly - Educational Learning Platform",
+    },
+  });
+};
 
 // OCR and AI processing functions
 async function extractTextFromImage(imageBase64: string): Promise<string> {
@@ -101,48 +118,42 @@ async function extractTextFromImage(imageBase64: string): Promise<string> {
       return extractedText.trim();
     }
 
-    // Fallback: Use OpenAI Vision API for OCR (works with existing OpenAI key)
-    if (process.env.OPENAI_API_KEY) {
-      console.log("🔍 Using OpenAI Vision as OCR fallback...");
+    // Fallback: Use OpenRouter with Claude for OCR
+    if (process.env.OPENROUTER_API_KEY) {
+      console.log("🔍 Using Claude via OpenRouter for OCR...");
 
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-4-vision-preview",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: "Please extract ALL text from this image. Return only the extracted text, nothing else. If it's a question, include all question text, options, and any numbers/formulas exactly as they appear.",
+      try {
+        const openai = getOpenRouterClient();
+        const response = await openai.chat.completions.create({
+          model: "anthropic/claude-sonnet-4",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Please extract ALL text from this image. Return only the extracted text, nothing else. If it's a question, include all question text, options, and any numbers/formulas exactly as they appear.",
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:image/jpeg;base64,${imageBase64}`,
                   },
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: `data:image/jpeg;base64,${imageBase64}`,
-                    },
-                  },
-                ],
-              },
-            ],
-            max_tokens: 1000,
-            temperature: 0,
-          }),
+                },
+              ],
+            },
+          ],
+          max_tokens: 1000,
+          temperature: 0,
+        });
+
+        if (response.choices?.[0]?.message?.content) {
+          const extractedText = response.choices[0].message.content.trim();
+          console.log("✅ Claude extracted text:", extractedText);
+          return extractedText;
         }
-      );
-
-      const data = await response.json();
-      if (data.choices?.[0]?.message?.content) {
-        const extractedText = data.choices[0].message.content.trim();
-        console.log("✅ OpenAI Vision extracted text:", extractedText);
-        return extractedText;
+      } catch (error) {
+        console.error("OpenRouter OCR failed:", error);
       }
     }
 
@@ -167,26 +178,19 @@ async function processQuestionWithAI(ocrText: string): Promise<{
   requiresImage?: boolean;
 }> {
   try {
-    // Using OpenAI for reliable JSON parsing
-    if (process.env.OPENAI_API_KEY) {
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-            "Content-Type": "application/json",
+    // Using OpenRouter with Claude for reliable JSON parsing
+    if (process.env.OPENROUTER_API_KEY) {
+      const openai = getOpenRouterClient();
+      const response = await openai.chat.completions.create({
+        model: "anthropic/claude-sonnet-4",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert educational content analyzer. Return ONLY valid JSON, no other text.`,
           },
-          body: JSON.stringify({
-            model: "gpt-4-turbo-preview",
-            messages: [
-              {
-                role: "system",
-                content: `You are an expert educational content analyzer. Return ONLY valid JSON, no other text.`,
-              },
-              {
-                role: "user",
-                content: `Analyze this OCR text and return ONLY a JSON object:
+          {
+            role: "user",
+            content: `Analyze this OCR text and return ONLY a JSON object:
 
 OCR Text: "${ocrText}"
 
@@ -209,16 +213,13 @@ Rules:
 - difficulty: EASY, MEDIUM, HARD, or VERY_HARD
 - requiresImage: true if question mentions diagrams/graphs/charts
 - Return ONLY the JSON, nothing else`,
-              },
-            ],
-            max_tokens: 1000,
-            temperature: 0.1,
-          }),
-        }
-      );
+          },
+        ],
+        max_tokens: 1000,
+        temperature: 0.1,
+      });
 
-      const data = await response.json();
-      const aiResponse = data.choices?.[0]?.message?.content;
+      const aiResponse = response.choices?.[0]?.message?.content;
 
       if (aiResponse) {
         // Clean the response - remove any markdown formatting or extra text

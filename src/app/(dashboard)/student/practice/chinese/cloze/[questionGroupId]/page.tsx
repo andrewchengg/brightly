@@ -15,6 +15,7 @@ import {
 import safeStorage from "@/lib/safeStorage";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
+import { soundEffects } from "@/lib/soundEffects";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -36,6 +37,7 @@ import {
 
 import PassageDisplay from "@/components/Practice/PassageDisplay";
 import ConfettiComponent from "@/components/Confetti";
+import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import {
   AIAssistant,
   createPassageContext,
@@ -118,6 +120,7 @@ export default function ClozePassagePracticePage() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -441,19 +444,16 @@ export default function ClozePassagePracticePage() {
         0
       );
       const finalCorrectCount = questionResults.filter((r) => r.correct).length;
-      const response = await fetch(
-        `/api/practice-session/complete`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: currentPracticeSessionId,
-            score: finalScore,
-            correctAnswers: finalCorrectCount,
-            xpEarned: finalScore,
-          }),
-        }
-      );
+      const response = await fetch(`/api/practice-session/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: currentPracticeSessionId,
+          score: finalScore,
+          correctAnswers: finalCorrectCount,
+          xpEarned: finalScore,
+        }),
+      });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || "Failed to finalize session");
@@ -542,11 +542,21 @@ export default function ClozePassagePracticePage() {
   }, [
     localStorageKey /* fetchContentAndStart is implicitly re-run due to initialLoadComplete change */,
   ]);
-  const exitToSubjectPractice = useCallback(async () => {
+  const handleExitConfirm = useCallback(() => {
+    // Exit immediately without waiting for API call
     if (currentSubjectId)
       router.push(`/student/practice/subject/${currentSubjectId}`);
     else router.push("/student/practice/subject/4");
-  }, [currentSubjectId, router]);
+
+    // Clean up session in background if needed
+    if (localStorageKey) {
+      safeStorage.removeItem(localStorageKey, "local");
+    }
+  }, [currentSubjectId, router, localStorageKey]);
+
+  const exitToSubjectPractice = useCallback(() => {
+    setShowExitDialog(true);
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -634,8 +644,8 @@ export default function ClozePassagePracticePage() {
             onClose={() => setShowLevelUp(false)}
           />
         )}{" "}
-        <ConfettiComponent 
-          trigger={showConfetti} 
+        <ConfettiComponent
+          trigger={showConfetti}
           onComplete={() => setShowConfetti(false)}
         />
         <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
@@ -711,40 +721,57 @@ export default function ClozePassagePracticePage() {
                           {result.correct ? (
                             <div className="flex items-center text-green-600">
                               <FaCheck className="mr-1" />
-                              <span className="text-xs font-medium">Correct</span>
+                              <span className="text-xs font-medium">
+                                Correct
+                              </span>
                             </div>
                           ) : (
                             <div className="flex items-center text-red-600">
                               <FaTimes className="mr-1" />
-                              <span className="text-xs font-medium">Incorrect</span>
+                              <span className="text-xs font-medium">
+                                Incorrect
+                              </span>
                             </div>
                           )}
                         </div>
                       </div>
-                      
+
                       <p className="text-sm mb-3 text-gray-700 leading-relaxed">
                         {result.question}
                       </p>
-                      
+
                       <div className="space-y-2 text-xs">
                         <div className="flex flex-wrap">
-                          <span className="font-medium text-gray-600 mr-2">Your Answer:</span>
-                          <span className={`${result.correct ? 'text-green-700' : 'text-red-700'} font-medium`}>
-                            {typeof result.userAnswer === 'object' 
-                              ? Object.entries(result.userAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                              : result.userAnswer || 'No answer'}
+                          <span className="font-medium text-gray-600 mr-2">
+                            Your Answer:
+                          </span>
+                          <span
+                            className={`${
+                              result.correct ? "text-green-700" : "text-red-700"
+                            } font-medium`}
+                          >
+                            {typeof result.userAnswer === "object"
+                              ? Object.entries(result.userAnswer)
+                                  .map(([key, value]) => `${key}: ${value}`)
+                                  .join(", ")
+                              : result.userAnswer || "No answer"}
                           </span>
                         </div>
-                        
+
                         {!result.correct && (
                           <div className="flex flex-wrap">
-                            <span className="font-medium text-gray-600 mr-2">Correct Answer:</span>
+                            <span className="font-medium text-gray-600 mr-2">
+                              Correct Answer:
+                            </span>
                             <span className="text-green-700 font-medium">
-                              {typeof result.correctAnswer === 'object' && result.correctAnswer !== null
-                                ? Array.isArray(result.correctAnswer) 
-                                  ? result.correctAnswer.join(', ')
-                                  : Object.entries(result.correctAnswer).map(([key, value]) => `${key}: ${value}`).join(', ')
-                                : result.correctAnswer || 'N/A'}
+                              {typeof result.correctAnswer === "object" &&
+                              result.correctAnswer !== null
+                                ? Array.isArray(result.correctAnswer)
+                                  ? result.correctAnswer.join(", ")
+                                  : Object.entries(result.correctAnswer)
+                                      .map(([key, value]) => `${key}: ${value}`)
+                                      .join(", ")
+                                : result.correctAnswer || "N/A"}
                             </span>
                           </div>
                         )}
@@ -813,6 +840,19 @@ export default function ClozePassagePracticePage() {
           onClose={() => setShowLevelUp(false)}
         />
       )}
+      <ExitPracticeDialog
+        isOpen={showExitDialog}
+        onClose={() => setShowExitDialog(false)}
+        onExit={handleExitConfirm}
+        title="Exit Cloze Practice?"
+        subtitle="You're working on a Chinese cloze passage"
+        currentProgress={{
+          currentQuestion: 1,
+          totalQuestions: questions.length,
+          score: score,
+          correctAnswers: questionResults.filter((r) => r.correct).length,
+        }}
+      />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm sticky top-0 z-10">
         <button
           onClick={exitToSubjectPractice}
@@ -902,6 +942,8 @@ export default function ClozePassagePracticePage() {
                   onClick={() => {
                     setShowSummary(true);
                     setShowConfetti(true);
+                    // Play level up sound for session completion
+                    soundEffects.playLevelUpSound();
                   }}
                   className="bg-indigo-600 hover:bg-indigo-700"
                 >

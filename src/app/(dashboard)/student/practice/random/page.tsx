@@ -13,13 +13,16 @@ import {
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
 import ExplanationFormatter from "@/components/ExplanationFormatter";
+import { soundEffects } from "@/lib/soundEffects";
 import QuestionTextFormatter from "@/components/QuestionTextFormatter";
 import {
   AIAssistant,
   createSessionContext,
   createQuestionContext,
 } from "@/components/AILearningAssistant";
+import { InteractiveLoadingAnimation } from "@/components/ui/InteractiveLoadingAnimation";
 import ConfettiComponent from "@/components/Confetti";
+import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -134,6 +137,7 @@ export default function RandomPractice() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -615,6 +619,7 @@ export default function RandomPractice() {
       if (levelUpInfo) {
         setNewLevel(levelUpInfo.newLevel);
         setShowLevelUp(true);
+        soundEffects.playLevelUpSound();
       }
 
       // Session completed - data is stored in database
@@ -746,9 +751,10 @@ export default function RandomPractice() {
         ];
     const isCorrect = cAnsArr.includes(userAnswer.toLowerCase());
 
-    // Trigger confetti for correct answers
+    // Trigger confetti and sound for correct answers
     if (isCorrect) {
       setShowConfetti(true);
+      soundEffects.playSuccessSound();
     }
 
     // AI feedback will be handled by the new AI assistant component
@@ -786,9 +792,10 @@ export default function RandomPractice() {
     setMultiPartResults(currentPartResults); // For UI feedback on individual parts
     setSelectedAnswer(JSON.stringify(multiPartAnswers)); // Mark as answered for UI disabling
 
-    // Trigger confetti for correct answers
+    // Trigger confetti and sound for correct answers
     if (allPartsCorrect) {
       setShowConfetti(true);
+      soundEffects.playSuccessSound();
     }
 
     // AI feedback will be handled by the new AI assistant component
@@ -823,35 +830,24 @@ export default function RandomPractice() {
     await initializePracticeSession();
   }, [initializePracticeSession]);
 
-  const clearProgressAndExit = useCallback(async () => {
-    const confirmExit =
-      typeof window !== "undefined" &&
-      window.confirm(
-        "Are you sure you want to exit? All progress for this session will be lost."
-      );
-    if (confirmExit) {
-      // Session being discarded - no need to clear localStorage as we're using database
-      if (currentPracticeSessionId) {
-        try {
-          const response = await fetch(
-            `/api/practice-sessions/${currentPracticeSessionId}`,
-            { method: "DELETE" }
-          );
-          if (!response.ok) {
-            const errData = await response.json();
-            toast.error(
-              `Could not discard session: ${errData.error || "Server error"}`
-            );
-          } else {
-            toast.info("Practice session discarded.");
-          }
-        } catch (err: any) {
-          toast.error(`Error discarding session: ${err.message}`);
-        }
-      }
-      router.push("/student/practice");
+  const handleExitConfirm = useCallback(() => {
+    // Exit immediately without waiting for API call
+    router.push("/student/practice");
+
+    // Delete session in background (fire and forget)
+    if (currentPracticeSessionId) {
+      fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+        method: "DELETE",
+      }).catch((err) => {
+        console.warn("Failed to delete practice session:", err);
+        // Don't show toast error since user has already left the page
+      });
     }
-  }, [currentPracticeSessionId, userId, router]);
+  }, [currentPracticeSessionId, router]);
+
+  const clearProgressAndExit = useCallback(() => {
+    setShowExitDialog(true);
+  }, []);
 
   // Old AI chat functions removed - now handled by new AI assistant component
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -1166,25 +1162,11 @@ export default function RandomPractice() {
   ) {
     // More specific loading check
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <div className="bg-white p-8 rounded-2xl shadow-lg text-center w-full max-w-md">
-          <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-full bg-indigo-100">
-            <FaSpinner className="animate-spin text-indigo-600 text-3xl" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
-            Preparing Your Practice Session
-          </h2>
-          <p className="text-gray-600 mb-4">
-            Loading questions and personalizing your experience...
-          </p>
-          <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-            <div
-              className="bg-indigo-600 h-2 animate-pulse"
-              style={{ width: "75%" }}
-            ></div>
-          </div>
-        </div>
-      </div>
+      <InteractiveLoadingAnimation
+        title="Preparing Your Practice Session"
+        subtitle="Loading questions and personalizing your experience..."
+        theme="practice"
+      />
     );
   }
 
@@ -1429,6 +1411,19 @@ export default function RandomPractice() {
       <ConfettiComponent
         trigger={showConfetti}
         onComplete={() => setShowConfetti(false)}
+      />
+      <ExitPracticeDialog
+        isOpen={showExitDialog}
+        onClose={() => setShowExitDialog(false)}
+        onExit={handleExitConfirm}
+        title="Exit Random Practice?"
+        subtitle="You're in the middle of a practice session"
+        currentProgress={{
+          currentQuestion: currentQuestionIndex + 1,
+          totalQuestions: questions.length,
+          score: score,
+          correctAnswers: questionResults.filter((r) => r.correct).length,
+        }}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
         <button

@@ -15,6 +15,7 @@ import safeStorage from "@/lib/safeStorage";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
 import ExplanationFormatter from "@/components/ExplanationFormatter";
+import { soundEffects } from "@/lib/soundEffects";
 import QuestionTextFormatter from "@/components/QuestionTextFormatter";
 import {
   AIAssistant,
@@ -26,7 +27,9 @@ import {
   sanitizeUserInput,
   getHelpfulSuggestions,
 } from "@/lib/client-validation";
+import { InteractiveLoadingAnimation } from "@/components/ui/InteractiveLoadingAnimation";
 import ConfettiComponent from "@/components/Confetti";
+import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -282,6 +285,7 @@ export default function TopicalPracticePage() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -844,6 +848,7 @@ export default function TopicalPracticePage() {
       if (levelUpInfo) {
         setNewLevel(levelUpInfo.newLevel);
         setShowLevelUp(true);
+        soundEffects.playLevelUpSound();
       }
       safeStorage.removeItem(localStorageKey, "local");
       toast.success("Topical practice completed and results saved!");
@@ -1019,9 +1024,10 @@ export default function TopicalPracticePage() {
     setMultiPartResults(currentPartResults);
     setSelectedAnswer(JSON.stringify(multiPartAnswers));
 
-    // Trigger confetti for correct answers
+    // Trigger confetti and sound for correct answers
     if (allPartsCorrect) {
       setShowConfetti(true);
+      soundEffects.playSuccessSound();
     }
 
     const feedback = allPartsCorrect
@@ -1056,13 +1062,23 @@ export default function TopicalPracticePage() {
     await fetchTopicalQuestionsAndStartSession();
   }, [localStorageKey, fetchTopicalQuestionsAndStartSession]);
 
-  const exitToTopicList = useCallback(async () => {
+  const handleExitConfirm = useCallback(() => {
+    // Exit immediately without waiting for API call
     if (userId && currentTopic?.subjectId) {
       router.push(`/student/practice/subject/${currentTopic.subjectId}`);
     } else {
       router.push("/student/practice");
     }
-  }, [userId, currentTopic, router]);
+
+    // Clean up session in background if needed
+    if (currentPracticeSessionId && localStorageKey) {
+      safeStorage.removeItem(localStorageKey, "local");
+    }
+  }, [userId, currentTopic, router, currentPracticeSessionId, localStorageKey]);
+
+  const exitToTopicList = useCallback(() => {
+    setShowExitDialog(true);
+  }, []);
 
   const handleSendMessage = useCallback(async () => {
     if (!userMessage.trim() || !currentQuestion) return;
@@ -1460,19 +1476,11 @@ export default function TopicalPracticePage() {
     (loading === true && !currentQuestion && !error && !currentTopic)
   ) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <div className="bg-white p-8 rounded-2xl shadow-lg text-center w-full max-w-md">
-          <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-full bg-indigo-100">
-            <FaSpinner className="animate-spin text-indigo-600 text-3xl" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
-            Preparing Your Topic Practice
-          </h2>
-          <p className="text-gray-600 mb-4">
-            Loading topic details and questions...
-          </p>
-        </div>
-      </div>
+      <InteractiveLoadingAnimation
+        title="Preparing Your Topic Practice"
+        subtitle="Loading topic details and questions..."
+        theme="study"
+      />
     );
   }
   if (error) {
@@ -1735,6 +1743,19 @@ export default function TopicalPracticePage() {
       <ConfettiComponent
         trigger={showConfetti}
         onComplete={() => setShowConfetti(false)}
+      />
+      <ExitPracticeDialog
+        isOpen={showExitDialog}
+        onClose={() => setShowExitDialog(false)}
+        onExit={handleExitConfirm}
+        title="Exit Topic Practice?"
+        subtitle="You're practicing topic questions"
+        currentProgress={{
+          currentQuestion: currentQuestionIndex + 1,
+          totalQuestions: questions.length,
+          score: score,
+          correctAnswers: questionResults.filter((r) => r.correct).length,
+        }}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
         <button

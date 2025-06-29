@@ -1,16 +1,28 @@
 // src/app/api/analyze-oral-response/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const getOpenRouterClient = () => {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OpenRouter API key is not configured");
+  }
+
+  return new OpenAI({
+    apiKey: apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+      "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
+      "X-Title": "Brightly - Educational Learning Platform",
+    },
+  });
+};
 
 interface AnalysisRequestBody {
   transcription: string;
   promptTitle: string;
   promptType: "picture" | "video" | "passage";
-  promptDetails?: string; 
+  promptDetails?: string;
   guidingQuestions?: string[];
   originalPassageText?: string; // Specifically for passage reading
 }
@@ -35,21 +47,24 @@ interface PassageReadingFeedback {
   };
 }
 
-
-async function analyzeWithLLM(systemMessage: string, userMessage: string): Promise<string> {
+async function analyzeWithLLM(
+  systemMessage: string,
+  userMessage: string
+): Promise<string> {
   try {
+    const openai = getOpenRouterClient();
     const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview", 
+      model: "anthropic/claude-sonnet-4",
       messages: [
         { role: "system", content: systemMessage },
-        { role: "user", content: userMessage }
+        { role: "user", content: userMessage },
       ],
       temperature: 0.2, // Lower temperature for more factual, less creative analysis
       // response_format: { type: "json_object" }, // If we want structured JSON output directly
     });
     return completion.choices[0]?.message?.content || "Could not get analysis.";
   } catch (error) {
-    console.error("Error calling OpenAI for analysis:", error);
+    console.error("Error calling OpenRouter for analysis:", error);
     return `Error during analysis: ${(error as Error).message}`;
   }
 }
@@ -57,10 +72,20 @@ async function analyzeWithLLM(systemMessage: string, userMessage: string): Promi
 export async function POST(req: NextRequest) {
   try {
     const body: AnalysisRequestBody = await req.json();
-    const { transcription, promptTitle, promptType, promptDetails, guidingQuestions, originalPassageText } = body;
+    const {
+      transcription,
+      promptTitle,
+      promptType,
+      promptDetails,
+      guidingQuestions,
+      originalPassageText,
+    } = body;
 
     if (!transcription) {
-      return NextResponse.json({ error: 'Transcription is required.' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Transcription is required." },
+        { status: 400 }
+      );
     }
 
     let feedbackResponse: PassageReadingFeedback | Record<string, string> = {};
@@ -94,23 +119,56 @@ Omitted: "非常"
 Added: "真的"
 `;
 
-      const rawAnalysis = await analyzeWithLLM(systemMessagePassage, userMessagePassage);
-      
+      const rawAnalysis = await analyzeWithLLM(
+        systemMessagePassage,
+        userMessagePassage
+      );
+
       // Attempt to parse the rawAnalysis into a more structured format.
       // This is a simple parsing attempt; more robust parsing might be needed.
       feedbackResponse = {
-        overallImpression: rawAnalysis.match(/Overall Impression:([\s\S]*?)(Word Accuracy:|Fluency:|Pronunciation and Intonation:|$)/i)?.[1]?.trim() || "Analysis did not provide an overall impression.",
-        wordAccuracy: { comments: rawAnalysis.match(/Word Accuracy:([\s\S]*?)(Fluency:|Pronunciation and Intonation:|$)/i)?.[1]?.trim() || "No specific comments on word accuracy provided." },
-        fluency: { textBasedObservations: rawAnalysis.match(/Fluency:([\s\S]*?)(Pronunciation and Intonation:|$)/i)?.[1]?.trim() || "No specific comments on text-based fluency provided." },
-        pronunciationAndIntonation: { generalAdvice: rawAnalysis.match(/Pronunciation and Intonation:([\s\S]*?)$/i)?.[1]?.trim() || "Remember to read clearly with correct tones and appropriate expression." }
+        overallImpression:
+          rawAnalysis
+            .match(
+              /Overall Impression:([\s\S]*?)(Word Accuracy:|Fluency:|Pronunciation and Intonation:|$)/i
+            )?.[1]
+            ?.trim() || "Analysis did not provide an overall impression.",
+        wordAccuracy: {
+          comments:
+            rawAnalysis
+              .match(
+                /Word Accuracy:([\s\S]*?)(Fluency:|Pronunciation and Intonation:|$)/i
+              )?.[1]
+              ?.trim() || "No specific comments on word accuracy provided.",
+        },
+        fluency: {
+          textBasedObservations:
+            rawAnalysis
+              .match(
+                /Fluency:([\s\S]*?)(Pronunciation and Intonation:|$)/i
+              )?.[1]
+              ?.trim() ||
+            "No specific comments on text-based fluency provided.",
+        },
+        pronunciationAndIntonation: {
+          generalAdvice:
+            rawAnalysis
+              .match(/Pronunciation and Intonation:([\s\S]*?)$/i)?.[1]
+              ?.trim() ||
+            "Remember to read clearly with correct tones and appropriate expression.",
+        },
       };
       // You could further refine parsing for misread, omitted, added words if the LLM consistently formats them.
-
-    } else { // For Picture/Video Conversation (existing logic)
+    } else {
+      // For Picture/Video Conversation (existing logic)
       const comprehensionPrompt = `You are an expert PSLE Chinese Oral examiner.
       The student was given an oral prompt titled "${promptTitle}" (${promptType}).
-      ${promptDetails ? `Details of the prompt: "${promptDetails}"` : ''}
-      ${guidingQuestions && guidingQuestions.length > 0 ? `Guiding questions were: ${guidingQuestions.join(", ")}` : ''}
+      ${promptDetails ? `Details of the prompt: "${promptDetails}"` : ""}
+      ${
+        guidingQuestions && guidingQuestions.length > 0
+          ? `Guiding questions were: ${guidingQuestions.join(", ")}`
+          : ""
+      }
       The student's transcribed response is: "${transcription}"
 
       Analyze the following:
@@ -119,24 +177,39 @@ Added: "真的"
       3. Fluency & Coherence (Text-based): Comment on logical flow, organization, and any textual signs of dysfluency.
       Provide specific examples and constructive feedback. Keep feedback concise and actionable.
       Format your response clearly under distinct headings for each aspect.`;
-      
+
       const rawAnalysis = await analyzeWithLLM(
-          "You are an expert PSLE Chinese Oral examiner providing feedback.",
-          comprehensionPrompt
+        "You are an expert PSLE Chinese Oral examiner providing feedback.",
+        comprehensionPrompt
       );
       // Simple split for conversation feedback, assuming LLM provides distinct sections
       feedbackResponse = {
-          comprehensionAndResponse: rawAnalysis.match(/Comprehension & Relevance:([\s\S]*?)(Vocabulary & Structure:|Fluency & Coherence|$)/i)?.[1]?.trim() || "N/A",
-          vocabularyAndStructure: rawAnalysis.match(/Vocabulary & Structure:([\s\S]*?)(Fluency & Coherence|$)/i)?.[1]?.trim() || "N/A",
-          fluencyAndCoherence: rawAnalysis.match(/Fluency & Coherence:([\s\S]*?)$/i)?.[1]?.trim() || "N/A",
-          pronunciationAndIntonation: "For conversation, focus on natural speech flow, clear articulation, and appropriate tones. Practice speaking spontaneously on various topics."
+        comprehensionAndResponse:
+          rawAnalysis
+            .match(
+              /Comprehension & Relevance:([\s\S]*?)(Vocabulary & Structure:|Fluency & Coherence|$)/i
+            )?.[1]
+            ?.trim() || "N/A",
+        vocabularyAndStructure:
+          rawAnalysis
+            .match(
+              /Vocabulary & Structure:([\s\S]*?)(Fluency & Coherence|$)/i
+            )?.[1]
+            ?.trim() || "N/A",
+        fluencyAndCoherence:
+          rawAnalysis.match(/Fluency & Coherence:([\s\S]*?)$/i)?.[1]?.trim() ||
+          "N/A",
+        pronunciationAndIntonation:
+          "For conversation, focus on natural speech flow, clear articulation, and appropriate tones. Practice speaking spontaneously on various topics.",
       };
     }
 
     return NextResponse.json({ feedback: feedbackResponse });
-
   } catch (error: any) {
-    console.error('Error in /api/analyze-oral-response:', error);
-    return NextResponse.json({ error: 'Failed to analyze oral response.', details: error.message }, { status: 500 });
+    console.error("Error in /api/analyze-oral-response:", error);
+    return NextResponse.json(
+      { error: "Failed to analyze oral response.", details: error.message },
+      { status: 500 }
+    );
   }
 }

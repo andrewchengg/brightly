@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const getOpenRouterClient = () => {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OpenRouter API key is not configured");
+  }
+
+  return new OpenAI({
+    apiKey: apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+      "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
+      "X-Title": "Brightly - Educational Learning Platform",
+    },
+  });
+};
 
 interface RoadmapItem {
   id: string;
@@ -201,8 +213,9 @@ For schedules, respond with this JSON structure:
 
 Always provide helpful, educational advice focused on the child's learning improvement.`;
 
+    const openai = getOpenRouterClient();
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "anthropic/claude-sonnet-4",
       messages: [
         { role: "system", content: systemPrompt },
         {

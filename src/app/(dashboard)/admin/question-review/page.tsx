@@ -439,8 +439,9 @@ export default function QuestionReviewPage() {
     setIsLoading(true);
     setError(null);
     try {
+      // PERFORMANCE FIX: Use pagination instead of fetching all records
       const response = await fetch(
-        `/api/questions/review?productionReady=false&limit=10000`
+        `/api/questions/review?productionReady=false&limit=100&page=1`
       );
       if (!response.ok) {
         const errData = await response.json();
@@ -451,6 +452,11 @@ export default function QuestionReviewPage() {
       }
       const data = await response.json();
 
+      // Show warning if limit was capped
+      if (data.warning) {
+        toast.warning(data.warning);
+      }
+
       // Filter questions based on PSLE toggle
       const filteredQuestions = showPSLEQuestions
         ? data.questions
@@ -460,7 +466,7 @@ export default function QuestionReviewPage() {
           });
 
       setProductionReviewQuestions(filteredQuestions);
-      setTotalProductionReviewQuestions(filteredQuestions.length);
+      setTotalProductionReviewQuestions(data.totalQuestions); // Use server count
       setCurrentProductionReviewIndex(0);
 
       if (filteredQuestions.length > 0) {
@@ -475,11 +481,18 @@ export default function QuestionReviewPage() {
         setSelectedQuestion(formattedQuestion as any);
         setViewMode("productionReview");
       } else {
-        toast.info(
-          `No questions need production review${
-            !showPSLEQuestions ? " (PSLE questions filtered out)" : ""
-          }!`
-        );
+        // Check if there are more questions in other pages
+        if (data.totalQuestions > 0) {
+          toast.info(
+            `Found ${data.totalQuestions} questions for review. Using pagination to load efficiently.`
+          );
+        } else {
+          toast.info(
+            `No questions need production review${
+              !showPSLEQuestions ? " (PSLE questions filtered out)" : ""
+            }!`
+          );
+        }
       }
     } catch (err: any) {
       setError(err.message);
