@@ -12,26 +12,29 @@ const topicCreateSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const subjectIdParam = searchParams.get('subjectId');
-    
+    const subjectIdParam = searchParams.get("subjectId");
+
     const query: any = {};
     if (subjectIdParam) {
       const subjectId = parseInt(subjectIdParam, 10);
       if (!isNaN(subjectId)) {
         query.subjectId = subjectId;
       } else {
-        return NextResponse.json({ error: "Invalid subjectId parameter" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Invalid subjectId parameter" },
+          { status: 400 }
+        );
       }
     }
-    
+
     const topics = await prisma.topic.findMany({
       where: query,
       include: {
-        subject: true, 
+        subject: true,
       },
       orderBy: {
-        name: 'asc' // Optional: order topics alphabetically
-      }
+        name: "asc", // Optional: order topics alphabetically
+      },
     });
 
     return NextResponse.json(topics);
@@ -42,7 +45,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,21 +53,33 @@ export async function POST(request: NextRequest) {
     const validation = topicCreateSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json({ error: "Invalid data provided", details: validation.error.flatten().fieldErrors }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Invalid data provided",
+          details: validation.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
     }
 
     const { name, description, subjectId } = validation.data;
 
     // Check if subject exists
-    const subjectExists = await prisma.subject.findUnique({ where: { id: subjectId } });
+    const subjectExists = await prisma.subject.findUnique({
+      where: { id: subjectId },
+    });
     if (!subjectExists) {
-      return NextResponse.json({ error: `Subject with ID ${subjectId} not found.` }, { status: 404 });
+      return NextResponse.json(
+        { error: `Subject with ID ${subjectId} not found.` },
+        { status: 404 }
+      );
     }
 
     // Check for duplicate topic name within the same subject
     const existingTopic = await prisma.topic.findUnique({
       where: {
-        name_subjectId: { // Using the @@unique constraint defined in schema
+        name_subjectId: {
+          // Using the @@unique constraint defined in schema
           name: name,
           subjectId: subjectId,
         },
@@ -72,7 +87,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingTopic) {
-      return NextResponse.json({ error: `Topic "${name}" already exists for this subject.` }, { status: 409 });
+      return NextResponse.json(
+        { error: `Topic "${name}" already exists for this subject.` },
+        { status: 409 }
+      );
     }
 
     const newTopic = await prisma.topic.create({
@@ -84,11 +102,14 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(newTopic, { status: 201 });
-
   } catch (error: any) {
     console.error("API Error creating topic:", error);
-    if (error.code === 'P2002') { // Prisma unique constraint error (backup check)
-        return NextResponse.json({ error: "A topic with this name already exists for the subject." }, { status: 409 });
+    if (error.code === "P2002") {
+      // Prisma unique constraint error (backup check)
+      return NextResponse.json(
+        { error: "A topic with this name already exists for the subject." },
+        { status: 409 }
+      );
     }
     return NextResponse.json(
       { error: "Failed to create topic", details: error.message },

@@ -30,6 +30,7 @@ import {
 import { InteractiveLoadingAnimation } from "@/components/ui/InteractiveLoadingAnimation";
 import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
+import { triggerQuestRefresh } from "@/lib/quest-refresh";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -852,6 +853,9 @@ export default function TopicalPracticePage() {
       }
       safeStorage.removeItem(localStorageKey, "local");
       toast.success("Topical practice completed and results saved!");
+
+      // Refresh quest progress after completion
+      triggerQuestRefresh();
     } catch (err: any) {
       toast.error(`Session finalization error: ${err.message}`);
       console.error("Session finalization error:", err);

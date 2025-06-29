@@ -44,6 +44,7 @@ import {
   createSessionContext,
   AIAssistantRef,
 } from "@/components/AILearningAssistant";
+import { triggerQuestRefresh } from "@/lib/quest-refresh";
 
 export interface OptionClient {
   id: string;
@@ -465,6 +466,9 @@ export default function ClozePassagePracticePage() {
       }
       if (localStorageKey) safeStorage.removeItem(localStorageKey, "local");
       toast.success("Cloze passage practice completed!");
+
+      // Refresh quest progress after completion
+      triggerQuestRefresh();
     } catch (err: any) {
       toast.error(`Session finalization error: ${err.message}`);
     } finally {

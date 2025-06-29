@@ -67,9 +67,16 @@ export async function POST(request: NextRequest) {
 
     // Update weekly quest progress
     try {
+      console.log(
+        `🎯 About to update quest progress for session ${sessionId}, student ${studentId}`
+      );
+      console.log(
+        `Session details: score=${score}, correctAnswers=${correctAnswers}, xpEarned=${xpEarned}`
+      );
       await updateQuestProgressForSession(updatedSession);
+      console.log(`✅ Quest progress updated successfully`);
     } catch (questError) {
-      console.error("Error updating quest progress:", questError);
+      console.error("❌ Error updating quest progress:", questError);
       // Don't fail the session completion if quest update fails
     }
 

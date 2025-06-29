@@ -2,12 +2,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
+import { PrismaClient } from "@/generated/prisma";
 import {
   calculateLevel,
   calculateNextLevelXP,
   calculateProgressToNextLevel,
   checkLevelUp,
 } from "@/lib/xp-utils";
+
+const prisma = new PrismaClient();
 
 interface XpRequestBody {
   xpAmount: number;
@@ -17,11 +20,11 @@ interface XpRequestBody {
 export async function POST(req: NextRequest) {
   const cookieStore = cookies();
 
-  // Use createServerClient from @supabase/ssr for API routes
+  // Use Supabase for authentication only
   const supabase = createClient();
 
   try {
-    // Get the authenticated user directly for security
+    // Get the authenticated user for security
     const {
       data: { user },
       error: authError,
@@ -39,49 +42,76 @@ export async function POST(req: NextRequest) {
     const { xpAmount, activityType } = (await req.json()) as XpRequestBody;
 
     if (xpAmount == null || typeof xpAmount !== "number") {
-      // Check for null or undefined explicitly
       return NextResponse.json({ error: "Invalid XP amount" }, { status: 400 });
     }
 
-    const { data: studentData, error: studentError } = await supabase
-      .from("Student")
-      .select("xpPoints")
-      .eq("id", userId)
-      .single();
+    console.log(
+      `💎 Awarding ${xpAmount} XP to student ${userId} for ${
+        activityType || "activity"
+      }`
+    );
 
-    if (studentError) {
-      console.error("Error fetching student data:", studentError);
+    // Use Prisma to fetch student data (consistent with rest of app)
+    const student = await prisma.student.findUnique({
+      where: { id: userId },
+      select: {
+        xpPoints: true,
+        name: true,
+        username: true,
+      },
+    });
+
+    if (!student) {
+      console.error(`Student not found: ${userId}`);
       return NextResponse.json(
         {
-          error: "Failed to fetch student data",
-          details: studentError.message,
+          error: "Student not found",
+          details: `No student record found for user ID: ${userId}`,
         },
-        { status: 500 }
+        { status: 404 }
       );
     }
 
-    const currentXP = studentData?.xpPoints || 0;
+    const currentXP = student.xpPoints || 0;
     const newXP = currentXP + xpAmount;
+
+    console.log(`📊 XP update: ${currentXP} → ${newXP} (+${xpAmount})`);
 
     const levelUpInfo = checkLevelUp(currentXP, newXP);
     const newLevel = calculateLevel(newXP);
 
-    const { error: updateError } = await supabase
-      .from("Student")
-      .update({ xpPoints: newXP, updatedAt: new Date().toISOString() })
-      .eq("id", userId);
+    // Use Prisma to update student XP (consistent with rest of app)
+    const updatedStudent = await prisma.student.update({
+      where: { id: userId },
+      data: {
+        xpPoints: newXP,
+        level: newLevel, // Update calculated level as well
+        updatedAt: new Date(),
+      },
+      select: {
+        xpPoints: true,
+        level: true,
+        name: true,
+      },
+    });
 
-    if (updateError) {
-      console.error("Error updating XP:", updateError);
-      return NextResponse.json(
-        { error: "Failed to update XP", details: updateError.message },
-        { status: 500 }
+    console.log(
+      `✅ XP awarded successfully to ${
+        student.name || student.username
+      }: ${xpAmount} XP`
+    );
+
+    if (levelUpInfo.leveledUp) {
+      console.log(
+        `🎉 Level up! ${
+          student.name || student.username
+        } reached level ${newLevel}!`
       );
     }
 
     return NextResponse.json({
       success: true,
-      currentXp: newXP,
+      currentXp: updatedStudent.xpPoints,
       awarded: xpAmount,
       level: newLevel,
       leveledUp: levelUpInfo.leveledUp,
@@ -90,10 +120,12 @@ export async function POST(req: NextRequest) {
       progressToNextLevel: calculateProgressToNextLevel(newXP),
     });
   } catch (error: any) {
-    console.error("Error in award-xp endpoint:", error);
+    console.error("❌ Error in award-xp endpoint:", error);
     return NextResponse.json(
       { error: "Internal server error", details: error.message },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

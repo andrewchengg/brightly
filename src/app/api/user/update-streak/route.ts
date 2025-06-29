@@ -48,9 +48,6 @@ async function calculateCurrentStreak(userId: string): Promise<number> {
   }
 
   const today = new Date();
-  const todayDateString = today.toISOString().split("T")[0];
-
-  // Check if user practiced today
   let currentStreak = 0;
   let checkDate = new Date(today);
 
@@ -80,7 +77,6 @@ async function calculateCurrentStreak(userId: string): Promise<number> {
 
 export async function POST(req: NextRequest) {
   const cookieStore = cookies();
-
   const supabase = createClient();
 
   try {
@@ -98,24 +94,19 @@ export async function POST(req: NextRequest) {
 
     const userId = user.id;
 
-    const { data: studentData, error: studentFetchError } = await supabase
-      .from("Student")
-      .select("currentStreak, longestStreak, lastActivityDate")
-      .eq("id", userId)
-      .single();
+    // Use Prisma instead of Supabase to avoid RLS recursion issues
+    const studentData = await prisma.student.findUnique({
+      where: { id: userId },
+      select: {
+        currentStreak: true,
+        longestStreak: true,
+        lastActivityDate: true,
+      },
+    });
 
-    if (studentFetchError) {
-      console.error(
-        "Error fetching student data for streak:",
-        studentFetchError
-      );
-      return NextResponse.json(
-        {
-          error: "Failed to fetch student data",
-          details: studentFetchError.message,
-        },
-        { status: 500 }
-      );
+    if (!studentData) {
+      console.error("Student not found for ID:", userId);
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
     const today = new Date();
@@ -141,7 +132,7 @@ export async function POST(req: NextRequest) {
     // Check if this is a new activity today
     if (lastActivityDateString !== todayDateString) {
       // New activity today, update last activity date
-      newLastActivityDate = todayDateString;
+      newLastActivityDate = new Date(todayDateString);
       needsDatabaseUpdate = true;
 
       // Recalculate streak to account for today's activity
@@ -170,29 +161,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (needsDatabaseUpdate) {
-      const { error: updateError } = await supabase
-        .from("Student")
-        .update({
+      // Use Prisma instead of Supabase to bypass RLS policies
+      await prisma.student.update({
+        where: { id: userId },
+        data: {
           currentStreak: currentStreak,
           longestStreak: longestStreak,
-          lastActivityDate: newLastActivityDate || todayDateString,
-          updatedAt: new Date().toISOString(),
-        })
-        .eq("id", userId);
+          lastActivityDate: newLastActivityDate || new Date(todayDateString),
+          updatedAt: new Date(),
+        },
+      });
 
-      if (updateError) {
-        console.error("Error updating streak in DB:", updateError);
-        return NextResponse.json(
-          {
-            error: "Failed to update streak in DB",
-            details: updateError.message,
-          },
-          { status: 500 }
-        );
-      }
       console.log(
         `DB Streak updated for user ${userId}: Current: ${currentStreak}, Longest: ${longestStreak}, Last Activity: ${
-          newLastActivityDate || todayDateString
+          newLastActivityDate || new Date(todayDateString)
         }`
       );
     }
@@ -201,7 +183,7 @@ export async function POST(req: NextRequest) {
       success: true,
       currentStreak: currentStreak,
       longestStreak: longestStreak,
-      lastActivityDate: newLastActivityDate || todayDateString,
+      lastActivityDate: newLastActivityDate || new Date(todayDateString),
     });
   } catch (error: any) {
     console.error("Error in update-streak endpoint:", error);
@@ -209,5 +191,7 @@ export async function POST(req: NextRequest) {
       { error: "Internal server error", details: error.message },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

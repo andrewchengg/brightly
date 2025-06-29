@@ -26,7 +26,15 @@ export async function updateQuestProgressForSession(
   const weekStart = getWeekStart();
 
   console.log(
-    `🎯 Updating quest progress for student ${studentId} after practice session`
+    `🎯 Updating quest progress for student ${studentId} after practice session ${practiceSession.id}`
+  );
+  console.log(
+    `   Session Type: ${practiceSession.type}, Subject: ${
+      practiceSession.subject?.name || "None"
+    }, Topic: ${practiceSession.topic?.name || "None"}`
+  );
+  console.log(
+    `   Score: ${practiceSession.score}, Correct: ${practiceSession.correctAnswers}/${practiceSession.totalQuestions}, XP: ${practiceSession.xpEarned}`
   );
 
   // Get all active quests for this student for the current week
@@ -44,10 +52,22 @@ export async function updateQuestProgressForSession(
     },
   });
 
+  console.log(`   Found ${activeQuests.length} active quests to check:`);
+  activeQuests.forEach((sq) => {
+    console.log(
+      `   - ${sq.quest.title} (${sq.quest.questType}): ${sq.progress}/${sq.target}`
+    );
+  });
+
   // Update each quest based on the practice session
   for (const studentQuest of activeQuests) {
+    console.log(
+      `\n   Checking quest: ${studentQuest.quest.title} (${studentQuest.quest.questType})`
+    );
     await updateSpecificQuest(studentQuest, practiceSession);
   }
+
+  console.log(`🎯 Finished updating quest progress for student ${studentId}\n`);
 }
 
 // Simplified quest update function
@@ -57,6 +77,8 @@ async function updateSpecificQuest(
 ) {
   const { quest } = studentQuest;
   let progressIncrement = 0;
+
+  console.log(`     Evaluating quest type: ${quest.questType}`);
 
   switch (quest.questType) {
     case "earn-xp":
@@ -199,7 +221,10 @@ async function updateSpecificQuest(
   }
 
   if (progressIncrement > 0) {
+    console.log(`     ➕ Progress increment: ${progressIncrement}`);
     await applyQuestProgressIncrement(studentQuest.id, progressIncrement);
+  } else {
+    console.log(`     ⏸️  No progress increment (${progressIncrement})`);
   }
 }
 
@@ -234,7 +259,7 @@ async function applyQuestProgressIncrement(
   });
 
   console.log(
-    `Updated quest "${studentQuest.quest.title}": ${
+    `     📊 Updated quest "${studentQuest.quest.title}": ${
       studentQuest.progress
     } → ${newProgress}/${studentQuest.target} ${
       isCompleted ? "✅ COMPLETED!" : ""

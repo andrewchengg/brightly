@@ -50,6 +50,7 @@ import ConfettiComponent from "@/components/Confetti";
 import PassageDisplay from "@/components/Practice/PassageDisplay";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import ClozeQuestionOptions from "@/components/Practice/ClozeQuestionOptions";
+import { triggerQuestRefresh } from "@/lib/quest-refresh";
 import { FaRegListAlt } from "react-icons/fa"; // If not already imported
 import { DifficultyLevel } from "@/generated/prisma"; // If not already imported
 
@@ -614,6 +615,9 @@ export default function QuestionGroupPracticePage() {
       }
       safeStorage.removeItem(localStorageKey, "local");
       toast.success("Practice completed and results saved!");
+
+      // Refresh quest progress after completion
+      triggerQuestRefresh();
     } catch (err: any) {
       toast.error(`Session finalization error: ${err.message}`);
     } finally {

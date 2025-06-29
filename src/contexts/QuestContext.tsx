@@ -109,6 +109,27 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [lastFetched, fetchQuests]);
 
+  // Listen for practice session completion events to refresh quest data
+  useEffect(() => {
+    const handlePracticeSessionComplete = () => {
+      console.log("🎯 Practice session completed - refreshing quest data");
+      refreshQuests();
+    };
+
+    // Listen for custom practice completion events
+    window.addEventListener(
+      "practiceSessionCompleted",
+      handlePracticeSessionComplete
+    );
+
+    return () => {
+      window.removeEventListener(
+        "practiceSessionCompleted",
+        handlePracticeSessionComplete
+      );
+    };
+  }, [refreshQuests]);
+
   const value: QuestContextType = {
     questData,
     loading,
@@ -132,7 +153,7 @@ export function useQuests() {
 
 // Hook specifically for quest data (with automatic loading states)
 export function useQuestData() {
-  const { questData, loading, error } = useQuests();
+  const { questData, loading, error, refreshQuests } = useQuests();
 
   return {
     quests: questData?.quests || [],
@@ -142,5 +163,12 @@ export function useQuestData() {
     message: questData?.message || "",
     loading,
     error,
+    refreshQuests, // Expose refresh function
   };
+}
+
+// Utility function to trigger quest refresh from anywhere in the app
+export function triggerQuestRefresh() {
+  const event = new CustomEvent("practiceSessionCompleted");
+  window.dispatchEvent(event);
 }

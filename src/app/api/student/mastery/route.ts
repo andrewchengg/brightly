@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const subjectIdParam = searchParams.get("subjectId");
 
-    // Get all topics for the subject first
+    // Get all topics for the subject
     const topics = await prisma.topic.findMany({
       where: subjectIdParam ? { subjectId: parseInt(subjectIdParam) } : {},
       include: {
@@ -38,72 +38,50 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([]);
     }
 
-    // Use Prisma groupBy for efficient aggregation
-    const masteryStats = await prisma.studentAnswer.groupBy({
-      by: ["questionId"],
-      where: {
-        practiceSession: {
-          studentId: studentId,
-        },
-        question: {
-          topicId: {
-            in: topics.map((t) => t.id),
+    // Simple mastery calculation for each topic
+    const result = [];
+
+    for (const topic of topics) {
+      // Count total attempts and correct answers for this topic
+      const totalAttempts = await prisma.studentAnswer.count({
+        where: {
+          practiceSession: {
+            studentId: studentId,
+          },
+          question: {
+            topicId: topic.id,
           },
         },
-      },
-      _count: {
-        questionId: true,
-      },
-      _max: {
-        isCorrect: true, // Get the latest attempt result for each question
-      },
-    });
+      });
 
-    // Get question details to map to topics
-    const questionIds = masteryStats.map((stat) => stat.questionId);
-    const questions = await prisma.question.findMany({
-      where: {
-        id: {
-          in: questionIds,
+      const correctAnswers = await prisma.studentAnswer.count({
+        where: {
+          practiceSession: {
+            studentId: studentId,
+          },
+          question: {
+            topicId: topic.id,
+          },
+          isCorrect: true,
         },
-      },
-      select: {
-        id: true,
-        topicId: true,
-      },
-    });
+      });
 
-    // Calculate mastery per topic
-    const topicMastery = new Map<number, { correct: number; total: number }>();
+      // Simple formula: (Correct / Total) × 100
+      const masteryPercentage =
+        totalAttempts > 0
+          ? Math.round((correctAnswers / totalAttempts) * 100)
+          : 0;
 
-    for (const stat of masteryStats) {
-      const question = questions.find((q) => q.id === stat.questionId);
-      if (!question) continue;
-
-      const topicId = question.topicId;
-      if (!topicMastery.has(topicId)) {
-        topicMastery.set(topicId, { correct: 0, total: 0 });
-      }
-
-      const current = topicMastery.get(topicId)!;
-      current.total += 1;
-      if (stat._max.isCorrect) {
-        current.correct += 1;
-      }
-    }
-
-    // Format results
-    const result = topics.map((topic) => {
-      const stats = topicMastery.get(topic.id) || { correct: 0, total: 0 };
-      return {
+      result.push({
         topicId: topic.id,
         topicName: topic.name,
         subjectId: topic.subject.id,
         subjectName: topic.subject.name,
-        masteryPercentage:
-          stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
-      };
-    });
+        masteryPercentage,
+        questionsAttempted: totalAttempts,
+        questionsCorrect: correctAnswers,
+      });
+    }
 
     return NextResponse.json(result);
   } catch (error: any) {

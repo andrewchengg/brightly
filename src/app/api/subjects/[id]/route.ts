@@ -7,28 +7,25 @@ export async function GET(
 ) {
   try {
     const id = parseInt(params.id);
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: "Invalid subject ID" },
         { status: 400 }
       );
     }
-    
+
     const subject = await prisma.subject.findUnique({
       where: { id },
       include: {
         topics: true,
       },
     });
-    
+
     if (!subject) {
-      return NextResponse.json(
-        { error: "Subject not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Subject not found" }, { status: 404 });
     }
-    
+
     return NextResponse.json(subject);
   } catch (error) {
     console.error("Error fetching subject:", error);
@@ -37,4 +34,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}

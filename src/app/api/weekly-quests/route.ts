@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { generateQuestsForAllStudents } from "@/lib/quest-service";
 import { calculateLevel } from "@/lib/xp-utils";
-import { PrismaClient } from "@/generated/prisma";
+import { PrismaClient, WeeklyQuestCategory } from "@/generated/prisma";
 
 const prisma = new PrismaClient();
 
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 const questCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 30 * 1000; // 30 seconds cache
 
-// GET /api/weekly-quests - Get current week's quests (optimized)
+// GET /api/weekly-quests - Get current week's quests (with better debugging)
 export async function GET(request: NextRequest) {
   const cookieStore = cookies();
   const supabase = createClient();
@@ -29,11 +29,13 @@ export async function GET(request: NextRequest) {
     }
 
     const studentId = user.id;
+    console.log(`🎯 Fetching weekly quests for student: ${studentId}`);
 
     // Check cache first
     const cacheKey = `quests-${studentId}`;
     const cached = questCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      console.log(`📦 Returning cached quests for ${studentId}`);
       return NextResponse.json(cached.data);
     }
 
@@ -45,11 +47,15 @@ export async function GET(request: NextRequest) {
     weekStart.setHours(0, 0, 0, 0);
     const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    // Single database query with all needed data
-    const [student, studentQuests] = await Promise.all([
+    console.log(
+      `📅 Week range: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
+    );
+
+    // Get student info and current quests
+    const [student, studentQuests, allQuests] = await Promise.all([
       prisma.student.findUnique({
         where: { id: studentId },
-        select: { level: true, xpPoints: true },
+        select: { level: true, xpPoints: true, name: true },
       }),
       prisma.studentQuest.findMany({
         where: {
@@ -71,28 +77,102 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: "asc" },
-        take: 2, // Only get first 2 quests for preview
+      }),
+      // Debug: Get all quests to see what's available
+      prisma.quest.findMany({
+        select: {
+          id: true,
+          questType: true,
+          title: true,
+          isActive: true,
+          minLevel: true,
+          maxLevel: true,
+        },
       }),
     ]);
 
-    // Quick level check
+    console.log(
+      `👤 Student found: ${student?.name || "Unknown"}, XP: ${
+        student?.xpPoints || 0
+      }`
+    );
+    console.log(
+      `📋 Existing student quests for this week: ${studentQuests.length}`
+    );
+    console.log(`🗃 Total quests in database: ${allQuests.length}`);
+
+    // Debug quest availability
+    allQuests.forEach((quest) => {
+      console.log(
+        `  📝 Quest: "${quest.title}" (${quest.questType}) - Active: ${
+          quest.isActive
+        }, MinLevel: ${quest.minLevel}, MaxLevel: ${quest.maxLevel || "None"}`
+      );
+    });
+
+    // Calculate actual level from XP for consistency
     const studentLevel = calculateLevel(student?.xpPoints || 0);
+    console.log(`🎖 Student level: ${studentLevel} (calculated from XP)`);
+
+    // Check what quests are available for this student's level
+    const availableQuests = allQuests.filter(
+      (quest) =>
+        quest.isActive &&
+        quest.minLevel <= studentLevel &&
+        (!quest.maxLevel || quest.maxLevel >= studentLevel)
+    );
+
+    console.log(
+      `🎯 Quests available for level ${studentLevel}: ${availableQuests.length}`
+    );
+    availableQuests.forEach((quest) => {
+      console.log(`  ✅ Available: "${quest.title}" (${quest.questType})`);
+    });
 
     if (studentLevel < 2) {
+      console.log(`🔒 Student level ${studentLevel} is below required level 2`);
       const result = {
         locked: true,
         level: studentLevel,
         requiredLevel: 2,
         message: "Reach level 2 to unlock weekly quests!",
         quests: [],
+        debug: {
+          studentLevel,
+          totalQuestsInDB: allQuests.length,
+          availableQuests: availableQuests.length,
+          studentQuestsThisWeek: studentQuests.length,
+        },
       };
 
-      // Cache the result
       questCache.set(cacheKey, { data: result, timestamp: Date.now() });
       return NextResponse.json(result);
     }
 
-    // Format quests efficiently
+    // If no quests exist for this week, show debug info instead of auto-generating
+    if (studentQuests.length === 0) {
+      console.log(`⚠️ No StudentQuest records found for this week`);
+      console.log(`   Available quests in DB: ${availableQuests.length}`);
+      console.log(`   Student level: ${studentLevel}`);
+      console.log(`   Week start: ${weekStart.toISOString()}`);
+
+      const result = {
+        quests: [],
+        message: "No quests assigned for this week.",
+        debug: {
+          studentLevel,
+          totalQuestsInDB: allQuests.length,
+          availableQuests: availableQuests.length,
+          studentQuestsThisWeek: studentQuests.length,
+          weekStart: weekStart.toISOString(),
+          availableQuestTitles: availableQuests.map((q) => q.title),
+        },
+      };
+
+      return NextResponse.json(result);
+    }
+
+    // Format existing quests
     const formattedQuests = studentQuests.map((sq) => ({
       id: sq.id,
       title: sq.quest.title,
@@ -106,18 +186,24 @@ export async function GET(request: NextRequest) {
       completedAt: sq.completedAt,
     }));
 
-    const result = { quests: formattedQuests };
+    console.log(`📤 Returning ${formattedQuests.length} formatted quests`);
 
-    // Cache the result
+    const result = { quests: formattedQuests };
     questCache.set(cacheKey, { data: result, timestamp: Date.now() });
 
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error("API: Error fetching weekly quests:", error);
+    console.error("❌ API: Error fetching weekly quests:", error);
     return NextResponse.json(
-      { error: "Failed to fetch weekly quests" },
+      {
+        error: "Failed to fetch weekly quests",
+        details: error.message,
+        quests: [], // Always return quests array to prevent UI crashes
+      },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 

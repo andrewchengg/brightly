@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useCallback } from "react";
 import {
   FaTrophy,
@@ -33,6 +34,7 @@ import {
   FaCalendarWeek,
   FaThumbsUp,
   FaRandom,
+  FaRedo,
 } from "react-icons/fa";
 import { useQuestData } from "@/contexts/QuestContext";
 
@@ -82,8 +84,16 @@ const colorMap: { [key: string]: string } = {
 };
 
 export default function WeeklyQuestsPreview() {
-  const { quests, locked, level, requiredLevel, message, loading, error } =
-    useQuestData();
+  const {
+    quests,
+    locked,
+    level,
+    requiredLevel,
+    message,
+    loading,
+    error,
+    refreshQuests,
+  } = useQuestData();
 
   // Fast loading skeleton
   if (loading) {
@@ -253,6 +263,19 @@ export default function WeeklyQuestsPreview() {
             +{quests.length - 2} more quest
             {quests.length - 2 > 1 ? "s" : ""}
           </p>
+        </div>
+      )}
+
+      {/* Manual refresh button for testing */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="text-center pt-2 border-t border-gray-100">
+          <button
+            onClick={refreshQuests}
+            className="text-xs text-blue-500 hover:text-blue-700 flex items-center justify-center mx-auto gap-1"
+          >
+            <FaRedo className="text-xs" />
+            Refresh Quests
+          </button>
         </div>
       )}
     </div>
