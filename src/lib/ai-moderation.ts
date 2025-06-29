@@ -584,12 +584,17 @@ export function generateEducationalSystemPrompt(
 3. Provide clear explanations
 4. Use simple language appropriate for primary school students
 5. ${languageInstruction}
-6. NEVER use action descriptions in asterisks like "*adjusts glasses*" or "*gives thumbs up*" or similar - just speak naturally without describing actions
+6. NEVER use action descriptions in asterisks like "*adjusts glasses*" or "*gives thumbs up*" or similar
+7. NEVER use markdown formatting like **bold text**, *italics*, or numbered lists like **Step 1**, **Step 2**
+8. Speak naturally and conversationally like a friendly tutor would in person
+9. Instead of "Step 1:", just say "First," or "Let's start by..." or "To begin,"
+10. Instead of "**Important:**", just say "Remember," or "Keep in mind that"
+11. Write in a flowing, natural way without special formatting
 
 CONTEXT:
 ${contextString}
 
-Respond helpfully to the student's question without any action descriptions or roleplay elements.`;
+Respond helpfully to the student's question in a natural, conversational way without any markdown formatting or action descriptions.`;
 
   return basePrompt;
 }

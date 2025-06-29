@@ -167,9 +167,16 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
     } else if (view === Views.WEEK) {
       const startOfWeek = moment(date).startOf("week");
       const endOfWeek = moment(date).endOf("week");
-      return `${startOfWeek.format("MMM D")} - ${endOfWeek.format(
-        "MMM D, YYYY"
-      )}`;
+      // Check if both dates are in the same month/year for more compact display
+      if (startOfWeek.format("MMM YYYY") === endOfWeek.format("MMM YYYY")) {
+        return `${startOfWeek.format("MMM D")} - ${endOfWeek.format(
+          "D, YYYY"
+        )}`;
+      } else {
+        return `${startOfWeek.format("MMM D")} - ${endOfWeek.format(
+          "MMM D, YYYY"
+        )}`;
+      }
     } else if (view === Views.DAY) {
       return moment(date).format("dddd, MMMM D, YYYY");
     }
@@ -390,7 +397,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
       {/* Navigation Controls */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl shadow-sm border border-slate-200">
         {/* Left side - Navigation buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <Button
             onClick={navigateToPrev}
             variant="outline"
@@ -398,7 +405,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             className="flex items-center gap-2 border-slate-300 hover:bg-slate-100 hover:border-slate-400 transition-all duration-200"
           >
             <FaChevronLeft size={14} />
-            <span className="hidden sm:inline">Previous</span>
+            <span className="hidden md:inline">Previous</span>
           </Button>
 
           <Button
@@ -417,14 +424,14 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             size="sm"
             className="flex items-center gap-2 border-slate-300 hover:bg-slate-100 hover:border-slate-400 transition-all duration-200"
           >
-            <span className="hidden sm:inline">Next</span>
+            <span className="hidden md:inline">Next</span>
             <FaChevronRight size={14} />
           </Button>
         </div>
 
         {/* Center - Current view title */}
-        <div className="flex items-center gap-4">
-          <h3 className="text-xl font-semibold text-slate-800 min-w-0">
+        <div className="flex items-center gap-4 flex-1 justify-center">
+          <h3 className="text-xl font-semibold text-slate-800 whitespace-nowrap">
             {getViewTitle()}
           </h3>
 
@@ -439,13 +446,13 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
           </div>
         </div>
 
-        {/* Right side - View selector */}
-        <div className="flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1">
+        {/* Right side - View selector (vertical stack) */}
+        <div className="flex flex-col gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1 flex-shrink-0">
           <Button
             onClick={() => setView(Views.MONTH)}
             variant={view === Views.MONTH ? "default" : "ghost"}
             size="sm"
-            className={`rounded-lg text-sm px-4 py-2 transition-all duration-200 ${
+            className={`rounded-lg text-xs px-2 py-1.5 transition-all duration-200 min-w-[50px] ${
               view === Views.MONTH
                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
                 : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
@@ -457,7 +464,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={() => setView(Views.WEEK)}
             variant={view === Views.WEEK ? "default" : "ghost"}
             size="sm"
-            className={`rounded-lg text-sm px-4 py-2 transition-all duration-200 ${
+            className={`rounded-lg text-xs px-2 py-1.5 transition-all duration-200 min-w-[50px] ${
               view === Views.WEEK
                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
                 : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
@@ -469,7 +476,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={() => setView(Views.DAY)}
             variant={view === Views.DAY ? "default" : "ghost"}
             size="sm"
-            className={`rounded-lg text-sm px-4 py-2 transition-all duration-200 ${
+            className={`rounded-lg text-xs px-2 py-1.5 transition-all duration-200 min-w-[50px] ${
               view === Views.DAY
                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
                 : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"

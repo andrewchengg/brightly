@@ -226,6 +226,7 @@ const Menu = () => {
   const router = useRouter(); // For logout redirect
   const [isLoading, setIsLoading] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false);
 
   useEffect(() => {
     if (isLoaded) {
@@ -280,6 +281,27 @@ const Menu = () => {
     }
   }, [role, isLoaded, user?.id]);
 
+  // Manage loading skeleton display with delay to prevent flickering
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    if (!isLoaded || !userRole) {
+      // Show loading skeleton after a short delay to prevent flickering during quick auth checks
+      timeoutId = setTimeout(() => {
+        setShowLoadingSkeleton(true);
+      }, 150); // 150ms delay
+    } else {
+      // Hide loading skeleton immediately when data is ready
+      setShowLoadingSkeleton(false);
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isLoaded, userRole]);
+
   const handleSignOut = async () => {
     try {
       setIsLoading(true);
@@ -291,7 +313,7 @@ const Menu = () => {
     }
   };
 
-  if (!isLoaded || !userRole) {
+  if (showLoadingSkeleton) {
     return (
       <div className="mt-8 p-6">
         <div className="flex flex-col gap-4">
@@ -306,6 +328,11 @@ const Menu = () => {
         </div>
       </div>
     );
+  }
+
+  // If we still don't have the necessary data after the delay, show a fallback
+  if (!isLoaded || !userRole) {
+    return null; // Or return a minimal menu if preferred
   }
 
   // Determine which menu set to use and flatten the items

@@ -166,9 +166,16 @@ const ParentCalendar: React.FC<ParentCalendarProps> = ({ className }) => {
     } else if (view === Views.WEEK) {
       const startOfWeek = moment(date).startOf("week");
       const endOfWeek = moment(date).endOf("week");
-      return `${startOfWeek.format("MMM D")} - ${endOfWeek.format(
-        "MMM D, YYYY"
-      )}`;
+      // Check if both dates are in the same month/year for more compact display
+      if (startOfWeek.format("MMM YYYY") === endOfWeek.format("MMM YYYY")) {
+        return `${startOfWeek.format("MMM D")} - ${endOfWeek.format(
+          "D, YYYY"
+        )}`;
+      } else {
+        return `${startOfWeek.format("MMM D")} - ${endOfWeek.format(
+          "MMM D, YYYY"
+        )}`;
+      }
     } else if (view === Views.DAY) {
       return moment(date).format("dddd, MMMM D, YYYY");
     }
@@ -202,9 +209,9 @@ const ParentCalendar: React.FC<ParentCalendarProps> = ({ className }) => {
       </div>
 
       {/* Navigation Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
         {/* Left side - Navigation buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Button
             onClick={navigateToPrev}
             variant="outline"
@@ -212,7 +219,7 @@ const ParentCalendar: React.FC<ParentCalendarProps> = ({ className }) => {
             className="flex items-center gap-1"
           >
             <FaChevronLeft size={12} />
-            <span className="hidden sm:inline">Previous</span>
+            <span className="hidden md:inline">Previous</span>
           </Button>
 
           <Button
@@ -231,14 +238,14 @@ const ParentCalendar: React.FC<ParentCalendarProps> = ({ className }) => {
             size="sm"
             className="flex items-center gap-1"
           >
-            <span className="hidden sm:inline">Next</span>
+            <span className="hidden md:inline">Next</span>
             <FaChevronRight size={12} />
           </Button>
         </div>
 
         {/* Center - Current view title */}
-        <div className="flex items-center gap-4">
-          <h3 className="text-lg font-medium text-gray-800 min-w-0">
+        <div className="flex items-center gap-4 flex-1 justify-center">
+          <h3 className="text-lg font-medium text-gray-800 whitespace-nowrap">
             {getViewTitle()}
           </h3>
 
@@ -254,7 +261,7 @@ const ParentCalendar: React.FC<ParentCalendarProps> = ({ className }) => {
         </div>
 
         {/* Right side - View selector */}
-        <div className="flex items-center gap-1 bg-white rounded-md border">
+        <div className="flex items-center gap-1 bg-white rounded-md border flex-shrink-0">
           <Button
             onClick={() => setView(Views.MONTH)}
             variant={view === Views.MONTH ? "default" : "ghost"}

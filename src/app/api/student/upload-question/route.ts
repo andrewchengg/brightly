@@ -8,6 +8,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { saveQuestionImageIfNeeded } from "@/lib/image-storage";
 import OpenAI from "openai";
+import pdfParse from "pdf-parse";
 
 const getOpenRouterClient = () => {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -165,6 +166,41 @@ async function extractTextFromImage(imageBase64: string): Promise<string> {
   }
 }
 
+// PDF text extraction function
+async function extractTextFromPDF(file: File): Promise<string> {
+  try {
+    console.log(
+      "📄 Processing PDF file:",
+      file.name,
+      "Size:",
+      file.size,
+      "bytes"
+    );
+
+    // Convert File to Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Parse PDF to extract text
+    const data = await pdfParse(buffer);
+    const extractedText = data.text.trim();
+
+    if (!extractedText || extractedText.length < 10) {
+      console.log("⚠️ No meaningful text extracted from PDF");
+      return "No readable text found in the PDF. Please ensure the PDF contains text content.";
+    }
+
+    console.log(
+      "✅ Successfully extracted text from PDF:",
+      extractedText.substring(0, 200) + "..."
+    );
+    return extractedText;
+  } catch (error) {
+    console.error("PDF extraction failed:", error);
+    throw new Error("Failed to extract text from PDF");
+  }
+}
+
 async function processQuestionWithAI(ocrText: string): Promise<{
   text: string;
   questionType: QuestionType;
@@ -287,41 +323,58 @@ export async function POST(request: NextRequest) {
     const studentId = user.id;
 
     const formData = await request.formData();
-    const image = formData.get("image") as File;
+    const file = formData.get("file") as File;
 
-    if (!image) {
-      return NextResponse.json({ error: "No image provided" }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Validate image size (10MB limit)
-    if (image.size > 10 * 1024 * 1024) {
+    // Check if it's an image or PDF
+    const isImage = file.type.startsWith("image/");
+    const isPDF = file.type === "application/pdf";
+
+    if (!isImage && !isPDF) {
       return NextResponse.json(
-        { error: "Image size must be less than 10MB" },
+        { error: "Please upload an image or PDF file" },
         { status: 400 }
       );
     }
 
-    // Convert image to base64 for processing only (not storing)
-    const bytes = await image.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64Image = buffer.toString("base64");
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "File size must be less than 10MB" },
+        { status: 400 }
+      );
+    }
 
-    // Create initial record with PROCESSING status (no image stored)
+    // Create initial record with PROCESSING status
     const uploadedQuestion = await prisma.studentUploadedQuestion.create({
       data: {
         studentId,
-        originalFileName: image.name,
+        originalFileName: file.name,
         text: "Processing...",
         processingStatus: ProcessingStatus.PROCESSING,
       },
     });
 
     try {
-      // Step 1: OCR Text Extraction
-      const ocrText = await extractTextFromImage(base64Image);
+      // Step 1: Text Extraction (OCR for images, direct extraction for PDFs)
+      let extractedText: string;
+      let base64Image: string | undefined;
+
+      if (isPDF) {
+        extractedText = await extractTextFromPDF(file);
+      } else {
+        // Convert image to base64 for processing only (not storing)
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        base64Image = buffer.toString("base64");
+        extractedText = await extractTextFromImage(base64Image);
+      }
 
       // Step 2: AI Processing (educational analysis)
-      const aiProcessedData = await processQuestionWithAI(ocrText);
+      const aiProcessedData = await processQuestionWithAI(extractedText);
 
       // Step 3: Find or create subject and topic
       let subject = await prisma.subject.findFirst({
@@ -352,13 +405,15 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Step 4: Smart image storage (only if question requires visual elements)
-      const imageUrl = await saveQuestionImageIfNeeded(
-        base64Image,
-        uploadedQuestion.id,
-        aiProcessedData.requiresImage || false,
-        image.name
-      );
+      // Step 4: Smart image storage (only if it's an image and question requires visual elements)
+      const imageUrl = base64Image
+        ? await saveQuestionImageIfNeeded(
+            base64Image,
+            uploadedQuestion.id,
+            aiProcessedData.requiresImage || false,
+            file.name
+          )
+        : null;
 
       // Step 5: Update the record with processed data
       const finalQuestion = await prisma.studentUploadedQuestion.update({
@@ -375,10 +430,11 @@ export async function POST(request: NextRequest) {
           topicId: topic.id,
           imageUrl: imageUrl,
           requiresImage: aiProcessedData.requiresImage || false,
-          ocrText,
+          ocrText: extractedText,
           processingStatus: ProcessingStatus.COMPLETED,
           aiProcessingLog: JSON.stringify({
-            ocrExtracted: !!ocrText,
+            textExtracted: !!extractedText,
+            extractionMethod: isPDF ? "PDF" : "OCR",
             aiProcessed: true,
             timestamp: new Date().toISOString(),
           }),
@@ -426,7 +482,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Failed to process image. Please try again with a clearer image.",
+            "Failed to process file. Please try again with a clearer file.",
         },
         { status: 500 }
       );

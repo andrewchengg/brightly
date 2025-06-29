@@ -156,33 +156,49 @@ export default function StudentReviewPage() {
     }
   };
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
-        toast.error("Image size should be less than 10MB");
+        toast.error("File size should be less than 10MB");
+        return;
+      }
+
+      // Check if it's an image or PDF
+      const isImage = file.type.startsWith("image/");
+      const isPDF = file.type === "application/pdf";
+
+      if (!isImage && !isPDF) {
+        toast.error("Please upload an image or PDF file");
         return;
       }
 
       setUploadedImage(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+
+      // Only show preview for images
+      if (isImage) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // For PDFs, clear the image preview
+        setImagePreview(null);
+      }
     }
   };
 
   const handleUploadQuestion = async () => {
     if (!uploadedImage) {
-      toast.error("Please select an image first");
+      toast.error("Please select a file first");
       return;
     }
 
     setIsProcessingUpload(true);
     try {
       const formData = new FormData();
-      formData.append("image", uploadedImage);
+      formData.append("file", uploadedImage);
 
       const response = await fetch("/api/student/upload-question", {
         method: "POST",
@@ -190,7 +206,7 @@ export default function StudentReviewPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to process question image");
+        throw new Error("Failed to process question file");
       }
 
       const data = await response.json();
@@ -208,7 +224,7 @@ export default function StudentReviewPage() {
       fetchUserUploadedQuestions();
     } catch (error) {
       console.error("Error uploading question:", error);
-      toast.error("Failed to process question image. Please try again.");
+      toast.error("Failed to process question file. Please try again.");
     } finally {
       setIsProcessingUpload(false);
     }
@@ -580,15 +596,27 @@ export default function StudentReviewPage() {
                   </div>
 
                   {/* Image Preview */}
-                  {imagePreview && (
+                  {(imagePreview ||
+                    (uploadedImage &&
+                      uploadedImage.type === "application/pdf")) && (
                     <div className="relative inline-block">
-                      <Image
-                        src={imagePreview}
-                        alt="Question preview"
-                        width={300}
-                        height={200}
-                        className="rounded-lg object-cover border-2 border-emerald-200 shadow-md"
-                      />
+                      {imagePreview ? (
+                        <Image
+                          src={imagePreview}
+                          alt="Question preview"
+                          width={300}
+                          height={200}
+                          className="rounded-lg object-cover border-2 border-emerald-200 shadow-md"
+                        />
+                      ) : (
+                        <div className="w-[300px] h-[200px] bg-red-50 border-2 border-red-200 rounded-lg flex flex-col items-center justify-center shadow-md">
+                          <div className="text-red-500 text-4xl mb-2">📄</div>
+                          <div className="text-red-700 font-medium">
+                            {uploadedImage?.name}
+                          </div>
+                          <div className="text-red-600 text-sm">PDF File</div>
+                        </div>
+                      )}
                       <button
                         onClick={removeImage}
                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center hover:bg-red-600 transition-colors shadow-md"
@@ -603,8 +631,8 @@ export default function StudentReviewPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
-                      onChange={handleImageSelect}
+                      accept="image/*,.pdf"
+                      onChange={handleFileSelect}
                       className="hidden"
                     />
 
@@ -614,8 +642,8 @@ export default function StudentReviewPage() {
                       variant="outline"
                       className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                     >
-                      <FaImage className="mr-2" />
-                      Select Image
+                      <FaUpload className="mr-2" />
+                      Select File
                     </Button>
 
                     <Button
@@ -639,10 +667,10 @@ export default function StudentReviewPage() {
 
                   <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                     <p className="text-sm text-blue-800">
-                      💡 <strong>Pro tip:</strong> Upload clear images with good
-                      lighting. Our AI will automatically extract questions,
-                      save them to your personal question bank, and make them
-                      available for future revision sessions!
+                      💡 <strong>Pro tip:</strong> Upload clear images or PDFs
+                      with readable text. Our AI will automatically extract
+                      questions, save them to your personal question bank, and
+                      make them available for future revision sessions!
                     </p>
                   </div>
                 </div>

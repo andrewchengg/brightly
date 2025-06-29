@@ -140,7 +140,7 @@ export default async function StudentPage() {
   });
 
   return (
-    <div className="flex flex-col gap-6 p-6 min-h-screen">
+    <div className="flex flex-col gap-6 p-6 min-h-screen max-w-7xl mx-auto">
       {/* Full-width welcome header */}
       <div className="bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-700 text-white p-6 md:p-8 rounded-2xl shadow-xl w-full">
         <div className="flex items-center gap-4 mb-4">
@@ -197,8 +197,8 @@ export default async function StudentPage() {
       {/* Main content - two column layout */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left side - Calendar */}
-        <div className="flex-1">
-          <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="flex-1 min-w-0">
+          <div className="bg-white rounded-2xl shadow-xl p-6 h-fit">
             <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
               <FaFire className="text-orange-500" />
               Your Practice Calendar
@@ -208,9 +208,9 @@ export default async function StudentPage() {
         </div>
 
         {/* Right side - Weekly Quests and Tasks */}
-        <div className="w-full lg:w-80 space-y-6">
+        <div className="w-full lg:w-80 lg:flex-shrink-0 space-y-6">
           {/* Weekly Quests Preview */}
-          <div className="bg-white rounded-2xl shadow-xl p-6">
+          <div className="bg-white rounded-2xl shadow-xl p-6 h-fit">
             <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
               <FaTasks className="text-purple-500" />
               Weekly Quests
@@ -219,7 +219,7 @@ export default async function StudentPage() {
           </div>
 
           {/* Assigned Tasks Section */}
-          <div className="bg-white rounded-2xl shadow-xl p-6">
+          <div className="bg-white rounded-2xl shadow-xl p-6 h-fit">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                 <FaPlayCircle className="text-blue-500" />
