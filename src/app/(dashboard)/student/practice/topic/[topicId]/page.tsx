@@ -4,7 +4,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast-manager";
 import {
   PracticeSessionStatus,
   PracticeSessionType,
@@ -28,6 +28,7 @@ import {
   getHelpfulSuggestions,
 } from "@/lib/client-validation";
 import { InteractiveLoadingAnimation } from "@/components/ui/InteractiveLoadingAnimation";
+import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoader";
 import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
@@ -1474,7 +1475,17 @@ export default function TopicalPracticePage() {
     }
   };
 
-  // Loading and Error states
+  // Practice Completion Loading (when submitting results)
+  if (typeof loading === "string" && loading === "submitting") {
+    return (
+      <PracticeCompletionLoader
+        studentName={authUser?.user_metadata?.name || "Student"}
+        sessionType={`Topic Practice: ${currentTopic?.name || "Practice"}`}
+      />
+    );
+  }
+
+  // General Loading state
   if (
     typeof loading === "string" ||
     (loading === true && !currentQuestion && !error && !currentTopic)

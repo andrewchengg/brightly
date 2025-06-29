@@ -21,6 +21,7 @@ import {
 import safeStorage from "@/lib/safeStorage";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
+import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoader";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
 import {
   FaArrowLeft,
@@ -839,6 +840,17 @@ export default function ListeningComprehensionPage() {
       ? ((currentPassageSetIndex + 1) / passageSets.length) * 100
       : 0;
 
+  // Practice Completion Loading (when submitting results)
+  if (typeof loading === "string" && loading === "submitting") {
+    return (
+      <PracticeCompletionLoader
+        studentName={authUser?.user_metadata?.name || "Student"}
+        sessionType="Chinese Listening Comprehension"
+      />
+    );
+  }
+
+  // General Loading state
   if (
     typeof loading === "string" ||
     (loading === true && !currentPassageSet && !error)

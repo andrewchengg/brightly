@@ -15,6 +15,7 @@ import {
 import safeStorage from "@/lib/safeStorage";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
+import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoader";
 import { soundEffects } from "@/lib/soundEffects";
 import {
   FaLightbulb,
@@ -582,6 +583,16 @@ export default function ClozePassagePracticePage() {
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", handleMouseUp);
   };
+
+  // Practice Completion Loading (when submitting results)
+  if (typeof loading === "string" && loading === "submitting") {
+    return (
+      <PracticeCompletionLoader
+        studentName={authUser?.user_metadata?.name || "Student"}
+        sessionType={`Chinese Cloze: ${passageTitle || "Passage Practice"}`}
+      />
+    );
+  }
 
   const isPageLoading =
     !initialLoadComplete && (loading === true || typeof loading === "string");

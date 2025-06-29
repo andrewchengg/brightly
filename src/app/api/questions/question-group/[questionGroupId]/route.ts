@@ -132,6 +132,7 @@ export async function GET(
         pointsAwarded: q.pointsAwarded,
         questionType: q.questionType,
         imageUrl: q.imageUrl,
+        subjectId: q.subjectId, // Include the subjectId field
         questionNumberOnPage: q.questionNumberOnPage, // This is crucial for cloze passages
         topic: q.topic
           ? { id: q.topic.id, name: q.topic.name, subjectId: q.topic.subjectId }

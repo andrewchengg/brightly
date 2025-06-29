@@ -4,7 +4,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast-manager";
 import {
   PracticeSessionStatus,
   PracticeSessionType,
@@ -21,6 +21,7 @@ import {
   createQuestionContext,
 } from "@/components/AILearningAssistant";
 import { InteractiveLoadingAnimation } from "@/components/ui/InteractiveLoadingAnimation";
+import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoader";
 import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
@@ -1160,6 +1161,17 @@ export default function RandomPractice() {
     }
   };
 
+  // Practice Completion Loading (when submitting results)
+  if (typeof loading === "string" && loading === "submitting") {
+    return (
+      <PracticeCompletionLoader
+        studentName={authUser?.user_metadata?.name || "Student"}
+        sessionType="Random Practice Session"
+      />
+    );
+  }
+
+  // General Loading state
   if (
     typeof loading === "string" ||
     (loading === true && !currentQuestion && !error)

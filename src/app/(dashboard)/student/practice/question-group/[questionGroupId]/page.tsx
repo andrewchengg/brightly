@@ -46,6 +46,7 @@ import {
   FaBookReader,
 } from "react-icons/fa";
 import ConfettiComponent from "@/components/Confetti";
+import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoader";
 // ... other imports
 import PassageDisplay from "@/components/Practice/PassageDisplay";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
@@ -1233,6 +1234,16 @@ export default function QuestionGroupPracticePage() {
         );
     }
   };
+
+  // Practice Completion Loading (when submitting results)
+  if (typeof loading === "string" && loading === "submitting") {
+    return (
+      <PracticeCompletionLoader
+        studentName={authUser?.user_metadata?.name || "Student"}
+        sessionType="Reading Comprehension Practice"
+      />
+    );
+  }
 
   const isInitialLoading =
     typeof loading === "string" ||

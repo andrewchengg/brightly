@@ -163,6 +163,7 @@ export async function GET(request: Request) {
           pointsAwarded: q.pointsAwarded,
           questionType: q.questionType, // Already PrismaQuestionType
           imageUrl: q.imageUrl,
+          subjectId: q.subjectId, // Include the subjectId field
           topic: q.topic
             ? {
                 id: q.topic.id,
@@ -186,6 +187,7 @@ export async function GET(request: Request) {
           options: [],
           correctAnswer: null,
           questionType: q.questionType || PrismaQuestionType.OPEN_ENDED,
+          subjectId: q.subjectId, // Include the subjectId field in fallback too
           topic: q.topic
             ? {
                 id: q.topic.id,

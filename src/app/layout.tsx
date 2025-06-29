@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Brightly - School Management Dashboard",
@@ -33,8 +32,7 @@ export default function RootLayout({
         />
       </head>
       <body className="inter-font">
-        {children}
-        <ToastContainer position="bottom-right" autoClose={3000} />
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

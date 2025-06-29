@@ -52,7 +52,7 @@ const formatMathematicalText = (inputText: string): React.ReactNode[] => {
       String.raw`(∠\s?[\w\d]+)`, // 3. Angles (e.g., "∠CBE")
       String.raw`(\d+(?:\.\d+)?%)`, // 4. Percentages (e.g., "7%")
       String.raw`([=<>≤≥≠])`, // 5. Comparison/Equals Operators
-      String.raw`([+\-−×*÷:])`, // 6. Arithmetic/Ratio Operators
+      String.raw`([+×*÷:])`, // 6. Arithmetic/Ratio Operators (removed hyphens/minus signs)
     ].join("|"),
     "g"
   );

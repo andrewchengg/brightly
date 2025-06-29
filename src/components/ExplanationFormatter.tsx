@@ -56,7 +56,7 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
         String.raw`(\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\b)`, // 3. Numeric division (e.g., "480 / 0.15")
         String.raw`(\b\w+\/\w+\b)`, // 4. Other fractions (e.g., "10k/4", "3/4 of")
         String.raw`([=<>≤≥])`, // 5. Comparison/Equals Operators
-        String.raw`([+\-−×*])`, // 6. Arithmetic Operators
+        String.raw`([+×*])`, // 6. Arithmetic Operators (removed hyphens/minus signs)
       ].join("|"),
       "g"
     );
