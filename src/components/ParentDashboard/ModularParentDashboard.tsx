@@ -15,6 +15,7 @@ import {
 // Import modular components
 import ChildrenOverviewWithCharts from "./ChildrenOverviewWithCharts";
 import ChildrenSummaryCards from "./ChildrenSummaryCards";
+import DetailedChildrenPerformance from "./DetailedChildrenPerformance";
 import RecentResultsPreview from "./RecentResultsPreview";
 import MistakesReviewPreview from "./MistakesReviewPreview";
 import PerformanceCharts from "./PerformanceCharts";
@@ -99,12 +100,19 @@ const ModularParentDashboard: React.FC = () => {
         }
 
         // Fetch statistics
-        const statsResponse = await fetch("/api/parent/statistics");
+        const statsResponse = await fetch("/api/parent/statistics", {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
         if (statsResponse.ok) {
           const statsData = await statsResponse.json();
           setStats(statsData);
         } else {
-          throw new Error("Failed to fetch statistics");
+          const errorText = await statsResponse.text();
+          console.error("Statistics API error:", errorText);
+          throw new Error(`Failed to fetch statistics: ${statsResponse.status} ${errorText}`);
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -128,7 +136,7 @@ const ModularParentDashboard: React.FC = () => {
       id: "children" as const,
       label: "Children",
       icon: FaUsers,
-      description: "Individual children performance cards",
+      description: "Detailed performance analytics per child",
     },
     {
       id: "analytics" as const,
@@ -263,9 +271,9 @@ const ModularParentDashboard: React.FC = () => {
           <div className="space-y-8">
             <section>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                Children Performance
+                Detailed Children Performance
               </h2>
-              <ChildrenSummaryCards
+              <DetailedChildrenPerformance
                 childrenStats={stats.children}
                 loading={false}
               />

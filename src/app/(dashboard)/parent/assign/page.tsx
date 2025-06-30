@@ -21,6 +21,8 @@ import {
   FaTrophy,
   FaArrowLeft,
   FaClipboard,
+  FaGraduationCap,
+  FaListOl,
 } from "react-icons/fa";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,21 @@ import { Textarea } from "@/components/ui/textarea";
 // import { Badge } from "@/components/ui/badge"; // Using span for now
 import { toast } from "react-toastify";
 import moment from "moment";
+
+enum AssignablePracticeType {
+  TOPIC_QUIZ = "Topic Quiz",
+  RANDOM_SUBJECT_PRACTICE = "Random Practice by Subject",
+  MOCK_EXAM_PAPER = "Mock Exam Paper"
+}
+
+const mockExamPapersConfig: Record<string, Array<{id: string; name: string; duration: number; totalQuestions: number }>> = {
+  mathematics: [
+    { id: "paper1", name: "Paper 1 (Math)", duration: 60, totalQuestions: 30 },
+    { id: "paper2", name: "Paper 2 (Math)", duration: 90, totalQuestions: 17 },
+  ],
+};
+
+const DEFAULT_PRACTICE_QUESTIONS = 10;
 
 interface Child {
   id: string;
@@ -101,6 +118,8 @@ export default function HomeworkPage() {
   const [loading, setLoading] = useState(true);
   const [loadingHomework, setLoadingHomework] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [selectedPracticeType, setSelectedPracticeType] = useState<AssignablePracticeType | "">("");
+  const [selectedMockPaperId, setSelectedMockPaperId] = useState<string>("");
 
   // Assignment form state
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
@@ -225,6 +244,7 @@ export default function HomeworkPage() {
   const handleSubjectSelect = (subjectId: number) => {
     setSelectedSubject(subjectId);
     setSelectedTopic(null);
+    setSelectedMockPaperId("");
 
     // Auto-generate assignment title
     const subject = subjects.find((s) => s.id === subjectId);
@@ -244,9 +264,20 @@ export default function HomeworkPage() {
     }
   };
 
+  const getAvailableMockPapers = () => {
+    if (!selectedSubject) return [];
+    const selectedSubjectName = subjects.find(s => s.id === selectedSubject)?.name.toLowerCase();
+    return selectedSubjectName ? mockExamPapersConfig[selectedSubjectName] || [] : [];
+  };
+
   const handleAssign = async () => {
     if (!selectedChild) {
       toast.error("Please select a child");
+      return;
+    }
+
+    if (!selectedPracticeType) {
+      toast.error("Please select a practice type");
       return;
     }
 
@@ -255,13 +286,19 @@ export default function HomeworkPage() {
       return;
     }
 
-    if (!selectedTopic) {
-      toast.error("Please select a topic");
+    if (!assignmentTitle.trim()) {
+      toast.error("Please provide an assignment title");
       return;
     }
 
-    if (!assignmentTitle.trim()) {
-      toast.error("Please provide an assignment title");
+    // Validate specific requirements for each practice type
+    if (selectedPracticeType === AssignablePracticeType.TOPIC_QUIZ && !selectedTopic) {
+      toast.error("Please select a topic for the quiz");
+      return;
+    }
+
+    if (selectedPracticeType === AssignablePracticeType.MOCK_EXAM_PAPER && !selectedMockPaperId) {
+      toast.error("Please select a mock exam paper");
       return;
     }
 
@@ -275,15 +312,51 @@ export default function HomeworkPage() {
         return;
       }
 
-      const assignmentData = {
+      let assignmentData: any = {
         studentId: selectedChild.id,
         parentId: user.id,
         title: assignmentTitle,
-        type: "TOPIC_QUIZ",
         subjectId: selectedSubject,
-        topicId: selectedTopic,
-        totalQuestions: 10,
+        totalQuestions: DEFAULT_PRACTICE_QUESTIONS,
       };
+
+      // Configure assignment data based on practice type
+      switch (selectedPracticeType) {
+        case AssignablePracticeType.TOPIC_QUIZ:
+          assignmentData = {
+            ...assignmentData,
+            type: "TOPIC_QUIZ",
+            topicId: selectedTopic,
+          };
+          break;
+        case AssignablePracticeType.RANDOM_SUBJECT_PRACTICE:
+          assignmentData = {
+            ...assignmentData,
+            type: "PRACTICE",
+          };
+          break;
+        case AssignablePracticeType.MOCK_EXAM_PAPER:
+          const selectedSubjectName = subjects.find(s => s.id === selectedSubject)?.name.toLowerCase();
+          const subjectPapers = selectedSubjectName ? mockExamPapersConfig[selectedSubjectName] : undefined;
+          const paperConfig = subjectPapers?.find((p: any) => p.id === selectedMockPaperId);
+
+          if (!paperConfig) {
+            toast.error("Selected mock exam paper configuration not found");
+            return;
+          }
+
+          assignmentData = {
+            ...assignmentData,
+            type: "MOCK_EXAM",
+            totalQuestions: paperConfig.totalQuestions,
+            examDurationMinutes: paperConfig.duration,
+            title: `${assignmentTitle} - ${paperConfig.name}`,
+          };
+          break;
+        default:
+          toast.error("Invalid practice type selected");
+          return;
+      }
 
       const response = await fetch("/api/parent/assign-practice", {
         method: "POST",
@@ -299,6 +372,8 @@ export default function HomeworkPage() {
         // Reset form
         setSelectedSubject(null);
         setSelectedTopic(null);
+        setSelectedPracticeType("");
+        setSelectedMockPaperId("");
         setAssignmentTitle("");
         setAssignmentDescription("");
 
@@ -447,7 +522,7 @@ export default function HomeworkPage() {
                       <p className="text-3xl font-bold text-gray-900">
                         {overviewStats.averageAccuracy}%
                       </p>
-                      <p className="text-xs text-gray-500">{overviewStats.totalXpEarned} XP earned</p>
+                      <p className="text-xs text-gray-500">across all completed assignments</p>
                     </div>
                     <div className="p-3 rounded-xl bg-purple-50 group-hover:scale-110 transition-transform duration-300">
                       <FaTrophy className="w-6 h-6 text-purple-600" />
@@ -572,58 +647,227 @@ export default function HomeworkPage() {
               Assign Homework
             </h2>
 
-            {/* Subject Selection */}
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Select Subject</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {subjects.map((subject) => (
-                  <div
-                    key={subject.id}
-                    onClick={() => handleSubjectSelect(subject.id)}
-                    className={`p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                      selectedSubject === subject.id
-                        ? "border-indigo-500 bg-indigo-50"
-                        : "border-gray-200 hover:border-indigo-300"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <FaBook className="text-indigo-600" />
-                      <span className="font-medium">{subject.name}</span>
+            {/* Practice Type Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Practice Type *
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPracticeType(AssignablePracticeType.TOPIC_QUIZ);
+                    setSelectedTopic(null);
+                    setSelectedMockPaperId("");
+                  }}
+                  className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                    selectedPracticeType === AssignablePracticeType.TOPIC_QUIZ
+                      ? "border-indigo-500 bg-indigo-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      selectedPracticeType === AssignablePracticeType.TOPIC_QUIZ
+                        ? "bg-indigo-100"
+                        : "bg-gray-100"
+                    }`}>
+                      <FaListOl className={`w-5 h-5 ${
+                        selectedPracticeType === AssignablePracticeType.TOPIC_QUIZ
+                          ? "text-indigo-600"
+                          : "text-gray-600"
+                      }`} />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">Topic Quiz</h3>
+                      <p className="text-sm text-gray-600">Practice specific topics</p>
                     </div>
                   </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPracticeType(AssignablePracticeType.RANDOM_SUBJECT_PRACTICE);
+                    setSelectedTopic(null);
+                    setSelectedMockPaperId("");
+                  }}
+                  className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                    selectedPracticeType === AssignablePracticeType.RANDOM_SUBJECT_PRACTICE
+                      ? "border-indigo-500 bg-indigo-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      selectedPracticeType === AssignablePracticeType.RANDOM_SUBJECT_PRACTICE
+                        ? "bg-indigo-100"
+                        : "bg-gray-100"
+                    }`}>
+                      <FaRandom className={`w-5 h-5 ${
+                        selectedPracticeType === AssignablePracticeType.RANDOM_SUBJECT_PRACTICE
+                          ? "text-indigo-600"
+                          : "text-gray-600"
+                      }`} />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">Random Practice</h3>
+                      <p className="text-sm text-gray-600">Mixed questions by subject</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPracticeType(AssignablePracticeType.MOCK_EXAM_PAPER);
+                    setSelectedTopic(null);
+                    setSelectedMockPaperId("");
+                  }}
+                  className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                    selectedPracticeType === AssignablePracticeType.MOCK_EXAM_PAPER
+                      ? "border-indigo-500 bg-indigo-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      selectedPracticeType === AssignablePracticeType.MOCK_EXAM_PAPER
+                        ? "bg-indigo-100"
+                        : "bg-gray-100"
+                    }`}>
+                      <FaGraduationCap className={`w-5 h-5 ${
+                        selectedPracticeType === AssignablePracticeType.MOCK_EXAM_PAPER
+                          ? "text-indigo-600"
+                          : "text-gray-600"
+                      }`} />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">Mock Exam</h3>
+                      <p className="text-sm text-gray-600">Full exam simulation</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Subject Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Subject *
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {subjects.map((subject) => (
+                  <button
+                    key={subject.id}
+                    type="button"
+                    onClick={() => handleSubjectSelect(subject.id)}
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 text-center ${
+                      selectedSubject === subject.id
+                        ? "border-indigo-500 bg-indigo-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-center mb-2">
+                      <FaBook className={`w-5 h-5 ${
+                        selectedSubject === subject.id
+                          ? "text-indigo-600"
+                          : "text-gray-600"
+                      }`} />
+                    </div>
+                    <span className={`text-sm font-medium ${
+                      selectedSubject === subject.id
+                        ? "text-indigo-900"
+                        : "text-gray-700"
+                    }`}>
+                      {subject.name}
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>
 
-            {/* Topic Selection */}
-            {selectedSubjectData && (
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Select Topic</h3>
-                <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
-                  {selectedSubjectData.topics.map((topic) => (
-                    <div
+            {/* Topic Selection - Only for Topic Quiz */}
+            {selectedPracticeType === AssignablePracticeType.TOPIC_QUIZ && selectedSubject && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Topic *
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {selectedSubjectData?.topics.map((topic) => (
+                    <button
                       key={topic.id}
+                      type="button"
                       onClick={() => handleTopicSelect(topic.id)}
-                      className={`p-3 border rounded-lg cursor-pointer transition-all duration-200 ${
+                      className={`p-3 rounded-lg border-2 transition-all duration-200 text-center ${
                         selectedTopic === topic.id
                           ? "border-indigo-500 bg-indigo-50"
-                          : "border-gray-200 hover:border-indigo-300"
+                          : "border-gray-200 hover:border-gray-300"
                       }`}
                     >
-                      <div className="font-medium text-sm">{topic.name}</div>
-                      {topic.description && (
-                        <div className="text-xs text-gray-600 mt-1">
-                          {topic.description}
-                        </div>
-                      )}
-                    </div>
+                      <span className={`text-sm font-medium ${
+                        selectedTopic === topic.id
+                          ? "text-indigo-900"
+                          : "text-gray-700"
+                      }`}>
+                        {topic.name}
+                      </span>
+                    </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Assignment Details */}
-            {selectedTopic && (
+            {/* Mock Exam Paper Selection - Only for Mock Exam */}
+            {selectedPracticeType === AssignablePracticeType.MOCK_EXAM_PAPER && selectedSubject && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mock Exam Paper *
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {getAvailableMockPapers().map((paper: any) => (
+                    <button
+                      key={paper.id}
+                      type="button"
+                      onClick={() => setSelectedMockPaperId(paper.id)}
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                        selectedMockPaperId === paper.id
+                          ? "border-indigo-500 bg-indigo-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className={`font-medium ${
+                            selectedMockPaperId === paper.id
+                              ? "text-indigo-900"
+                              : "text-gray-900"
+                          }`}>
+                            {paper.name}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {paper.duration} mins • {paper.totalQuestions} questions
+                          </p>
+                        </div>
+                        <FaGraduationCap className={`w-5 h-5 ${
+                          selectedMockPaperId === paper.id
+                            ? "text-indigo-600"
+                            : "text-gray-600"
+                        }`} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {getAvailableMockPapers().length === 0 && (
+                  <p className="text-sm text-red-500 mt-2">
+                    No mock exam papers available for this subject.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Assignment Details - Show when practice type and subject are selected */}
+            {(selectedPracticeType && selectedSubject) && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -656,31 +900,56 @@ export default function HomeworkPage() {
                     Assignment Details:
                   </h4>
                   <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• Number of questions: 10</li>
-                    <li>• Type: Practice Quiz</li>
-                    <li>• Difficulty: Adaptive</li>
+                    {selectedPracticeType === AssignablePracticeType.TOPIC_QUIZ && (
+                      <>
+                        <li>• Type: Topic Quiz</li>
+                        <li>• Number of questions: {DEFAULT_PRACTICE_QUESTIONS}</li>
+                        <li>• Difficulty: Adaptive</li>
+                      </>
+                    )}
+                    {selectedPracticeType === AssignablePracticeType.RANDOM_SUBJECT_PRACTICE && (
+                      <>
+                        <li>• Type: Random Practice</li>
+                        <li>• Number of questions: {DEFAULT_PRACTICE_QUESTIONS}</li>
+                        <li>• Mixed topics from selected subject</li>
+                      </>
+                    )}
+                    {selectedPracticeType === AssignablePracticeType.MOCK_EXAM_PAPER && (
+                      <>
+                        <li>• Type: Mock Exam Paper</li>
+                        <li>• Duration: {getAvailableMockPapers().find(p => p.id === selectedMockPaperId)?.duration || 0} minutes</li>
+                        <li>• Questions: {getAvailableMockPapers().find(p => p.id === selectedMockPaperId)?.totalQuestions || 0}</li>
+                      </>
+                    )}
                   </ul>
                 </div>
-
-                <Button
-                  onClick={handleAssign}
-                  disabled={!canAssign || assigning}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
-                >
-                  {assigning ? (
-                    <>
-                      <FaSpinner className="animate-spin mr-2" />
-                      Assigning...
-                    </>
-                  ) : (
-                    <>
-                      <FaTasks className="mr-2" />
-                      Assign Homework
-                    </>
-                  )}
-                </Button>
               </div>
             )}
+
+            <Button
+              onClick={handleAssign}
+              disabled={
+                assigning ||
+                !selectedPracticeType ||
+                !selectedSubject ||
+                !assignmentTitle.trim() ||
+                (selectedPracticeType === AssignablePracticeType.TOPIC_QUIZ && !selectedTopic) ||
+                (selectedPracticeType === AssignablePracticeType.MOCK_EXAM_PAPER && !selectedMockPaperId)
+              }
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-lg font-medium transition-colors duration-200"
+            >
+              {assigning ? (
+                <div className="flex items-center gap-2">
+                  <FaSpinner className="animate-spin" />
+                  Creating Assignment...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <FaTasks />
+                  Assign to {selectedChild.name}
+                </div>
+              )}
+            </Button>
           </Card>
         </div>
 
