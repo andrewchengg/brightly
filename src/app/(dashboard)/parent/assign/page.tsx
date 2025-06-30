@@ -432,15 +432,17 @@ export default function HomeworkPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="mb-12">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-2xl mb-6 shadow-xl">
-              <FaTasks className="text-3xl text-white" />
+        <div className="mb-6">
+          <div className="text-center mb-4">
+            <div className="flex items-center justify-center gap-4 mb-3">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-2xl shadow-xl">
+                <FaTasks className="text-2xl text-white" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent leading-tight py-2">
+                Manage Homework
+              </h1>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-6 leading-tight py-2">
-              Manage Homework
-            </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-4">
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-1">
               Select a child to view and assign homework
             </p>
           </div>
@@ -448,84 +450,84 @@ export default function HomeworkPage() {
 
         {/* Overview Statistics */}
         {overviewStats && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
               Homework Overview
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <Card className="group hover:shadow-lg transition-all duration-300 border-0 shadow-md bg-white">
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
                         Total Assignments
                       </p>
-                      <p className="text-3xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-gray-900">
                         {overviewStats.totalAssignments}
                       </p>
                       <p className="text-xs text-gray-500">All time</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-blue-50 group-hover:scale-110 transition-transform duration-300">
-                      <FaTasks className="w-6 h-6 text-blue-600" />
+                    <div className="p-2 rounded-xl bg-blue-50 group-hover:scale-110 transition-transform duration-300">
+                      <FaTasks className="w-5 h-5 text-blue-600" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="group hover:shadow-lg transition-all duration-300 border-0 shadow-md bg-white">
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
                         Completion Rate
                       </p>
-                      <p className="text-3xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-gray-900">
                         {overviewStats.totalAssignments > 0 
                           ? Math.round((overviewStats.completedAssignments / overviewStats.totalAssignments) * 100)
                           : 0}%
                       </p>
                       <p className="text-xs text-gray-500">{overviewStats.completedAssignments} completed</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-green-50 group-hover:scale-110 transition-transform duration-300">
-                      <FaCheckCircle className="w-6 h-6 text-green-600" />
+                    <div className="p-2 rounded-xl bg-green-50 group-hover:scale-110 transition-transform duration-300">
+                      <FaCheckCircle className="w-5 h-5 text-green-600" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="group hover:shadow-lg transition-all duration-300 border-0 shadow-md bg-white">
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
                         Active Assignments
                       </p>
-                      <p className="text-3xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-gray-900">
                         {overviewStats.pendingAssignments + overviewStats.inProgressAssignments}
                       </p>
                       <p className="text-xs text-gray-500">{overviewStats.pendingAssignments} pending</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-orange-50 group-hover:scale-110 transition-transform duration-300">
-                      <FaClock className="w-6 h-6 text-orange-600" />
+                    <div className="p-2 rounded-xl bg-orange-50 group-hover:scale-110 transition-transform duration-300">
+                      <FaClock className="w-5 h-5 text-orange-600" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="group hover:shadow-lg transition-all duration-300 border-0 shadow-md bg-white">
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
                         Average Score
                       </p>
-                      <p className="text-3xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-gray-900">
                         {overviewStats.averageAccuracy}%
                       </p>
                       <p className="text-xs text-gray-500">across all completed assignments</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-purple-50 group-hover:scale-110 transition-transform duration-300">
-                      <FaTrophy className="w-6 h-6 text-purple-600" />
+                    <div className="p-2 rounded-xl bg-purple-50 group-hover:scale-110 transition-transform duration-300">
+                      <FaTrophy className="w-5 h-5 text-purple-600" />
                     </div>
                   </div>
                 </CardContent>
@@ -533,31 +535,31 @@ export default function HomeworkPage() {
             </div>
 
             {/* Quick Insights */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-0 shadow-md">
-                <CardContent className="p-6 text-center">
-                                     <FaUser className="w-8 h-8 text-blue-600 mx-auto mb-3" />
-                  <h3 className="font-semibold text-gray-800 mb-2">Active Children</h3>
-                  <p className="text-2xl font-bold text-blue-600">{overviewStats.activeChildren}</p>
-                  <p className="text-sm text-gray-600">children with assignments</p>
+                <CardContent className="p-4 text-center">
+                  <FaUser className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                  <h3 className="font-semibold text-gray-800 mb-1">Active Children</h3>
+                  <p className="text-xl font-bold text-blue-600">{overviewStats.activeChildren}</p>
+                  <p className="text-xs text-gray-600">children with assignments</p>
                 </CardContent>
               </Card>
 
               <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-0 shadow-md">
-                <CardContent className="p-6 text-center">
-                  <FaCalendarAlt className="w-8 h-8 text-green-600 mx-auto mb-3" />
-                  <h3 className="font-semibold text-gray-800 mb-2">This Week</h3>
-                  <p className="text-2xl font-bold text-green-600">{overviewStats.thisWeekAssignments}</p>
-                  <p className="text-sm text-gray-600">assignments created</p>
+                <CardContent className="p-4 text-center">
+                  <FaCalendarAlt className="w-6 h-6 text-green-600 mx-auto mb-2" />
+                  <h3 className="font-semibold text-gray-800 mb-1">This Week</h3>
+                  <p className="text-xl font-bold text-green-600">{overviewStats.thisWeekAssignments}</p>
+                  <p className="text-xs text-gray-600">assignments created</p>
                 </CardContent>
               </Card>
 
               <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-0 shadow-md">
-                <CardContent className="p-6 text-center">
-                  <FaTrophy className="w-8 h-8 text-purple-600 mx-auto mb-3" />
-                  <h3 className="font-semibold text-gray-800 mb-2">Total XP</h3>
-                  <p className="text-2xl font-bold text-purple-600">{overviewStats.totalXpEarned}</p>
-                  <p className="text-sm text-gray-600">experience points earned</p>
+                <CardContent className="p-4 text-center">
+                  <FaTrophy className="w-6 h-6 text-purple-600 mx-auto mb-2" />
+                  <h3 className="font-semibold text-gray-800 mb-1">Total XP</h3>
+                  <p className="text-xl font-bold text-purple-600">{overviewStats.totalXpEarned}</p>
+                  <p className="text-xs text-gray-600">experience points earned</p>
                 </CardContent>
               </Card>
             </div>
@@ -617,8 +619,8 @@ export default function HomeworkPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header with child info */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
+      <div className="mb-4">
+        <div className="flex items-center gap-4 mb-3">
           <Button
             variant="outline"
             onClick={() => setSelectedChild(null)}
@@ -628,10 +630,10 @@ export default function HomeworkPage() {
             Back to Children
           </Button>
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               Manage Homework - {selectedChild.name}
             </h1>
-            <p className="text-gray-600 mt-2 text-lg">
+            <p className="text-gray-600 mt-1 text-base">
               Assign new homework and track progress
             </p>
           </div>

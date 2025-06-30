@@ -97,11 +97,17 @@ interface ChildStats {
 interface DetailedChildrenPerformanceProps {
   childrenStats: ChildStats[];
   loading?: boolean;
+  dateRange?: {
+    startDate: Date;
+    endDate: Date;
+    period: "7d" | "30d" | "3m";
+  };
 }
 
 const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = ({
   childrenStats,
   loading = false,
+  dateRange,
 }) => {
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "subjects" | "progress">("overview");
@@ -168,6 +174,15 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
   };
 
   const prepareSubjectData = (child: ChildStats) => {
+    if (child.subjectBreakdown.length === 0) {
+      return [{
+        name: "No Data",
+        questions: 0,
+        accuracy: 0,
+        timeMinutes: 0,
+        fill: "#e5e7eb",
+      }];
+    }
     const colors = ["#6366f1", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#3b82f6"];
     return child.subjectBreakdown.map((subject, index) => ({
       name: subject.subject,
@@ -179,6 +194,14 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
   };
 
   const prepareRadarData = (child: ChildStats) => {
+    if (child.subjectBreakdown.length === 0) {
+      return [{
+        subject: "No Data",
+        accuracy: 0,
+        questions: 0,
+        timeEfficiency: 0,
+      }];
+    }
     return child.subjectBreakdown.map((subject) => ({
       subject: subject.subject,
       accuracy: subject.accuracy,
@@ -212,13 +235,21 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
     }
 
     // Subject insights
-    const weakestSubject = child.subjectBreakdown.reduce((min, subject) => 
-      subject.accuracy < min.accuracy ? subject : min
-    );
-    if (weakestSubject.accuracy < 70) {
+    if (child.subjectBreakdown.length > 0) {
+      const weakestSubject = child.subjectBreakdown.reduce((min, subject) => 
+        subject.accuracy < min.accuracy ? subject : min
+      );
+      if (weakestSubject.accuracy < 70) {
+        insights.push({ 
+          type: "warning", 
+          text: `${weakestSubject.subject} needs attention`, 
+          icon: FaBookOpen 
+        });
+      }
+    } else {
       insights.push({ 
-        type: "warning", 
-        text: `${weakestSubject.subject} needs attention`, 
+        type: "info", 
+        text: "Start practicing to see subject insights", 
         icon: FaBookOpen 
       });
     }
@@ -517,7 +548,13 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <FaChartLine className="text-indigo-600" />
-                      Weekly Progress
+                      Progress
+                      {dateRange && (
+                        <span className="text-sm text-gray-500 ml-2 font-normal">
+                          ({dateRange.period === "7d" ? "7 days" : 
+                            dateRange.period === "30d" ? "Month" : "Quarter"})
+                        </span>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>

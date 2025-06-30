@@ -7,3 +7,5 @@ export { default as MistakesReviewPreview } from "./MistakesReviewPreview";
 export { default as PerformanceCharts } from "./PerformanceCharts";
 export { default as CalendarPreview } from "./CalendarPreview";
 export { default as FullCalendarWithEvents } from "./FullCalendarWithEvents";
+export { default as DateRangeController } from "./DateRangeController";
+export { default as DetailedChildrenPerformance } from "./DetailedChildrenPerformance";

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-toastify";
 import {
   FaSpinner,
@@ -21,6 +20,10 @@ import MistakesReviewPreview from "./MistakesReviewPreview";
 import PerformanceCharts from "./PerformanceCharts";
 import CalendarPreview from "./CalendarPreview";
 import FullCalendarWithEvents from "./FullCalendarWithEvents";
+import DateRangeController from "./DateRangeController";
+
+// Import the custom hook
+import useDateRange from "@/hooks/useDateRange";
 
 // Types
 interface ChildStats {
@@ -78,52 +81,19 @@ interface DashboardStats {
 }
 
 const ModularParentDashboard: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activeTab, setActiveTab] = useState<
     "overview" | "children" | "analytics"
   >("overview");
 
-  const supabase = createClient();
+  // Use the custom date range hook
+  const { dateRange, updateDateRange, data: stats, loading, updating, error } = useDateRange();
 
+  // Show toast errors
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          toast.error("You must be logged in to view this page.");
-          return;
-        }
-
-        // Fetch statistics
-        const statsResponse = await fetch("/api/parent/statistics", {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          setStats(statsData);
-        } else {
-          const errorText = await statsResponse.text();
-          console.error("Statistics API error:", errorText);
-          throw new Error(`Failed to fetch statistics: ${statsResponse.status} ${errorText}`);
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        toast.error("Failed to load dashboard data. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, []);
+    if (error) {
+      toast.error("Failed to load dashboard data. Please try again.");
+    }
+  }, [error]);
 
   const tabs = [
     {
@@ -208,6 +178,23 @@ const ModularParentDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Date Range Controller */}
+      <DateRangeController 
+        currentRange={dateRange}
+        onRangeChange={updateDateRange}
+        updating={updating}
+      />
+
+      {/* Updating Indicator */}
+      {updating && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-3">
+          <FaSpinner className="w-4 h-4 text-blue-500 animate-spin" />
+          <span className="text-blue-700 text-sm font-medium">
+            Updating charts with new data...
+          </span>
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="bg-white rounded-xl border border-gray-200 p-2 shadow-sm">
         <div className="flex space-x-1">
@@ -245,7 +232,7 @@ const ModularParentDashboard: React.FC = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="min-h-[400px]">
+              <div className={`min-h-[400px] transition-opacity duration-300 ${updating ? 'opacity-70' : 'opacity-100'}`}>
         {activeTab === "overview" && (
           <div className="space-y-8">
             {/* Children Overview with Charts */}
@@ -256,6 +243,7 @@ const ModularParentDashboard: React.FC = () => {
               <ChildrenOverviewWithCharts
                 childrenStats={stats.children}
                 loading={false}
+                dateRange={dateRange}
               />
             </section>
 
@@ -276,6 +264,7 @@ const ModularParentDashboard: React.FC = () => {
               <DetailedChildrenPerformance
                 childrenStats={stats.children}
                 loading={false}
+                dateRange={dateRange}
               />
             </section>
           </div>
@@ -290,6 +279,7 @@ const ModularParentDashboard: React.FC = () => {
               <PerformanceCharts
                 childrenStats={stats.children}
                 loading={false}
+                dateRange={dateRange}
               />
             </section>
           </div>

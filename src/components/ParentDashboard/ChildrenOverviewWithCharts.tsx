@@ -78,11 +78,17 @@ interface ChildStats {
 interface ChildrenOverviewWithChartsProps {
   childrenStats: ChildStats[];
   loading?: boolean;
+  dateRange?: {
+    startDate: Date;
+    endDate: Date;
+    period: "7d" | "30d" | "3m";
+  };
 }
 
 const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
   childrenStats,
   loading = false,
+  dateRange,
 }) => {
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -268,11 +274,17 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
                 </div>
               </div>
 
-              {/* Weekly Practice Activity */}
+              {/* Practice Activity */}
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <FaPlay className="text-indigo-600" />
-                  Weekly Practice Activity
+                  Practice Activity
+                  {dateRange && (
+                    <span className="text-xs text-gray-500 ml-2">
+                      ({dateRange.period === "7d" ? "7 days" : 
+                        dateRange.period === "30d" ? "Month" : "Quarter"})
+                    </span>
+                  )}
                 </h4>
                 <div className="h-24">
                   <ResponsiveContainer width="100%" height="100%">

@@ -19,6 +19,41 @@ export async function GET(request: NextRequest) {
 
     console.log("User authenticated:", user.id);
 
+    // Parse query parameters for date range
+    const url = new URL(request.url);
+    const startDateParam = url.searchParams.get("startDate");
+    const endDateParam = url.searchParams.get("endDate");
+    const period = url.searchParams.get("period") || "7d";
+
+    // Set default date range based on period if not provided
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateParam && endDateParam) {
+      startDate = new Date(startDateParam);
+      endDate = new Date(endDateParam);
+    } else {
+      // Default to current period
+      const today = new Date();
+      switch (period) {
+        case "30d":
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+          endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          break;
+        case "3m":
+          const quarterStart = Math.floor(today.getMonth() / 3) * 3;
+          startDate = new Date(today.getFullYear(), quarterStart, 1);
+          endDate = new Date(today.getFullYear(), quarterStart + 3, 0);
+          break;
+        default: // "7d"
+          endDate = new Date(today);
+          startDate = new Date(today);
+          startDate.setDate(today.getDate() - 6);
+      }
+    }
+
+    console.log(`Fetching data for period: ${period}, from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
     // Get all children of the parent
     let children;
     try {
@@ -49,24 +84,28 @@ export async function GET(request: NextRequest) {
     }
 
     const childIds = children.map((child) => child.id);
-    const today = new Date();
-    const startOfToday = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
-    );
-    const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
-    // Get practice sessions for today (including IN_PROGRESS and COMPLETED)
-    let todaysSessions;
+    // Calculate "today" stats (most recent day in the selected range)
+    const today = new Date();
+    const isCurrentPeriod = endDate >= today;
+    const recentDay = isCurrentPeriod ? today : endDate;
+    const startOfRecentDay = new Date(
+      recentDay.getFullYear(),
+      recentDay.getMonth(),
+      recentDay.getDate()
+    );
+    const endOfRecentDay = new Date(startOfRecentDay.getTime() + 24 * 60 * 60 * 1000);
+
+    // Get practice sessions for the recent day (including IN_PROGRESS and COMPLETED)
+    let recentDaySessions;
     try {
-      todaysSessions = await prisma.practiceSession.findMany({
+      recentDaySessions = await prisma.practiceSession.findMany({
         where: {
           studentId: { in: childIds },
           status: { in: ["COMPLETED", "IN_PROGRESS"] },
           startTime: {
-            gte: startOfToday,
-            lt: endOfToday,
+            gte: startOfRecentDay,
+            lt: endOfRecentDay,
           },
         },
         include: {
@@ -74,26 +113,25 @@ export async function GET(request: NextRequest) {
           subject: { select: { name: true } },
         },
       });
-      console.log("Found today's sessions:", todaysSessions.length);
+      console.log("Found recent day sessions:", recentDaySessions.length);
     } catch (error) {
-      console.error("Error fetching today's sessions:", error);
+      console.error("Error fetching recent day sessions:", error);
       return NextResponse.json(
-        { error: "Failed to fetch today's sessions" },
+        { error: "Failed to fetch recent day sessions" },
         { status: 500 }
       );
     }
 
-    // Get practice sessions for the last 7 days (including IN_PROGRESS and COMPLETED)
-    const weekAgo = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
-    let weekSessions;
+    // Get practice sessions for the selected date range (including IN_PROGRESS and COMPLETED)
+    let rangeSessions;
     try {
-      weekSessions = await prisma.practiceSession.findMany({
+      rangeSessions = await prisma.practiceSession.findMany({
         where: {
           studentId: { in: childIds },
           status: { in: ["COMPLETED", "IN_PROGRESS"] },
           startTime: {
-            gte: weekAgo,
-            lt: endOfToday,
+            gte: startDate,
+            lt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000), // Include end date
           },
         },
         include: {
@@ -101,11 +139,11 @@ export async function GET(request: NextRequest) {
           subject: { select: { name: true } },
         },
       });
-      console.log("Found week sessions:", weekSessions.length);
+      console.log("Found range sessions:", rangeSessions.length);
     } catch (error) {
-      console.error("Error fetching week sessions:", error);
+      console.error("Error fetching range sessions:", error);
       return NextResponse.json(
-        { error: "Failed to fetch weekly sessions" },
+        { error: "Failed to fetch range sessions" },
         { status: 500 }
       );
     }
@@ -116,15 +154,15 @@ export async function GET(request: NextRequest) {
       childrenStats = children.map((child) => {
         console.log("Processing child:", child.name);
         
-        const childTodaySessions = todaysSessions.filter(
+        const childRecentDaySessions = recentDaySessions.filter(
           (s) => s.studentId === child.id
         );
-        const childWeekSessions = weekSessions.filter(
+        const childRangeSessions = rangeSessions.filter(
           (s) => s.studentId === child.id
         );
 
-        // Today's stats - calculate time for both completed and in-progress sessions
-        const todayTimeSpent = childTodaySessions.reduce((total, session) => {
+        // Recent day stats - calculate time for both completed and in-progress sessions
+        const recentDayTimeSpent = childRecentDaySessions.reduce((total, session) => {
           if (session.status === "COMPLETED" && session.durationSeconds) {
             return total + session.durationSeconds;
           } else if (session.status === "IN_PROGRESS" && session.startTime) {
@@ -139,23 +177,23 @@ export async function GET(request: NextRequest) {
           return total;
         }, 0);
 
-        const todayQuestions = childTodaySessions.reduce((total, session) => {
+        const recentDayQuestions = childRecentDaySessions.reduce((total, session) => {
           return total + (session.totalQuestions || 0);
         }, 0);
 
-        const todayCorrectAnswers = childTodaySessions.reduce(
+        const recentDayCorrectAnswers = childRecentDaySessions.reduce(
           (total, session) => {
             return total + (session.correctAnswers || 0);
           },
           0
         );
 
-        const todayXPEarned = childTodaySessions.reduce((total, session) => {
+        const recentDayXPEarned = childRecentDaySessions.reduce((total, session) => {
           return total + (session.xpEarned || 0);
         }, 0);
 
-        // Weekly stats - calculate time for both completed and in-progress sessions
-        const weekTimeSpent = childWeekSessions.reduce((total, session) => {
+        // Range stats - calculate time for both completed and in-progress sessions
+        const rangeTimeSpent = childRangeSessions.reduce((total, session) => {
           if (session.status === "COMPLETED" && session.durationSeconds) {
             return total + session.durationSeconds;
           } else if (session.status === "IN_PROGRESS" && session.startTime) {
@@ -170,11 +208,11 @@ export async function GET(request: NextRequest) {
           return total;
         }, 0);
 
-        const weekQuestions = childWeekSessions.reduce((total, session) => {
+        const rangeQuestions = childRangeSessions.reduce((total, session) => {
           return total + (session.totalQuestions || 0);
         }, 0);
 
-        const weekCorrectAnswers = childWeekSessions.reduce((total, session) => {
+        const rangeCorrectAnswers = childRangeSessions.reduce((total, session) => {
           return total + (session.correctAnswers || 0);
         }, 0);
 
@@ -186,7 +224,7 @@ export async function GET(request: NextRequest) {
             timeSpent: number;
           };
         } = {};
-        childWeekSessions.forEach((session) => {
+        childRangeSessions.forEach((session) => {
           const subjectName = session.subject?.name || "Unknown";
           if (!subjectStats[subjectName]) {
             subjectStats[subjectName] = {
@@ -200,10 +238,15 @@ export async function GET(request: NextRequest) {
           subjectStats[subjectName].timeSpent += session.durationSeconds || 0;
         });
 
-        // Daily breakdown for the week
+        // Daily breakdown for the selected range
         const dailyStats = [];
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+        const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+        const maxDays = Math.min(daysDiff, 90); // Limit to 90 days for performance
+        
+        for (let i = 0; i <= maxDays; i++) {
+          const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+          if (date > endDate) break;
+          
           const startOfDay = new Date(
             date.getFullYear(),
             date.getMonth(),
@@ -211,7 +254,7 @@ export async function GET(request: NextRequest) {
           );
           const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-          const daySessions = childWeekSessions.filter(
+          const daySessions = childRangeSessions.filter(
             (s) => s.startTime >= startOfDay && s.startTime < endOfDay
           );
 
@@ -257,27 +300,27 @@ export async function GET(request: NextRequest) {
           longestStreak: child.longestStreak,
           lastActivityDate: child.lastActivityDate,
           today: {
-            timeSpent: todayTimeSpent,
-            timeSpentMinutes: Math.round(todayTimeSpent / 60),
-            questionsAnswered: todayQuestions,
-            correctAnswers: todayCorrectAnswers,
+            timeSpent: recentDayTimeSpent,
+            timeSpentMinutes: Math.round(recentDayTimeSpent / 60),
+            questionsAnswered: recentDayQuestions,
+            correctAnswers: recentDayCorrectAnswers,
             accuracy:
-              todayQuestions > 0
-                ? Math.round((todayCorrectAnswers / todayQuestions) * 100)
+              recentDayQuestions > 0
+                ? Math.round((recentDayCorrectAnswers / recentDayQuestions) * 100)
                 : 0,
-            xpEarned: todayXPEarned,
-            sessionsCompleted: childTodaySessions.length,
+            xpEarned: recentDayXPEarned,
+            sessionsCompleted: childRecentDaySessions.length,
           },
           week: {
-            timeSpent: weekTimeSpent,
-            timeSpentMinutes: Math.round(weekTimeSpent / 60),
-            questionsAnswered: weekQuestions,
-            correctAnswers: weekCorrectAnswers,
+            timeSpent: rangeTimeSpent,
+            timeSpentMinutes: Math.round(rangeTimeSpent / 60),
+            questionsAnswered: rangeQuestions,
+            correctAnswers: rangeCorrectAnswers,
             accuracy:
-              weekQuestions > 0
-                ? Math.round((weekCorrectAnswers / weekQuestions) * 100)
+              rangeQuestions > 0
+                ? Math.round((rangeCorrectAnswers / rangeQuestions) * 100)
                 : 0,
-            sessionsCompleted: childWeekSessions.length,
+            sessionsCompleted: childRangeSessions.length,
           },
           subjectBreakdown: Object.entries(subjectStats).map(
             ([subject, stats]) => ({
@@ -304,7 +347,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Overall family stats with improved time calculation
-    const totalTodayTimeSeconds = todaysSessions.length > 0 ? todaysSessions.reduce((total, session) => {
+    const totalRecentDayTimeSeconds = recentDaySessions.length > 0 ? recentDaySessions.reduce((total, session) => {
       if (session.status === "COMPLETED" && session.durationSeconds) {
         return total + session.durationSeconds;
       } else if (session.status === "IN_PROGRESS" && session.startTime) {
@@ -320,16 +363,19 @@ export async function GET(request: NextRequest) {
 
     const overallStats = {
       totalChildren: children.length,
-      todayTotalTime: Math.round(totalTodayTimeSeconds / 60),
-      todayTotalQuestions: todaysSessions.reduce(
+      todayTotalTime: Math.round(totalRecentDayTimeSeconds / 60),
+      todayTotalQuestions: recentDaySessions.reduce(
         (total, session) => total + (session.totalQuestions || 0),
         0
       ),
-      todayTotalCorrect: todaysSessions.reduce(
+      todayTotalCorrect: recentDaySessions.reduce(
         (total, session) => total + (session.correctAnswers || 0),
         0
       ),
-      weekTotalSessions: weekSessions.length,
+      weekTotalSessions: rangeSessions.length,
+      period,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
     };
 
     console.log("Returning successful response");
