@@ -13,7 +13,7 @@ import {
 } from "react-icons/fa";
 
 // Import modular components
-import OverviewCards from "./OverviewCards";
+import ChildrenOverviewWithCharts from "./ChildrenOverviewWithCharts";
 import ChildrenSummaryCards from "./ChildrenSummaryCards";
 import RecentResultsPreview from "./RecentResultsPreview";
 import MistakesReviewPreview from "./MistakesReviewPreview";
@@ -122,7 +122,7 @@ const ModularParentDashboard: React.FC = () => {
       id: "overview" as const,
       label: "Overview",
       icon: FaGraduationCap,
-      description: "Quick overview of all children's progress",
+      description: "Individual children progress with charts",
     },
     {
       id: "children" as const,
@@ -240,13 +240,12 @@ const ModularParentDashboard: React.FC = () => {
       <div className="min-h-[400px]">
         {activeTab === "overview" && (
           <div className="space-y-8">
-            {/* Overview Cards */}
+            {/* Children Overview with Charts */}
             <section>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                Today's Overview
+                Children's Progress Overview
               </h2>
-              <OverviewCards
-                overallStats={stats.overallStats}
+              <ChildrenOverviewWithCharts
                 childrenStats={stats.children}
                 loading={false}
               />
@@ -257,11 +256,6 @@ const ModularParentDashboard: React.FC = () => {
               <RecentResultsPreview limit={5} />
               <MistakesReviewPreview limit={5} />
             </div>
-
-            {/* Full Calendar */}
-            <section>
-              <FullCalendarWithEvents />
-            </section>
           </div>
         )}
 

@@ -168,3 +168,56 @@ export const getLevelInfo = (currentXP: number) => {
     xpGainForThisLevel: getXPGainForLevel(currentLevel),
   };
 };
+
+/**
+ * Safely update student XP and level together
+ * This ensures the level is always calculated correctly when XP changes
+ * @param studentId - Student ID
+ * @param xpToAdd - XP to add (can be negative)
+ * @param prisma - Prisma client instance
+ * @returns Updated student data
+ */
+export const updateStudentXPAndLevel = async (
+  studentId: string,
+  xpToAdd: number,
+  prisma: any
+) => {
+  // Get current student data
+  const currentStudent = await prisma.student.findUnique({
+    where: { id: studentId },
+    select: {
+      xpPoints: true,
+      name: true,
+      username: true,
+    },
+  });
+
+  if (!currentStudent) {
+    throw new Error(`Student not found: ${studentId}`);
+  }
+
+  const newXP = Math.max(0, currentStudent.xpPoints + xpToAdd); // Ensure XP doesn't go negative
+  const newLevel = calculateLevel(newXP);
+
+  // Update student's XP and level
+  const updatedStudent = await prisma.student.update({
+    where: { id: studentId },
+    data: {
+      xpPoints: newXP,
+      level: newLevel,
+      updatedAt: new Date(),
+    },
+    select: {
+      xpPoints: true,
+      level: true,
+      name: true,
+      username: true,
+    },
+  });
+
+  return {
+    ...updatedStudent,
+    xpAdded: xpToAdd,
+    leveledUp: newLevel > calculateLevel(currentStudent.xpPoints),
+  };
+};

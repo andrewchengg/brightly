@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
+import { calculateLevel } from "@/lib/xp-utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -202,7 +203,7 @@ export async function GET(request: NextRequest) {
       return {
         id: child.id,
         name: child.name,
-        level: child.level,
+        level: calculateLevel(child.xpPoints),
         xpPoints: child.xpPoints,
         currentStreak: child.currentStreak,
         longestStreak: child.longestStreak,
