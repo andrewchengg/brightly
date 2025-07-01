@@ -13,7 +13,7 @@ const getOpenRouterClient = () => {
     baseURL: "https://openrouter.ai/api/v1",
     defaultHeaders: {
       "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
-      "X-Title": "Brightly - Educational Learning Platform",
+      "X-Title": "Brightly",
     },
   });
 };
