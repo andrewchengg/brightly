@@ -120,6 +120,7 @@ export default function HomeworkPage() {
   const [assigning, setAssigning] = useState(false);
   const [selectedPracticeType, setSelectedPracticeType] = useState<AssignablePracticeType | "">("");
   const [selectedMockPaperId, setSelectedMockPaperId] = useState<string>("");
+  const [viewingHomework, setViewingHomework] = useState<AssignedHomework | null>(null);
 
   // Assignment form state
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
@@ -614,31 +615,217 @@ export default function HomeworkPage() {
   }
   
   const selectedSubjectData = subjects.find((s) => s.id === selectedSubject);
-  const canAssign = selectedSubject && selectedTopic && assignmentTitle.trim();
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      {/* Header with child info */}
-      <div className="mb-4">
-        <div className="flex items-center gap-4 mb-3">
-          <Button
-            variant="outline"
-            onClick={() => setSelectedChild(null)}
-            className="flex items-center gap-2"
-          >
-            <FaArrowLeft className="w-4 h-4" />
-            Back to Children
-          </Button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Manage Homework - {selectedChild.name}
-            </h1>
-            <p className="text-gray-600 mt-1 text-base">
-              Assign new homework and track progress
-            </p>
+      {/* Homework Details Modal */}
+      {viewingHomework && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">Homework Details</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewingHomework(null)}
+                  className="flex items-center gap-2"
+                >
+                  <FaArrowLeft className="w-3 h-3" />
+                  Close
+                </Button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Title and Status */}
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    {viewingHomework.title}
+                  </h3>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(viewingHomework.status)}`}>
+                      {getStatusText(viewingHomework.status)}
+                    </span>
+                    {viewingHomework.subject && (
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                        {viewingHomework.subject.name}
+                      </span>
+                    )}
+                    {viewingHomework.topic && (
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
+                        {viewingHomework.topic.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Assignment Information */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <FaQuestionCircle className="text-indigo-600" />
+                    Assignment Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Type</p>
+                      <p className="font-medium text-gray-800">{viewingHomework.type}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Total Questions</p>
+                      <p className="font-medium text-gray-800">{viewingHomework.totalQuestions}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Assigned Date</p>
+                      <p className="font-medium text-gray-800">
+                        {moment(viewingHomework.assignedAt).format('MMMM DD, YYYY [at] h:mm A')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Assigned Time Ago</p>
+                      <p className="font-medium text-gray-800">
+                        {moment(viewingHomework.assignedAt).fromNow()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Data (if completed) */}
+                {viewingHomework.status === "COMPLETED" && (
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <FaCheckCircle className="text-green-600" />
+                      Performance Results
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Accuracy</p>
+                        <p className="font-medium text-green-800 text-lg">
+                          {viewingHomework.accuracy !== null ? `${viewingHomework.accuracy}%` : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Correct Answers</p>
+                        <p className="font-medium text-green-800 text-lg">
+                          {viewingHomework.correctAnswers !== null ? `${viewingHomework.correctAnswers}/${viewingHomework.totalQuestions}` : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">XP Earned</p>
+                        <p className="font-medium text-green-800 text-lg flex items-center gap-1">
+                          <FaTrophy className="text-yellow-600" />
+                          {viewingHomework.xpEarned || 0} XP
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Time Spent</p>
+                        <p className="font-medium text-green-800 text-lg flex items-center gap-1">
+                          <FaClock className="text-blue-600" />
+                          {viewingHomework.timeSpentMinutes ? `${viewingHomework.timeSpentMinutes} minutes` : 'N/A'}
+                        </p>
+                      </div>
+                      {viewingHomework.startTime && (
+                        <div>
+                          <p className="text-sm text-gray-600">Started At</p>
+                          <p className="font-medium text-green-800">
+                            {moment(viewingHomework.startTime).format('MMMM DD, YYYY [at] h:mm A')}
+                          </p>
+                        </div>
+                      )}
+                      {viewingHomework.endTime && (
+                        <div>
+                          <p className="text-sm text-gray-600">Completed At</p>
+                          <p className="font-medium text-green-800">
+                            {moment(viewingHomework.endTime).format('MMMM DD, YYYY [at] h:mm A')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* In Progress Information */}
+                {viewingHomework.status === "IN_PROGRESS" && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <FaPlayCircle className="text-blue-600" />
+                      In Progress
+                    </h4>
+                    <div className="space-y-2">
+                      {viewingHomework.startTime && (
+                        <div>
+                          <p className="text-sm text-gray-600">Started At</p>
+                          <p className="font-medium text-blue-800">
+                            {moment(viewingHomework.startTime).format('MMMM DD, YYYY [at] h:mm A')}
+                          </p>
+                          <p className="text-sm text-blue-600">
+                            Started {moment(viewingHomework.startTime).fromNow()}
+                          </p>
+                        </div>
+                      )}
+                      <p className="text-blue-800">
+                        The student has started this assignment and is currently working on it.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Not Started Information */}
+                {viewingHomework.status === "NOT_STARTED" && (
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <FaClock className="text-yellow-600" />
+                      Pending
+                    </h4>
+                    <p className="text-yellow-800">
+                      This assignment has been assigned but the student hasn't started it yet.
+                    </p>
+                  </div>
+                )}
+
+                {/* Child Information */}
+                <div className="bg-indigo-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <FaUser className="text-indigo-600" />
+                    Student Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Student Name</p>
+                      <p className="font-medium text-indigo-800">{viewingHomework.child?.name || selectedChild?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Username</p>
+                      <p className="font-medium text-indigo-800">@{viewingHomework.child?.username || selectedChild?.username}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+        {/* Header with child info */}
+        <div className="mb-4">
+          <div className="flex items-center gap-4 mb-3">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedChild(null)}
+              className="flex items-center gap-2"
+            >
+              <FaArrowLeft className="w-4 h-4" />
+              Back to Children
+            </Button>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Manage Homework - {selectedChild.name}
+              </h1>
+              <p className="text-gray-600 mt-1 text-base">
+                Assign new homework and track progress
+              </p>
+            </div>
+          </div>
+        </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Assign Homework Section */}
@@ -682,7 +869,6 @@ export default function HomeworkPage() {
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900">Topic Quiz</h3>
-                      <p className="text-sm text-gray-600">Practice specific topics</p>
                     </div>
                   </div>
                 </button>
@@ -714,7 +900,6 @@ export default function HomeworkPage() {
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900">Random Practice</h3>
-                      <p className="text-sm text-gray-600">Mixed questions by subject</p>
                     </div>
                   </div>
                 </button>
@@ -746,7 +931,6 @@ export default function HomeworkPage() {
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900">Mock Exam</h3>
-                      <p className="text-sm text-gray-600">Full exam simulation</p>
                     </div>
                   </div>
                 </button>
@@ -1057,10 +1241,7 @@ export default function HomeworkPage() {
                         variant="outline"
                         size="sm"
                         className="flex items-center gap-2"
-                        onClick={() => {
-                          // TODO: Implement detailed view
-                          toast.info("Detailed view coming soon!");
-                        }}
+                        onClick={() => setViewingHomework(homework)}
                       >
                         <FaEye className="w-3 h-3" />
                         View Details
