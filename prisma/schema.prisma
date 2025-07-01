@@ -407,8 +407,11 @@ model StudentUploadedQuestion {
   processingStatus ProcessingStatus @default(PROCESSING)
   ocrText          String?         // Raw OCR extracted text for search
   aiProcessingLog  String?         // Log of AI processing steps
-  imageUrl         String?         // Only saved when question requires visual elements
+  imageUrl         String?         // Full original image URL
+  diagramUrl       String?         // User-cropped diagram URL
+  cropCoordinates  Json?           // Store crop coordinates {x, y, width, height}
   requiresImage    Boolean         @default(false) // AI-detected flag for image dependency
+  hasDiagram       Boolean         @default(false) // User-selected diagram flag
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   student          Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)

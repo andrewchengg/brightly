@@ -49,6 +49,15 @@ export async function GET(request: NextRequest) {
       processingStatus: question.processingStatus,
       createdAt: question.createdAt,
       originalFileName: question.originalFileName,
+
+      // Image / diagram handling
+      imageUrl: question.diagramUrl || question.imageUrl || null,
+      requiresImage:
+        question.requiresImage ||
+        question.hasDiagram ||
+        Boolean(question.diagramUrl),
+
+      hasDiagram: question.hasDiagram,
     }));
 
     return NextResponse.json(transformedQuestions);
