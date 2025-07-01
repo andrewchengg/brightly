@@ -13,11 +13,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const childId = searchParams.get("childId");
+
+    // Build where clause
+    const whereClause: any = {
+      assignedByParentId: user.id,
+    };
+
+    // If childId is provided, filter by specific child
+    if (childId) {
+      whereClause.studentId = childId;
+    }
+
     // Get all practice sessions assigned by this parent
     const assignedTasks = await prisma.practiceSession.findMany({
-      where: {
-        assignedByParentId: user.id,
-      },
+      where: whereClause,
       include: {
         student: {
           select: {

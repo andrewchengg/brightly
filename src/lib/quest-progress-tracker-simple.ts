@@ -1,5 +1,6 @@
 import { PrismaClient, PracticeSession } from "@/generated/prisma";
 import { getWeekStart } from "./quest-service";
+import { calculateLevel } from "@/lib/xp-utils";
 
 const prisma = new PrismaClient();
 
@@ -354,22 +355,40 @@ async function awardQuestCompletionXP(
   questTitle: string
 ) {
   try {
-    // Update student's XP
-    const updatedStudent = await prisma.student.update({
+    // Get current student data to calculate new level
+    const currentStudent = await prisma.student.findUnique({
       where: { id: studentId },
-      data: {
-        xpPoints: {
-          increment: xpReward,
-        },
-      },
       select: {
         xpPoints: true,
         username: true,
       },
     });
 
+    if (!currentStudent) {
+      console.error(`Student not found: ${studentId}`);
+      return;
+    }
+
+    const newXP = currentStudent.xpPoints + xpReward;
+    const newLevel = calculateLevel(newXP);
+
+    // Update student's XP and level
+    const updatedStudent = await prisma.student.update({
+      where: { id: studentId },
+      data: {
+        xpPoints: newXP,
+        level: newLevel,
+        updatedAt: new Date(),
+      },
+      select: {
+        xpPoints: true,
+        level: true,
+        username: true,
+      },
+    });
+
     console.log(
-      `🎉 ${updatedStudent.username} earned ${xpReward} XP for completing "${questTitle}"! Total XP: ${updatedStudent.xpPoints}`
+      `🎉 ${updatedStudent.username} earned ${xpReward} XP for completing "${questTitle}"! Total XP: ${updatedStudent.xpPoints}, Level: ${updatedStudent.level}`
     );
   } catch (error) {
     console.error(`Failed to award XP for quest completion:`, error);

@@ -71,11 +71,17 @@ interface ChildStats {
 interface PerformanceChartsProps {
   childrenStats: ChildStats[];
   loading?: boolean;
+  dateRange?: {
+    startDate: Date;
+    endDate: Date;
+    period: "7d" | "30d" | "3m";
+  };
 }
 
 const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   childrenStats,
   loading = false,
+  dateRange,
 }) => {
   // Prepare data for charts
   const prepareWeeklyProgressData = () => {
@@ -221,7 +227,13 @@ const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center">
               <FaChartLine className="mr-2 text-indigo-600" />
-              Weekly Progress
+              Progress Trends
+              {dateRange && (
+                <span className="text-sm text-gray-500 ml-2 font-normal">
+                  ({dateRange.period === "7d" ? "7 days" : 
+                    dateRange.period === "30d" ? "Month" : "Quarter"})
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center">

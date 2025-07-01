@@ -823,7 +823,7 @@ const UnifiedParentDashboard = () => {
               <FaTasks className="mx-auto text-3xl mb-2 opacity-50" />
               <p>No homework assigned yet</p>
               <p className="text-sm mt-1">
-                Create assignments from the "Assign Homework" page
+                Create assignments from the "Manage Homework" page
               </p>
             </div>
           )}
