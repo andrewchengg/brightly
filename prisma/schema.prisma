@@ -17,38 +17,38 @@ model Admin {
 }
 
 model Student {
-  id                   String                @id
-  username             String                @unique
+  id                   String                    @id
+  username             String                    @unique
   name                 String
-  email                String?               @unique
-  phone                String?               @unique
+  email                String?                   @unique
+  phone                String?                   @unique
   img                  String?
-  createdAt            DateTime              @default(now())
+  createdAt            DateTime                  @default(now())
   parentId             String?
   classId              Int?
   gradeId              Int?
   schoolLevel          Int
   schoolName           String?
-  initialSetupComplete Boolean               @default(false)
-  level                Int                   @default(1)
-  updatedAt            DateTime              @updatedAt
-  currentStreak        Int                   @default(0)
+  initialSetupComplete Boolean                   @default(false)
+  level                Int                       @default(1)
+  updatedAt            DateTime                  @updatedAt
+  currentStreak        Int                       @default(0)
   lastActivityDate     DateTime?
-  longestStreak        Int                   @default(0)
-  xpPoints             Int                   @default(0)
+  longestStreak        Int                       @default(0)
+  xpPoints             Int                       @default(0)
   attendance           Attendance[]
+  chatSessions         ChatSession[]
   events               Event[]
   oralPracticeAttempts OralPracticeAttempt[]
   practiceSessions     PracticeSession[]
-  results              Result[]
-  class                Class?                @relation(fields: [classId], references: [id])
-  grade                Grade?                @relation(fields: [gradeId], references: [id])
-  parent               Parent?               @relation(fields: [parentId], references: [id])
-  studentBadges        StudentBadge[]
-  chatSessions         ChatSession[]
-  uploadedQuestions    StudentUploadedQuestion[]
-  studentQuests        StudentQuest[]
   questionReports      QuestionReport[]
+  results              Result[]
+  class                Class?                    @relation(fields: [classId], references: [id])
+  grade                Grade?                    @relation(fields: [gradeId], references: [id])
+  parent               Parent?                   @relation(fields: [parentId], references: [id])
+  studentBadges        StudentBadge[]
+  studentQuests        StudentQuest[]
+  uploadedQuestions    StudentUploadedQuestion[]
 }
 
 model Teacher {
@@ -76,9 +76,9 @@ model Parent {
   phone                    String?           @unique
   email                    String?           @unique
   address                  String?
-  referralSource           String?
   createdAt                DateTime          @default(now())
   updatedAt                DateTime          @updatedAt
+  referralSource           String?
   assignedPracticeSessions PracticeSession[] @relation("AssignedSessionsByParent")
   students                 Student[]
 }
@@ -121,9 +121,9 @@ model Subject {
   oralPrompts       OralPrompt[]
   practiceSessions  PracticeSession[]          @relation("SubjectPracticeSessions")
   questions         Question[]                 @relation("SubjectQuestions")
+  uploadedQuestions StudentUploadedQuestion[]  @relation("StudentUploadedQuestionSubjects")
   subjectTeachers   SubjectTeacher[]
   topics            Topic[]
-  uploadedQuestions StudentUploadedQuestion[]  @relation("StudentUploadedQuestionSubjects")
 }
 
 model Topic {
@@ -137,8 +137,8 @@ model Topic {
   oralPrompts       OralPrompt[]
   practiceSessions  PracticeSession[]
   questions         Question[]                 @relation("TopicQuestions")
-  subject           Subject                    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   uploadedQuestions StudentUploadedQuestion[]  @relation("StudentUploadedQuestionTopics")
+  subject           Subject                    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@unique([name, subjectId])
 }
@@ -211,15 +211,15 @@ model Question {
   sourceSchool         String?
   sourceYear           Int?
   productionReady      Boolean                   @default(false)
-  isRefactored         Boolean                   @default(false)
   reviewedAt           DateTime?
+  isRefactored         Boolean                   @default(false)
   archivedVersion      ArchivedOriginalQuestion?
   questionGroup        QuestionGroup?            @relation("QuestionGroupQuestions", fields: [questionGroupId], references: [id])
   subject              Subject                   @relation("SubjectQuestions", fields: [subjectId], references: [id], onDelete: Cascade)
   topic                Topic                     @relation("TopicQuestions", fields: [topicId], references: [id], onDelete: Cascade)
+  reports              QuestionReport[]
   tags                 QuestionTag[]
   studentAnswers       StudentAnswer[]
-  reports              QuestionReport[]
 
   @@unique([questionGroupId, pdfPageNumber, questionNumberOnPage], name: "unique_live_question_in_group_page_num")
 }
@@ -392,16 +392,16 @@ model StudentBadge {
 }
 
 model StudentUploadedQuestion {
-  id               String          @id @default(uuid())
+  id               String           @id @default(uuid())
   studentId        String
-  originalFileName String?         // Keep filename for reference
+  originalFileName String?
   text             String
-  questionType     QuestionType    @default(MULTIPLE_CHOICE)
+  questionType     QuestionType     @default(MULTIPLE_CHOICE)
   options          Json?
   correctAnswer    Json?
   explanation      String?
   hint             String?
-  difficulty       DifficultyLevel @default(MEDIUM)
+  difficulty       DifficultyLevel  @default(MEDIUM)
   subjectId        Int?
   topicId          Int?
   processingStatus ProcessingStatus @default(PROCESSING)
@@ -472,77 +472,90 @@ model OralPracticeAttempt {
 }
 
 model ChatSession {
-  id          String        @id @default(uuid())
-  studentId   String
-  title       String?
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  lastActivity DateTime     @default(now())
-  student     Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  messages    ChatMessage[]
+  id           String        @id @default(uuid())
+  studentId    String
+  title        String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  lastActivity DateTime      @default(now())
+  messages     ChatMessage[]
+  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId, lastActivity])
 }
 
 model ChatMessage {
-  id            String      @id @default(uuid())
-  sessionId     String
-  role          MessageRole
-  content       String
-  imageUrl      String?
-  hasImage      Boolean     @default(false)
-  timestamp     DateTime    @default(now())
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id        String      @id @default(uuid())
+  sessionId String
+  role      MessageRole
+  content   String
+  imageUrl  String?
+  hasImage  Boolean     @default(false)
+  timestamp DateTime    @default(now())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, timestamp])
 }
 
 model Quest {
-  id                String             @id @default(uuid())
-  questType         String             @unique // 'earn-xp', 'high-accuracy', etc.
-  title             String
-  description       String
-  baseTarget        Int                // Base target value
-  targetFormula     String?            // Formula for level-based scaling (e.g., "base + (level * 25)")
-  icon              String             // Icon name for frontend
-  color             String             // Color theme
-  category          WeeklyQuestCategory
-  isActive          Boolean            @default(true) // Allow enabling/disabling quests
-  minLevel          Int                @default(1)    // Minimum level required for this quest
-  maxLevel          Int?               // Maximum level (null = no limit)
-  rarity            QuestRarity        @default(COMMON) // How often this quest appears
-  xpReward          Int                @default(25)   // XP awarded upon completion
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  
-  // Relations
-  studentQuests     StudentQuest[]
+  id            String              @id @default(uuid())
+  questType     String              @unique
+  title         String
+  description   String
+  baseTarget    Int
+  targetFormula String?
+  icon          String
+  color         String
+  category      WeeklyQuestCategory
+  isActive      Boolean             @default(true)
+  minLevel      Int                 @default(1)
+  maxLevel      Int?
+  rarity        QuestRarity         @default(COMMON)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  xpReward      Int                 @default(25)
+  studentQuests StudentQuest[]
 }
 
 model StudentQuest {
-  id            String       @id @default(uuid())
-  studentId     String
-  questId       String
-  target        Int          // Calculated target for this student's level
-  progress      Int          @default(0)
-  isCompleted   Boolean      @default(false)
-  completedAt   DateTime?
-  weekStart     DateTime     // Monday of the week this quest belongs to
-  weekEnd       DateTime     // Sunday of the week this quest belongs to
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  
-  // Relations
-  student       Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  quest         Quest        @relation(fields: [questId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  studentId   String
+  questId     String
+  target      Int
+  progress    Int       @default(0)
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  weekStart   DateTime
+  weekEnd     DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  quest       Quest     @relation(fields: [questId], references: [id], onDelete: Cascade)
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, questId, weekStart])
   @@index([studentId, weekStart])
   @@index([weekStart, weekEnd])
   @@index([questId])
+}
+
+model QuestionReport {
+  id          String             @id @default(uuid())
+  questionId  Int
+  studentId   String
+  reportType  QuestionReportType
+  description String
+  status      ReportStatus       @default(PENDING)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  question    Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  student     Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@index([studentId])
+  @@index([status])
 }
 
 enum MessageRole {
@@ -635,23 +648,6 @@ enum QuestionReportType {
   TECHNICAL_ISSUE
   INAPPROPRIATE_CONTENT
   OTHER
-}
-
-model QuestionReport {
-  id          String            @id @default(uuid())
-  questionId  Int
-  studentId   String
-  reportType  QuestionReportType
-  description String
-  status      ReportStatus      @default(PENDING)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  question    Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  student     Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@index([questionId])
-  @@index([studentId])
-  @@index([status])
 }
 
 enum ReportStatus {

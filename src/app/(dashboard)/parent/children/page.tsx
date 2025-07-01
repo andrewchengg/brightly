@@ -98,7 +98,7 @@ export default function MyChildrenPage() {
           );
         }
 
-        const typedChildren = (studentsData || []).map((s) => {
+        const typedChildren = (studentsData || []).map((s: any) => {
           // Ensure all properties expected by ChildDisplayInfo are present
           // or have default fallbacks if they can be null from the query
           return {
@@ -244,22 +244,7 @@ export default function MyChildrenPage() {
                   </span>
                 </p>
               </CardContent>
-              <CardFooter className="pt-3">
-                <Link
-                  href={`/parent/child/${child.id}`}
-                  passHref
-                  legacyBehavior
-                >
-                  <a className="w-full">
-                    {" "}
-                    {/* The <a> tag is important for Link with custom components like Button */}
-                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700">
-                      View Details & Assign{" "}
-                      <FaArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </a>
-                </Link>
-              </CardFooter>
+              {/* Payment management could be integrated here in future */}
             </Card>
           ))}
         </div>

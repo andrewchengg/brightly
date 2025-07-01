@@ -104,9 +104,9 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
   };
 
   const getPerformanceColor = (session: CompletedSession) => {
-    const totalPossible =
-      (session.totalQuestions || 1) * (session.type === "MOCK_EXAM" ? 1 : 10);
-    const scorePercentage = ((session.score || 0) / totalPossible) * 100;
+    const achieved = session.correctAnswers ?? session.score ?? 0;
+    const totalPossible = session.totalQuestions || 1;
+    const scorePercentage = (achieved / totalPossible) * 100;
 
     if (scorePercentage >= 80) return "text-green-600 bg-green-50";
     if (scorePercentage >= 60) return "text-blue-600 bg-blue-50";
@@ -115,9 +115,9 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
   };
 
   const getPerformanceEmoji = (session: CompletedSession) => {
-    const totalPossible =
-      (session.totalQuestions || 1) * (session.type === "MOCK_EXAM" ? 1 : 10);
-    const scorePercentage = ((session.score || 0) / totalPossible) * 100;
+    const achieved = session.correctAnswers ?? session.score ?? 0;
+    const totalPossible = session.totalQuestions || 1;
+    const scorePercentage = (achieved / totalPossible) * 100;
 
     if (scorePercentage >= 80) return "🏆";
     if (scorePercentage >= 60) return "🌟";
@@ -189,11 +189,9 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
         ) : (
           <div className="space-y-4">
             {recentSessions.map((session) => {
-              const totalPossible =
-                (session.totalQuestions || 1) *
-                (session.type === "MOCK_EXAM" ? 1 : 10);
-              const scorePercentage =
-                ((session.score || 0) / totalPossible) * 100;
+              const totalPossible = session.totalQuestions || 1;
+              const achieved = session.correctAnswers ?? session.score ?? 0;
+              const scorePercentage = (achieved / totalPossible) * 100;
 
               return (
                 <div
