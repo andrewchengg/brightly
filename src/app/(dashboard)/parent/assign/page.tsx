@@ -167,7 +167,9 @@ export default function HomeworkPage() {
       const subjectsResponse = await fetch("/api/subjects");
       if (subjectsResponse.ok) {
         const subjectsData = await subjectsResponse.json();
-        setSubjects(subjectsData);
+        // Remove any generic subject that shouldn't be assignable
+        const filteredSubjects = subjectsData.filter((s: any) => String(s.name).toLowerCase() !== "general");
+        setSubjects(filteredSubjects);
       } else {
         toast.error("Failed to load subjects");
       }
@@ -942,7 +944,7 @@ export default function HomeworkPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Subject *
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
                 {subjects.map((subject) => (
                   <button
                     key={subject.id}
@@ -979,7 +981,7 @@ export default function HomeworkPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Topic *
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
                   {selectedSubjectData?.topics.map((topic) => (
                     <button
                       key={topic.id}
@@ -1010,7 +1012,7 @@ export default function HomeworkPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Mock Exam Paper *
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                   {getAvailableMockPapers().map((paper: any) => (
                     <button
                       key={paper.id}
