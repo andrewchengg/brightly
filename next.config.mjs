@@ -19,6 +19,19 @@ const nextConfig = {
       { hostname: "res.cloudinary.com" }, // Add this line
     ],
   },
+  webpack: (config, { isServer }) => {
+    // Suppress the critical dependency warning for Supabase RealtimeClient
+    if (!config.ignoreWarnings) {
+      config.ignoreWarnings = [];
+    }
+    config.ignoreWarnings.push({
+      module:
+        /node_modules\/@supabase\/realtime-js\/dist\/main\/RealtimeClient\.js$/,
+      message: /Critical dependency/,
+    });
+
+    return config;
+  },
 };
 
 export default nextConfig;

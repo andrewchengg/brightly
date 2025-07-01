@@ -243,9 +243,23 @@ export async function updateQuestProgress(
           practiceSession.studentId,
           weekStart
         );
-        quest.progress = subjectCount;
-        shouldComplete = subjectCount >= quest.target;
-        break;
+
+        // Only update if we found more unique subjects than currently recorded
+        if (subjectCount > quest.progress) {
+          shouldComplete = subjectCount >= quest.target;
+
+          updates.push(
+            prisma.studentQuest.update({
+              where: { id: quest.id },
+              data: {
+                progress: Math.min(subjectCount, quest.target),
+                isCompleted: shouldComplete,
+                completedAt: shouldComplete ? new Date() : null,
+              },
+            })
+          );
+        }
+        continue; // Skip the normal progressToAdd logic
 
       case "subject-specialist":
         // Count sessions in the same subject
@@ -255,10 +269,24 @@ export async function updateQuestProgress(
             practiceSession.subjectId,
             weekStart
           );
-          quest.progress = subjectSessionCount;
-          shouldComplete = subjectSessionCount >= quest.target;
+
+          // Only update if we found more sessions than currently recorded
+          if (subjectSessionCount > quest.progress) {
+            shouldComplete = subjectSessionCount >= quest.target;
+
+            updates.push(
+              prisma.studentQuest.update({
+                where: { id: quest.id },
+                data: {
+                  progress: Math.min(subjectSessionCount, quest.target),
+                  isCompleted: shouldComplete,
+                  completedAt: shouldComplete ? new Date() : null,
+                },
+              })
+            );
+          }
         }
-        break;
+        continue; // Skip the normal progressToAdd logic
 
       case "weekly-warrior":
         // Count unique days practiced
@@ -266,9 +294,23 @@ export async function updateQuestProgress(
           practiceSession.studentId,
           weekStart
         );
-        quest.progress = uniqueDays;
-        shouldComplete = uniqueDays >= quest.target;
-        break;
+
+        // Only update if we found more unique days than currently recorded
+        if (uniqueDays > quest.progress) {
+          shouldComplete = uniqueDays >= quest.target;
+
+          updates.push(
+            prisma.studentQuest.update({
+              where: { id: quest.id },
+              data: {
+                progress: Math.min(uniqueDays, quest.target),
+                isCompleted: shouldComplete,
+                completedAt: shouldComplete ? new Date() : null,
+              },
+            })
+          );
+        }
+        continue; // Skip the normal progressToAdd logic
 
       case "consistent-learner":
         // Count days with 2+ sessions
@@ -276,9 +318,23 @@ export async function updateQuestProgress(
           practiceSession.studentId,
           weekStart
         );
-        quest.progress = consistentDays;
-        shouldComplete = consistentDays >= quest.target;
-        break;
+
+        // Only update if we found more consistent days than currently recorded
+        if (consistentDays > quest.progress) {
+          shouldComplete = consistentDays >= quest.target;
+
+          updates.push(
+            prisma.studentQuest.update({
+              where: { id: quest.id },
+              data: {
+                progress: Math.min(consistentDays, quest.target),
+                isCompleted: shouldComplete,
+                completedAt: shouldComplete ? new Date() : null,
+              },
+            })
+          );
+        }
+        continue; // Skip the normal progressToAdd logic
 
       case "perfectionist":
         if (practiceSession.score && practiceSession.totalQuestions) {
@@ -293,14 +349,30 @@ export async function updateQuestProgress(
         break;
 
       case "topic-explorer":
-        // Count unique topics practiced
-        const topicCount = await getUniqueTopicsThisWeek(
+        // Count unique topics practiced - but only increment if this is a new topic
+        const currentTopicCount = await getUniqueTopicsThisWeek(
           practiceSession.studentId,
           weekStart
         );
-        quest.progress = topicCount;
-        shouldComplete = topicCount >= quest.target;
-        break;
+
+        // Only update if we found more unique topics than currently recorded
+        if (currentTopicCount > quest.progress) {
+          const newProgress = currentTopicCount;
+          shouldComplete = newProgress >= quest.target;
+
+          // Update progress to match actual unique topics count
+          updates.push(
+            prisma.studentQuest.update({
+              where: { id: quest.id },
+              data: {
+                progress: Math.min(newProgress, quest.target),
+                isCompleted: shouldComplete,
+                completedAt: shouldComplete ? new Date() : null,
+              },
+            })
+          );
+        }
+        continue; // Skip the normal progressToAdd logic
 
       case "challenge-seeker":
         if (practiceSession.type === "PRACTICE") {

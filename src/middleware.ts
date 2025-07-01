@@ -2,6 +2,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { routeAccessMap } from "./lib/settings";
+import { getFallbackUserRole } from "./lib/secure-auth-fallback";
 
 export async function middleware(req: NextRequest) {
   let response = NextResponse.next({
@@ -82,8 +83,10 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
+    // SECURITY FIX: Use secure database lookup instead of user_metadata
     const userRole =
-      (user.user_metadata?.role as string | undefined) || "student";
+      (await getFallbackUserRole(req, supabaseUrl, supabaseAnonKey)) ||
+      "student";
 
     if (isSetupPath) {
       return response;

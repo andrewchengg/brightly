@@ -65,48 +65,80 @@ const AskAITutor = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<ChatHistoryRef>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Function to split text into sentences
+  // Function to split text into larger chunks (roughly twice the size of individual sentences)
   const splitIntoSentences = (text: string): string[] => {
-    // Split by sentence endings, but keep the punctuation
-    const sentences = text
-      .split(/(?<=[.!?])\s+/)
-      .filter((sentence) => sentence.trim().length > 0);
-    return sentences;
+    // First, split by paragraph breaks to respect natural structure
+    const paragraphs = text
+      .split(/\n\s*\n/)
+      .filter((chunk) => chunk.trim().length > 0);
+
+    const chunks: string[] = [];
+
+    paragraphs.forEach((paragraph) => {
+      const trimmed = paragraph.trim();
+
+      // If paragraph contains numbered lists or bullet points, keep it as one chunk
+      if (/^\d+\.|\n\d+\.|-\s+/.test(trimmed)) {
+        chunks.push(trimmed);
+      }
+      // If paragraph is short (less than 300 chars), keep it as one chunk
+      else if (trimmed.length < 300) {
+        chunks.push(trimmed);
+      }
+      // Otherwise, split by sentence endings and combine 2-3 sentences per chunk
+      else {
+        const sentences = trimmed
+          .split(/(?<=[.!?])\s+/)
+          .filter((sentence) => sentence.trim().length > 0);
+
+        // Group sentences into larger chunks (2-3 sentences each)
+        for (let i = 0; i < sentences.length; i += 2) {
+          const chunk = sentences.slice(i, i + 2).join(" ");
+          chunks.push(chunk);
+        }
+      }
+    });
+
+    return chunks.filter((chunk) => chunk.trim().length > 0);
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  // Remove auto-scroll to allow free scrolling
+  // useEffect(() => {
+  //   scrollToBottom();
+  // }, [messages]);
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
         // 10MB limit
-        alert("Image size should be less than 10MB");
+        alert("File size should be less than 10MB");
         return;
       }
 
       setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      // Only show preview for image files
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setImagePreview(null);
+      }
     }
   };
 
-  const removeImage = () => {
+  const removeFile = () => {
     setSelectedImage(null);
     setImagePreview(null);
     if (fileInputRef.current) {
@@ -114,30 +146,35 @@ const AskAITutor = () => {
     }
   };
 
-  // Handle paste events for image pasting
+  // Handle paste events for file pasting
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData.items);
-    const imageItem = items.find((item) => item.type.startsWith("image/"));
+    const fileItem = items.find((item) => item.kind === "file");
 
-    if (imageItem) {
+    if (fileItem) {
       e.preventDefault();
-      const file = imageItem.getAsFile();
+      const file = fileItem.getAsFile();
 
       if (file) {
         if (file.size > 10 * 1024 * 1024) {
           // 10MB limit
-          toast.error("Image size should be less than 10MB");
+          toast.error("File size should be less than 10MB");
           return;
         }
 
         setSelectedImage(file);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setImagePreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
+        // Only show preview for image files
+        if (file.type.startsWith("image/")) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            setImagePreview(e.target?.result as string);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          setImagePreview(null);
+        }
 
-        toast.success("Image pasted successfully!");
+        toast.success("File pasted successfully!");
       }
     }
   };
@@ -162,44 +199,34 @@ const AskAITutor = () => {
     e.preventDefault();
     setIsDragOver(false);
     const files = Array.from(e.dataTransfer.files);
-    const imageFile = files.find((file) => file.type.startsWith("image/"));
+    const file = files[0]; // Take the first file
 
-    if (imageFile) {
-      if (imageFile.size > 10 * 1024 * 1024) {
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
         // 10MB limit
-        toast.error("Image size should be less than 10MB");
+        toast.error("File size should be less than 10MB");
         return;
       }
 
-      setSelectedImage(imageFile);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(imageFile);
+      setSelectedImage(file);
+      // Only show preview for image files
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setImagePreview(null);
+      }
 
-      toast.success("Image dropped successfully!");
+      toast.success("File dropped successfully!");
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInputText(value);
-
-    // Show typing animation when user is typing
-    if (value.trim() && !isTyping) {
-      setIsTyping(true);
-    }
-
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Set new timeout to hide typing animation
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-    }, 1000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -225,8 +252,7 @@ const AskAITutor = () => {
       id: Date.now().toString(),
       type: "user",
       content:
-        sanitizedText ||
-        "Please analyze this image and help me solve this problem.",
+        sanitizedText || "Please analyze this file and help me with this.",
       image: imagePreview || undefined,
       timestamp: new Date(),
     };
@@ -276,7 +302,7 @@ const AskAITutor = () => {
           };
 
           setMessages((prev) => [...prev, aiMessage]);
-        }, index * 1600); // 800ms delay between each sentence message
+        }, index * 1200); // 1200ms delay between each larger chunk
       });
     } catch (error) {
       console.error("Error getting AI response:", error);
@@ -290,14 +316,59 @@ const AskAITutor = () => {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
-      removeImage();
+      removeFile();
     }
   };
 
-  const handleSessionSelect = (sessionId: string) => {
-    // Load the selected session
-    setCurrentSessionId(sessionId);
-    setShowHistory(false); // Hide sidebar on mobile after selection
+  const handleSessionSelect = async (sessionId: string) => {
+    try {
+      setIsLoading(true);
+
+      // Fetch messages for the selected session
+      const response = await fetch(`/api/chat-sessions/${sessionId}/messages`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch session messages");
+      }
+
+      const data = await response.json();
+
+      console.log("Raw messages from API:", data.messages);
+
+      // Convert the chat messages to the local Message format
+      const loadedMessages: Message[] = data.messages.map((msg: any) => {
+        console.log(
+          `Message: ${msg.id}, Role: ${
+            msg.role
+          }, Content: ${msg.content.substring(0, 50)}...`
+        );
+        return {
+          id: msg.id,
+          type: msg.role === "USER" ? "user" : "ai",
+          content: msg.content,
+          image: msg.imageUrl || undefined,
+          timestamp: new Date(msg.timestamp),
+        };
+      });
+
+      console.log("Converted messages:", loadedMessages);
+
+      // Reverse the messages to fix display order issue
+      const orderedMessages = [...loadedMessages].reverse();
+      console.log("Final ordered messages:", orderedMessages);
+
+      // Set the messages and current session
+      setMessages(orderedMessages);
+      setCurrentSessionId(sessionId);
+      setShowHistory(false); // Hide sidebar on mobile after selection
+
+      toast.success("Previous conversation loaded!");
+    } catch (error) {
+      console.error("Error loading session:", error);
+      toast.error("Failed to load conversation. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const startNewConversation = async () => {
@@ -352,7 +423,11 @@ const AskAITutor = () => {
       <div
         className={`flex-1 flex flex-col h-screen transition-all duration-300 ${
           showHistory ? "md:mr-80" : "mr-0"
-        }`}
+        } ${isDragOver ? "bg-blue-50" : ""}`}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 shadow-lg">
@@ -378,8 +453,7 @@ const AskAITutor = () => {
                 <div>
                   <h1 className="text-2xl font-bold">Ben - Your AI Tutor</h1>
                   <p className="text-indigo-100 text-sm">
-                    Upload, paste, or drag images of your questions for instant
-                    help!
+                    Upload, paste, or drag files for instant help!
                   </p>
                 </div>
                 <button
@@ -495,17 +569,28 @@ const AskAITutor = () => {
         {/* Input Area */}
         <div className="border-t border-gray-200 bg-white px-6 py-4 shadow-lg">
           <div className="max-w-4xl mx-auto w-full">
-            {imagePreview && (
+            {(selectedImage || imagePreview) && (
               <div className="mb-4 relative inline-block">
-                <Image
-                  src={imagePreview}
-                  alt="Preview"
-                  width={150}
-                  height={100}
-                  className="rounded-lg object-cover border-2 border-indigo-200 shadow-md"
-                />
+                {imagePreview ? (
+                  <Image
+                    src={imagePreview}
+                    alt="Preview"
+                    width={150}
+                    height={100}
+                    className="rounded-lg object-cover border-2 border-indigo-200 shadow-md"
+                  />
+                ) : (
+                  <div className="w-40 h-20 bg-gray-100 border-2 border-indigo-200 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <FaImage className="text-gray-400 text-xl mb-1 mx-auto" />
+                      <div className="text-xs text-gray-600 truncate max-w-32">
+                        {selectedImage?.name}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <button
-                  onClick={removeImage}
+                  onClick={removeFile}
                   className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center hover:bg-red-600 transition-colors shadow-md"
                 >
                   <FaTimes className="text-xs" />
@@ -513,28 +598,24 @@ const AskAITutor = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="flex items-end gap-4">
-              <div
-                className={`flex-1 transition-all duration-200 ${
-                  isDragOver ? "bg-blue-50 border-blue-300 rounded-xl" : ""
-                }`}
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-              >
+            <form onSubmit={handleSubmit} className="flex items-center gap-3">
+              <div className="flex-1 transition-all duration-200">
                 <textarea
                   value={inputText}
                   onChange={handleInputChange}
                   onPaste={handlePaste}
-                  placeholder="Type your question here, paste an image (Ctrl+V), or drag & drop..."
-                  className={`w-full px-5 py-4 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm leading-relaxed shadow-sm transition-all duration-200 ${
-                    isDragOver
-                      ? "border-blue-400 bg-blue-50 border-dashed"
-                      : "border-gray-300"
-                  }`}
+                  placeholder="Type your question here, paste a file (Ctrl+V), or drag & drop..."
+                  className="w-full h-12 px-4 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm shadow-sm transition-all duration-200"
                   rows={1}
-                  style={{ minHeight: "56px", maxHeight: "140px" }}
+                  style={{
+                    height: "48px",
+                    minHeight: "48px",
+                    maxHeight: "140px",
+                    paddingTop: "12px",
+                    paddingBottom: "12px",
+                    lineHeight: "20px",
+                    boxSizing: "border-box",
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -547,50 +628,28 @@ const AskAITutor = () => {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
+                onChange={handleFileSelect}
                 className="hidden"
               />
 
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-4 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors shadow-sm border border-gray-300"
-                title="Upload image"
+                className="w-12 h-12 flex items-center justify-center text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors shadow-sm border border-gray-300"
+                title="Upload file"
               >
-                <FaImage className="text-xl" />
+                <FaImage className="text-lg" />
               </button>
 
               <button
                 type="submit"
                 disabled={(!inputText.trim() && !selectedImage) || isLoading}
-                className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
+                className="w-12 h-12 flex items-center justify-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
                 title="Send message"
               >
-                <FaPaperPlane />
+                <FaPaperPlane className="text-lg" />
               </button>
             </form>
-
-            <p className="text-xs text-gray-500 mt-3 text-center">
-              📷 Upload, paste (Ctrl+V), or drag & drop images of your questions
-              • Get instant help from AI tutor
-            </p>
-
-            {/* Ben typing indicator */}
-            {isTyping && (
-              <div className="flex items-center justify-center gap-2 mt-2 text-xs text-indigo-600">
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <Image
-                    src="/ben_the_bear_thinking.gif"
-                    alt="Ben is listening"
-                    width={24}
-                    height={24}
-                    className="object-contain"
-                  />
-                </div>
-                <span className="animate-pulse">Ben is listening...</span>
-              </div>
-            )}
           </div>
         </div>
       </div>

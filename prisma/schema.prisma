@@ -405,18 +405,18 @@ model StudentUploadedQuestion {
   subjectId        Int?
   topicId          Int?
   processingStatus ProcessingStatus @default(PROCESSING)
-  ocrText          String?
-  aiProcessingLog  String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  imageUrl         String?
-  requiresImage    Boolean          @default(false)
-  cropCoordinates  Json?
-  diagramUrl       String?
-  hasDiagram       Boolean          @default(false)
-  student          Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject          Subject?         @relation("StudentUploadedQuestionSubjects", fields: [subjectId], references: [id])
-  topic            Topic?           @relation("StudentUploadedQuestionTopics", fields: [topicId], references: [id])
+  ocrText          String?         // Raw OCR extracted text for search
+  aiProcessingLog  String?         // Log of AI processing steps
+  imageUrl         String?         // Full original image URL
+  diagramUrl       String?         // User-cropped diagram URL
+  cropCoordinates  Json?           // Store crop coordinates {x, y, width, height}
+  requiresImage    Boolean         @default(false) // AI-detected flag for image dependency
+  hasDiagram       Boolean         @default(false) // User-selected diagram flag
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  student          Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject          Subject?        @relation("StudentUploadedQuestionSubjects", fields: [subjectId], references: [id], onDelete: SetNull)
+  topic            Topic?          @relation("StudentUploadedQuestionTopics", fields: [topicId], references: [id], onDelete: SetNull)
 
   @@index([studentId, createdAt])
   @@index([studentId, subjectId])

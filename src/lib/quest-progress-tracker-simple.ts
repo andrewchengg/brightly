@@ -306,10 +306,26 @@ async function updateDailyQuestProgress(
       .filter(Boolean)
   );
 
-  const currentProgress = uniqueDays.size;
-  const previousProgress = studentQuest.progress;
+  const actualUniqueDays = uniqueDays.size;
+  const recordedProgress = studentQuest.progress;
 
-  return Math.max(0, currentProgress - previousProgress);
+  // If actual days > recorded progress, we need to update to the correct value
+  if (actualUniqueDays > recordedProgress) {
+    // Update the quest progress directly to match reality
+    await prisma.studentQuest.update({
+      where: { id: studentQuest.id },
+      data: {
+        progress: Math.min(actualUniqueDays, studentQuest.target),
+        isCompleted: actualUniqueDays >= studentQuest.target,
+        completedAt:
+          actualUniqueDays >= studentQuest.target ? new Date() : null,
+      },
+    });
+
+    return actualUniqueDays - recordedProgress; // Return the increment for logging
+  }
+
+  return 0; // No increment needed
 }
 
 // Simple weekend progress tracker

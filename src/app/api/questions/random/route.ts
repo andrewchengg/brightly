@@ -82,24 +82,32 @@ export async function GET(request: Request) {
     const topicIdParam = searchParams.get("topicId");
     const subjectIdParam = searchParams.get("subjectId");
 
-    const whereClause: any = {};
+    // Build where clause with strict validation
+    const whereClause: any = {
+      productionReady: true, // Always filter for production ready questions
+    };
+
     if (topicIdParam) {
       const topicId = parseInt(topicIdParam, 10);
-      if (!isNaN(topicId)) whereClause.topicId = topicId;
-      else console.warn("API: Invalid topicId received:", topicIdParam);
+      if (!isNaN(topicId)) {
+        whereClause.topicId = topicId;
+      } else {
+        console.warn("API: Invalid topicId received:", topicIdParam);
+      }
     }
+
     if (subjectIdParam) {
       const subjectId = parseInt(subjectIdParam, 10);
-      if (!isNaN(subjectId)) whereClause.subjectId = subjectId;
-      else console.warn("API: Invalid subjectId received:", subjectIdParam);
+      if (!isNaN(subjectId)) {
+        whereClause.subjectId = subjectId;
+      } else {
+        console.warn("API: Invalid subjectId received:", subjectIdParam);
+      }
     }
 
     // Fetch ALL questions matching the criteria from the database first
     const allMatchingQuestions = await prisma.question.findMany({
-      where: {
-        ...whereClause,
-        productionReady: true, // Only fetch production-ready questions
-      },
+      where: whereClause,
       include: {
         topic: {
           select: {
