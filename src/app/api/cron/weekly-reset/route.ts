@@ -1,56 +1,59 @@
 import { NextResponse } from "next/server";
-// import { resetWeeklyQuests } from '@/lib/weekly-quest-service-raw'; // Temporarily disabled - needs schema update
+import { resetWeeklyQuests } from "@/lib/weekly-quest-service";
+import { withAdminAuth } from "@/lib/api-protection";
 
 export async function GET() {
-  try {
-    const now = new Date();
+  return withAdminAuth(async (auth) => {
+    try {
+      const now = new Date();
 
-    // Check if today is Monday (1 = Monday in getDay())
-    const dayOfWeek = now.getDay();
-    if (dayOfWeek !== 1) {
+      // Check if today is Monday (1 = Monday in getDay())
+      const dayOfWeek = now.getDay();
+      if (dayOfWeek !== 1) {
+        return NextResponse.json({
+          message: "Not Monday - weekly reset skipped",
+          currentDay: dayOfWeek,
+        });
+      }
+
+      console.log("🔄 Starting weekly quest reset...");
+      await resetWeeklyQuests();
+      console.log("✅ Weekly quest reset completed");
+
       return NextResponse.json({
-        message: "Not Monday - weekly reset skipped",
-        currentDay: dayOfWeek,
+        success: true,
+        message: "Weekly quests reset completed",
+        timestamp: now.toISOString(),
       });
+    } catch (error: any) {
+      console.error("❌ Error during weekly reset:", error);
+      return NextResponse.json(
+        { error: "Failed to reset weekly quests", details: error.message },
+        { status: 500 }
+      );
     }
-
-    // await resetWeeklyQuests(); // Temporarily disabled - needs schema update
-    console.log(
-      "Weekly quest reset temporarily disabled - needs schema update"
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: "Weekly quests reset temporarily disabled",
-      timestamp: now.toISOString(),
-    });
-  } catch (error: any) {
-    console.error("Error during weekly reset:", error);
-    return NextResponse.json(
-      { error: "Failed to reset weekly quests", details: error.message },
-      { status: 500 }
-    );
-  }
+  });
 }
 
 // For manual trigger
 export async function POST() {
-  try {
-    // await resetWeeklyQuests(); // Temporarily disabled - needs schema update
-    console.log(
-      "Manual weekly quest reset temporarily disabled - needs schema update"
-    );
+  return withAdminAuth(async (auth) => {
+    try {
+      console.log("🔄 Starting manual weekly quest reset...");
+      await resetWeeklyQuests();
+      console.log("✅ Manual weekly quest reset completed");
 
-    return NextResponse.json({
-      success: true,
-      message: "Weekly quests reset temporarily disabled",
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error: any) {
-    console.error("Error during manual weekly reset:", error);
-    return NextResponse.json(
-      { error: "Failed to reset weekly quests", details: error.message },
-      { status: 500 }
-    );
-  }
+      return NextResponse.json({
+        success: true,
+        message: "Weekly quests reset completed",
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("❌ Error during manual weekly reset:", error);
+      return NextResponse.json(
+        { error: "Failed to reset weekly quests", details: error.message },
+        { status: 500 }
+      );
+    }
+  });
 }

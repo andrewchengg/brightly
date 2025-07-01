@@ -366,7 +366,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   return (
     <div className={className}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
         <div>
           <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
             Your Schedule
@@ -395,7 +395,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
       </div>
 
       {/* Navigation Controls */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl shadow-sm border border-slate-200">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl shadow-sm border border-slate-200">
         {/* Left side - Navigation buttons */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <Button
@@ -430,13 +430,13 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
         </div>
 
         {/* Center - Current view title */}
-        <div className="flex items-center gap-4 flex-1 justify-center">
-          <h3 className="text-xl font-semibold text-slate-800 whitespace-nowrap">
+        <div className="flex items-center gap-3 lg:flex-1 justify-center min-w-0">
+          <h3 className="text-lg font-semibold text-slate-800 truncate max-w-[200px] lg:max-w-none">
             {getViewTitle()}
           </h3>
 
           {/* Date picker for quick navigation */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center">
             <Input
               type="date"
               value={moment(date).format("YYYY-MM-DD")}
@@ -446,13 +446,13 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
           </div>
         </div>
 
-        {/* Right side - View selector (vertical stack) */}
-        <div className="flex flex-col gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1 flex-shrink-0">
+        {/* Right side - View selector (horizontal stack) */}
+        <div className="flex gap-1 bg-white rounded-lg border border-slate-200 shadow-sm p-1 w-[160px] flex-shrink-0">
           <Button
             onClick={() => setView(Views.MONTH)}
             variant={view === Views.MONTH ? "default" : "ghost"}
             size="sm"
-            className={`rounded-lg text-xs px-2 py-1.5 transition-all duration-200 min-w-[50px] ${
+            className={`rounded-md text-xs px-2 py-1 transition-all duration-200 flex-1 ${
               view === Views.MONTH
                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
                 : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
@@ -464,7 +464,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={() => setView(Views.WEEK)}
             variant={view === Views.WEEK ? "default" : "ghost"}
             size="sm"
-            className={`rounded-lg text-xs px-2 py-1.5 transition-all duration-200 min-w-[50px] ${
+            className={`rounded-md text-xs px-2 py-1 transition-all duration-200 flex-1 ${
               view === Views.WEEK
                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
                 : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
@@ -476,7 +476,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={() => setView(Views.DAY)}
             variant={view === Views.DAY ? "default" : "ghost"}
             size="sm"
-            className={`rounded-lg text-xs px-2 py-1.5 transition-all duration-200 min-w-[50px] ${
+            className={`rounded-md text-xs px-2 py-1 transition-all duration-200 flex-1 ${
               view === Views.DAY
                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
                 : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
@@ -487,7 +487,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
         </div>
       </div>
 
-      <div className="h-[650px] bg-white rounded-2xl border border-slate-200 shadow-lg relative overflow-hidden">
+      <div className="h-[500px] bg-white rounded-xl border border-slate-200 shadow-lg relative overflow-hidden">
         <style jsx global>{`
           /* Custom calendar styling */
           .rbc-calendar {
@@ -747,34 +747,6 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             };
           }}
         />
-      </div>
-
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-6 mt-6 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-sm"></div>
-          <span className="text-sm font-medium text-slate-700">
-            Personal Events
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg shadow-sm"></div>
-          <span className="text-sm font-medium text-slate-700">
-            Class Lessons
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-lg">⭐</span>
-          <span className="text-sm font-medium text-slate-700">
-            Practice Completed
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-lg">🎯</span>
-          <span className="text-sm font-medium text-slate-700">
-            Practice Today!
-          </span>
-        </div>
       </div>
 
       {/* Event Details Modal */}

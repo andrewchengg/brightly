@@ -45,7 +45,7 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
     const [isExpanded, setIsExpanded] = useState(false);
     const [selectedContext, setSelectedContext] = useState<string | null>(null);
 
-    // Function to split text into logical chunks for smooth display
+    // Function to split text into larger chunks for smooth display (roughly twice the size)
     const splitIntoSentences = (text: string): string[] => {
       // First, split by double line breaks (paragraph breaks)
       const paragraphs = text
@@ -61,16 +61,21 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
         if (/^\d+\.|\n\d+\.|-\s+/.test(trimmed)) {
           chunks.push(trimmed);
         }
-        // If paragraph is short (less than 150 chars), keep it as one chunk
-        else if (trimmed.length < 150) {
+        // If paragraph is short (less than 300 chars), keep it as one chunk
+        else if (trimmed.length < 300) {
           chunks.push(trimmed);
         }
-        // Otherwise, split by sentence endings but be more careful
+        // Otherwise, split by sentence endings and combine 2-3 sentences per chunk
         else {
           const sentences = trimmed
             .split(/(?<=[.!?])\s+(?=[A-Z])/)
             .filter((sentence) => sentence.trim().length > 0);
-          chunks.push(...sentences);
+
+          // Group sentences into larger chunks (2-3 sentences each)
+          for (let i = 0; i < sentences.length; i += 2) {
+            const chunk = sentences.slice(i, i + 2).join(" ");
+            chunks.push(chunk);
+          }
         }
       });
 
@@ -89,17 +94,17 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
       },
     }));
 
-    // Auto-scroll to bottom when new messages arrive
-    useEffect(() => {
-      if (chatContentRef.current) {
-        setTimeout(() => {
-          if (chatContentRef.current) {
-            chatContentRef.current.scrollTop =
-              chatContentRef.current.scrollHeight;
-          }
-        }, 100);
-      }
-    }, [chatHistory, isLoading]);
+    // Auto-scroll to bottom when new messages arrive - DISABLED for free scrolling
+    // useEffect(() => {
+    //   if (chatContentRef.current) {
+    //     setTimeout(() => {
+    //       if (chatContentRef.current) {
+    //         chatContentRef.current.scrollTop =
+    //           chatContentRef.current.scrollHeight;
+    //       }
+    //     }, 100);
+    //   }
+    // }, [chatHistory, isLoading]);
 
     // Handle paste events with length validation
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -154,7 +159,9 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
 
         // Always include the correct answer if available
         if (questionContext.correctAnswer) {
-          context += `Correct Answer: ${JSON.stringify(questionContext.correctAnswer)}\n`;
+          context += `Correct Answer: ${JSON.stringify(
+            questionContext.correctAnswer
+          )}\n`;
         }
 
         // Always include the official explanation if available
@@ -172,7 +179,9 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
             questionContext.isCorrect ? "CORRECT" : "INCORRECT"
           }\n`;
           if (questionContext.userAnswer) {
-            context += `Student's Answer: ${JSON.stringify(questionContext.userAnswer)}\n`;
+            context += `Student's Answer: ${JSON.stringify(
+              questionContext.userAnswer
+            )}\n`;
           }
         }
         context += "\n";

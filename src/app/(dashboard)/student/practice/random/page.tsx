@@ -40,6 +40,7 @@ import {
   FaChartBar,
   FaArrowRight,
   FaRocket,
+  FaFlag,
 } from "react-icons/fa";
 
 // Interfaces
@@ -87,6 +88,147 @@ interface SessionData {
   studentAnswers: StudentAnswerData[];
 }
 
+const QUESTION_REPORT_TYPES = [
+  { value: "INCORRECT_ANSWER", label: "Incorrect Answer" },
+  { value: "WRONG_EXPLANATION", label: "Wrong Explanation" },
+  { value: "POOR_FORMATTING", label: "Poor Formatting" },
+  { value: "TECHNICAL_ISSUE", label: "Technical Issue" },
+  { value: "INAPPROPRIATE_CONTENT", label: "Inappropriate Content" },
+  { value: "OTHER", label: "Other" },
+];
+
+function ReportQuestionModal({
+  open,
+  onClose,
+  questionId,
+  studentId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  questionId: number | undefined;
+  studentId: string | null;
+}) {
+  const [reportType, setReportType] = useState(QUESTION_REPORT_TYPES[0].value);
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!questionId || !studentId) {
+      setError("Missing question or user info.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/questions/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionId,
+          studentId,
+          reportType,
+          description,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to submit report");
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to submit report");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) {
+      setReportType(QUESTION_REPORT_TYPES[0].value);
+      setDescription("");
+      setSuccess(false);
+      setError(null);
+    }
+  }, [open]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
+        <button
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+          onClick={onClose}
+        >
+          ×
+        </button>
+        <h2 className="text-lg font-bold mb-4 flex items-center">
+          <FaFlag className="mr-2 text-red-500" /> Report Question
+        </h2>
+        {success ? (
+          <div className="text-green-600 font-semibold text-center py-4">
+            Thank you! Your report has been submitted.
+            <button
+              className="block mt-4 mx-auto px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Type of Problem
+              </label>
+              <select
+                className="w-full border rounded p-2"
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value)}
+                required
+              >
+                {QUESTION_REPORT_TYPES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Description (optional)
+              </label>
+              <textarea
+                className="w-full border rounded p-2 h-20"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Please describe the issue..."
+              />
+            </div>
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="flex-1 px-4 py-2 border rounded hover:bg-gray-50"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                disabled={submitting}
+              >
+                {submitting ? "Submitting..." : "Submit Report"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function RandomPractice() {
   const router = useRouter();
   const searchParams = new URLSearchParams(
@@ -131,15 +273,24 @@ export default function RandomPractice() {
   const { user: authUser, isLoaded: authUserIsLoaded } = useSupabaseUser();
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [currentSubjectId, setCurrentSubjectId] = useState<number | null>(
-    urlSubjectId ? parseInt(urlSubjectId, 10) : null
-  );
+  const [currentSubjectId, setCurrentSubjectId] = useState<number | null>(null);
   const [currentTopicId, setCurrentTopicId] = useState<number | null>(null);
+
+  // Set subjectId from URL after component mounts (fixes hydration issue)
+  useEffect(() => {
+    if (urlSubjectId) {
+      const numericSubjectId = parseInt(urlSubjectId, 10);
+      if (!isNaN(numericSubjectId)) {
+        setCurrentSubjectId(numericSubjectId);
+      }
+    }
+  }, [urlSubjectId]);
 
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1488,6 +1639,16 @@ export default function RandomPractice() {
               >
                 {currentQuestion?.difficulty || "MEDIUM"}
               </span>
+              {/* Report Button */}
+              <button
+                className="ml-4 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowReportModal(true);
+                }}
+              >
+                <FaFlag className="mr-1" /> Report
+              </button>
             </div>
             <h1 className="text-lg md:text-xl font-semibold text-gray-800 mb-4 leading-snug">
               <QuestionTextFormatter text={currentQuestion?.text} />
@@ -1616,6 +1777,12 @@ export default function RandomPractice() {
           />
         </div>
       </div>
+      <ReportQuestionModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        questionId={currentQuestion?.id}
+        studentId={userId}
+      />
     </div>
   );
 }

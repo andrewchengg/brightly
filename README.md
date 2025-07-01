@@ -1,4 +1,4 @@
-# Brightly - School Management Dashboard
+# Brightly
 
 ## Getting Started
 

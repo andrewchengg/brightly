@@ -165,6 +165,209 @@ const EDUCATIONAL_KEYWORDS = [
   "geography",
   "literature",
 
+  // Mathematical terms and concepts - SIGNIFICANTLY EXPANDED
+  "number",
+  "numbers",
+  "digit",
+  "digits",
+  "calculate",
+  "computation",
+  "solve",
+  "solving",
+  "problem",
+  "problems",
+  "equation",
+  "equations",
+  "formula",
+  "formulas",
+  "algebra",
+  "geometry",
+  "arithmetic",
+  "trigonometry",
+  "calculus",
+  "statistics",
+  "probability",
+  "fraction",
+  "fractions",
+  "decimal",
+  "decimals",
+  "percentage",
+  "percent",
+  "ratio",
+  "ratios",
+  "proportion",
+  "proportions",
+  "area",
+  "perimeter",
+  "volume",
+  "surface",
+  "length",
+  "width",
+  "height",
+  "distance",
+  "measurement",
+  "unit",
+  "units",
+  "square",
+  "squares",
+  "rectangle",
+  "rectangles",
+  "triangle",
+  "triangles",
+  "circle",
+  "circles",
+  "polygon",
+  "polygons",
+  "angle",
+  "angles",
+  "degree",
+  "degrees",
+  "radius",
+  "diameter",
+  "circumference",
+  "coordinate",
+  "coordinates",
+  "graph",
+  "graphs",
+  "plot",
+  "plotting",
+  "function",
+  "functions",
+  "variable",
+  "variables",
+  "constant",
+  "constants",
+  "expression",
+  "expressions",
+  "term",
+  "terms",
+  "coefficient",
+  "coefficients",
+  "exponent",
+  "exponents",
+  "power",
+  "powers",
+  "root",
+  "roots",
+  "square root",
+  "cube root",
+  "sum",
+  "difference",
+  "product",
+  "quotient",
+  "addition",
+  "subtraction",
+  "multiplication",
+  "division",
+  "plus",
+  "minus",
+  "times",
+  "divide",
+  "equal",
+  "equals",
+  "greater",
+  "less",
+  "maximum",
+  "minimum",
+  "average",
+  "mean",
+  "median",
+  "mode",
+  "range",
+  "set",
+  "sets",
+  "element",
+  "elements",
+  "subset",
+  "intersection",
+  "union",
+  "symmetry",
+  "pattern",
+  "patterns",
+  "sequence",
+  "sequences",
+  "series",
+  "progression",
+  "prime",
+  "factor",
+  "factors",
+  "multiple",
+  "multiples",
+  "divisor",
+  "divisors",
+  "integer",
+  "integers",
+  "whole",
+  "natural",
+  "rational",
+  "irrational",
+  "real",
+  "imaginary",
+  "complex",
+  "positive",
+  "negative",
+  "zero",
+  "infinity",
+  "limit",
+  "limits",
+  "derivative",
+  "integral",
+  "slope",
+  "intercept",
+  "linear",
+  "quadratic",
+  "cubic",
+  "polynomial",
+  "matrix",
+  "matrices",
+  "vector",
+  "vectors",
+  "theorem",
+  "proof",
+  "axiom",
+  "lemma",
+  "corollary",
+  "hypothesis",
+  "conclusion",
+
+  // Science terms
+  "physics",
+  "chemistry",
+  "biology",
+  "atom",
+  "molecule",
+  "element",
+  "compound",
+  "reaction",
+  "energy",
+  "force",
+  "motion",
+  "velocity",
+  "acceleration",
+  "mass",
+  "weight",
+  "density",
+  "pressure",
+  "temperature",
+  "heat",
+  "light",
+  "sound",
+  "wave",
+  "frequency",
+  "amplitude",
+  "circuit",
+  "current",
+  "voltage",
+  "resistance",
+  "cell",
+  "organism",
+  "ecosystem",
+  "evolution",
+  "genetics",
+  "DNA",
+  "protein",
+  "enzyme",
+
   // Learning strategies
   "strategy",
   "method",
@@ -188,6 +391,107 @@ const EDUCATIONAL_KEYWORDS = [
   "review",
   "revision",
   "practice test",
+
+  // Basic words that often appear in educational contexts
+  "the",
+  "and",
+  "of",
+  "to",
+  "in",
+  "is",
+  "are",
+  "this",
+  "that",
+  "these",
+  "those",
+  "have",
+  "has",
+  "can",
+  "could",
+  "will",
+  "would",
+  "should",
+  "may",
+  "might",
+  "must",
+  "do",
+  "does",
+  "did",
+  "get",
+  "got",
+  "make",
+  "take",
+  "give",
+  "show",
+  "tell",
+  "see",
+  "look",
+  "find",
+  "use",
+  "work",
+  "know",
+  "think",
+  "say",
+  "come",
+  "go",
+  "want",
+  "need",
+  "try",
+  "ask",
+  "answer",
+  "call",
+  "put",
+  "turn",
+  "move",
+  "play",
+  "run",
+  "walk",
+  "talk",
+  "speak",
+  "write",
+  "read",
+  "hear",
+  "feel",
+  "seem",
+  "become",
+  "leave",
+  "start",
+  "stop",
+  "begin",
+  "end",
+  "keep",
+  "hold",
+  "bring",
+  "buy",
+  "build",
+  "break",
+  "cut",
+  "draw",
+  "fall",
+  "fill",
+  "grow",
+  "join",
+  "kill",
+  "let",
+  "meet",
+  "pay",
+  "pick",
+  "pull",
+  "push",
+  "reach",
+  "ride",
+  "rise",
+  "send",
+  "sit",
+  "stand",
+  "stick",
+  "teach",
+  "throw",
+  "understand",
+  "wait",
+  "wear",
+  "win",
+  "write",
 ];
 
 /**
@@ -304,10 +608,10 @@ export function checkSyllabusAlignment(input: string): {
   confidence = Math.max(0, Math.min(1, confidence));
 
   return {
-    isAligned: confidence > 0.1, // Lowered threshold from 0.2 to 0.1 - much more permissive
+    isAligned: confidence > 0.01, // Drastically lowered threshold from 0.1 to 0.01 - extremely permissive
     confidence,
     reason:
-      confidence <= 0.1
+      confidence <= 0.01
         ? "Content doesn't appear to be related to educational topics"
         : undefined,
   };
@@ -375,20 +679,34 @@ export function moderateUserContent(input: string): ContentModerationResult {
     }
   }
 
-  // Check syllabus alignment
+  // Check syllabus alignment - MUCH MORE PERMISSIVE
   const syllabusCheck = checkSyllabusAlignment(sanitized);
   if (!syllabusCheck.isAligned) {
-    // If it's a short message, common educational phrase, or contains basic question words, allow it anyway
+    // If it's a short message, common educational phrase, contains basic question words, numbers, or any educational indicators, allow it anyway
     const hasBasicQuestionWords =
-      /\b(what|how|why|when|where|which|help|show|my|weak|strong|topics|performance)\b/i.test(
+      /\b(what|how|why|when|where|which|help|show|my|weak|strong|topics|performance|square|length|area|calculate|solve|number|math|these|this|that|are|is|of)\b/i.test(
         sanitized
       );
 
+    const hasNumbers = /\b\d+\b/.test(sanitized); // Contains any numbers
+    const hasMathSymbols = /[+\-*/=<>()[\]{}]/.test(sanitized); // Contains math symbols
+    const isShortContent = sanitized.length < 100; // Increased from 30 to 100
+
     if (
-      sanitized.length < 30 ||
+      isShortContent ||
       isVeryCommonEducational ||
-      hasBasicQuestionWords
+      hasBasicQuestionWords ||
+      hasNumbers ||
+      hasMathSymbols
     ) {
+      return {
+        isAllowed: true,
+        sanitizedContent: sanitized,
+      };
+    }
+
+    // Even if not aligned, be much more permissive - only block if it's clearly non-educational and long
+    if (sanitized.length < 200) {
       return {
         isAllowed: true,
         sanitizedContent: sanitized,
@@ -404,16 +722,22 @@ export function moderateUserContent(input: string): ContentModerationResult {
     };
   }
 
-  // Check if content is education-related (enhanced)
+  // Check if content is education-related (VERY PERMISSIVE)
   const hasEducationalContent = EDUCATIONAL_KEYWORDS.some((keyword) =>
     lowerInput.includes(keyword)
   );
 
-  // Allow educational content or short general questions or common phrases
+  // Be extremely permissive - allow almost everything that's not clearly harmful
+  const hasAnyNumbers = /\b\d+\b/.test(sanitized);
+  const hasAnyLetters = /[a-zA-Z]/.test(sanitized);
+  const isReasonableLength = sanitized.length < 500; // Very generous length limit
+
   if (
     hasEducationalContent ||
-    sanitized.length < 50 ||
-    isVeryCommonEducational
+    isReasonableLength ||
+    isVeryCommonEducational ||
+    hasAnyNumbers ||
+    hasAnyLetters
   ) {
     return {
       isAllowed: true,
@@ -421,9 +745,9 @@ export function moderateUserContent(input: string): ContentModerationResult {
     };
   }
 
-  // For longer content without clear educational intent, be more lenient
-  if (sanitized.length > 150 && syllabusCheck.confidence < 0.3) {
-    // Lowered from 0.5 to 0.3
+  // For longer content without clear educational intent, be much more lenient
+  if (sanitized.length > 500 && syllabusCheck.confidence < 0.01) {
+    // Very low confidence threshold
     return {
       isAllowed: false,
       reason:
@@ -577,24 +901,33 @@ export function generateEducationalSystemPrompt(
     ? "You may respond in Chinese when appropriate, especially when explaining Chinese language concepts, vocabulary, or cultural context. However, keep explanations clear and use both Chinese and English when helpful for understanding."
     : "IMPORTANT: Always respond in English only. Do not use Chinese characters or Pinyin in your responses, as this is not a Chinese language subject.";
 
-  const basePrompt = `You are Ben, a friendly bear mascot and AI learning assistant for primary school students studying ${subject}. You wear glasses and have a warm, encouraging personality. You should:
+  const basePrompt = `You are Ben, a friendly bear mascot and AI learning assistant for primary school students studying ${subject}. You wear glasses and have a warm, encouraging personality. 
 
+TEACHING APPROACH - PROGRESSIVE DISCLOSURE:
+- For first 1-2 exchanges: Guide with questions and hints, don't give direct answers
+- After 2-3 exchanges: You may provide the final answer with full explanation
+- Be educational throughout but balance guidance with practical help
+- Pay attention to the conversation progress instructions in the context
+
+GUIDELINES:
 1. Be encouraging and helpful
 2. Focus on ${subject} learning
-3. Provide clear explanations
+3. Provide clear, concise explanations
 4. Use simple language appropriate for primary school students
 5. ${languageInstruction}
-6. NEVER use action descriptions in asterisks like "*adjusts glasses*" or "*gives thumbs up*" or similar
-7. NEVER use markdown formatting like **bold text**, *italics*, or numbered lists like **Step 1**, **Step 2**
-8. Speak naturally and conversationally like a friendly tutor would in person
-9. Instead of "Step 1:", just say "First," or "Let's start by..." or "To begin,"
-10. Instead of "**Important:**", just say "Remember," or "Keep in mind that"
-11. Write in a flowing, natural way without special formatting
+6. Early in conversation: Ask guiding questions to help them think
+7. After 2-3 exchanges: Provide clear answers with educational explanations
+8. NEVER use action descriptions in asterisks like "*adjusts glasses*" or "*gives thumbs up*" or similar
+9. NEVER use markdown formatting like **bold text**, *italics*, or numbered lists like **Step 1**, **Step 2**
+10. Speak naturally and conversationally like a friendly tutor would in person
+11. Instead of "Step 1:", just say "First," or "Let's start by..." or "To begin,"
+12. Instead of "**Important:**", just say "Remember," or "Keep in mind that"
+13. Write in a flowing, natural way without special formatting
 
 CONTEXT:
 ${contextString}
 
-Respond helpfully to the student's question in a natural, conversational way without any markdown formatting or action descriptions.`;
+Follow the conversation progress instructions provided in the context. Guide them initially, then provide answers after sufficient exchanges.`;
 
   return basePrompt;
 }
