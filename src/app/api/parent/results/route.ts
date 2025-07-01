@@ -65,6 +65,12 @@ export async function GET(request: NextRequest) {
           select: {
             isCorrect: true,
             pointsEarned: true,
+            question: {
+              select: {
+                marks: true,
+                pointsAwarded: true,
+              },
+            },
           },
         },
       },
@@ -85,6 +91,14 @@ export async function GET(request: NextRequest) {
         0
       );
 
+      // Calculate total possible marks by summing up the marks field from each question
+      const totalPossibleMarks = session.studentAnswers.reduce((sum, answer) => {
+        const questionMarks = answer.question?.marks || answer.question?.pointsAwarded || 0;
+        console.log(`[Session ${session.id}] Question ${answer.question?.id}: marks=${answer.question?.marks}, pointsAwarded=${answer.question?.pointsAwarded}, using=${questionMarks}`);
+        return sum + questionMarks;
+      }, 0);
+      console.log(`[Session ${session.id}] Total possible marks: ${totalPossibleMarks}, Total questions: ${totalQuestions}, Total score: ${totalScore}`);
+
       // Calculate XP earned (example formula, adjust as needed)
       const xpEarned = Math.round(totalScore * 1.5); // 1.5x multiplier for XP
 
@@ -98,6 +112,7 @@ export async function GET(request: NextRequest) {
         totalQuestions,
         correctAnswers,
         score: totalScore,
+        totalPossibleMarks,
         xpEarned,
         subjectName: session.subject?.name || null,
         topicName: session.topic?.name || null,

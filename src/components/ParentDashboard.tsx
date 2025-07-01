@@ -184,15 +184,6 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ className }) => {
                 </div>
 
                 <div className="mt-3 flex gap-2">
-                  <Link href={`/parent/child/${child.id}`}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs px-2 py-1"
-                    >
-                      Assign Practice
-                    </Button>
-                  </Link>
                   <Link href={`/student?viewAs=${child.id}`}>
                     <Button
                       size="sm"

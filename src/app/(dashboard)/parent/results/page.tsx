@@ -51,6 +51,7 @@ interface CompletedSession {
     name: string;
     username: string;
   };
+  totalPossibleMarks?: number | null;
 }
 
 interface Child {
@@ -139,9 +140,8 @@ export default function ParentResultsPage() {
 
   // Function to get emoji and color based on performance
   const getPerformanceDetails = (session: CompletedSession) => {
-    const totalPossible =
-      (session.totalQuestions || 1) * (session.type === "MOCK_EXAM" ? 1 : 10);
-    const scorePercentage = ((session.score || 0) / totalPossible) * 100;
+    const totalPossible = session.totalPossibleMarks || 0;
+    const scorePercentage = totalPossible > 0 ? ((session.score || 0) / totalPossible) * 100 : 0;
 
     if (scorePercentage >= 80) {
       return {
@@ -398,11 +398,8 @@ export default function ParentResultsPage() {
           <div className="space-y-8">
             {filteredSessions.map((session) => {
               const performanceDetails = getPerformanceDetails(session);
-              const totalPossible =
-                (session.totalQuestions || 1) *
-                (session.type === "MOCK_EXAM" ? 1 : 10);
-              const scorePercentage =
-                ((session.score || 0) / totalPossible) * 100;
+              const totalPossible = session.totalPossibleMarks || 0;
+              const scorePercentage = totalPossible > 0 ? ((session.score || 0) / totalPossible) * 100 : 0;
 
               return (
                 <div
@@ -474,10 +471,8 @@ export default function ParentResultsPage() {
                           <p className="text-xs text-indigo-500 uppercase tracking-wider font-semibold">
                             Score
                           </p>
-                          <p
-                            className={`text-2xl font-bold mt-1 ${performanceDetails.textColor}`}
-                          >
-                            {session.score ?? 0}/{totalPossible}
+                          <p className={`text-2xl font-bold mt-1 ${performanceDetails.textColor}`}>
+                            {session.score ?? 0}/{session.totalPossibleMarks || 0}
                           </p>
                         </div>
                         <div className="bg-green-50 p-3 rounded-lg text-center">
