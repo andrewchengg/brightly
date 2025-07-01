@@ -18,6 +18,7 @@ import {
   Tooltip,
   AreaChart,
   Area,
+  Legend,
 } from "recharts";
 import {
   FaUser,
@@ -25,9 +26,6 @@ import {
   FaFire,
   FaClock,
   FaChartLine,
-  FaArrowRight,
-  FaEye,
-  FaStar,
   FaQuestionCircle,
   FaBookOpen,
   FaPlay,
@@ -72,6 +70,10 @@ interface ChildStats {
     correctAnswers: number;
     timeSpent: number;
     accuracy: number;
+  }>;
+  dailySubjectStats?: Array<{
+    date: string;
+    subjects: Record<string, { accuracy: number; questions: number }>;
   }>;
 }
 
@@ -152,6 +154,32 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
       accuracy: subject.accuracy,
       fill: colors[index % colors.length],
     }));
+  };
+
+  // Build accuracy trend from backend stats per subject
+  const buildAccuracyTrendData = (child: ChildStats) => {
+    if (!child.dailySubjectStats) return [];
+
+    // Determine how many points to display based on the selected period
+    const { period } = dateRange || { period: "7d" } as { period: "7d" | "30d" | "3m" };
+    let sliceCount = 7;
+    if (period === "30d") sliceCount = 30;
+    if (period === "3m") sliceCount = 90;
+
+    const recentStats = child.dailySubjectStats.slice(-sliceCount);
+
+    return recentStats.map((d) => {
+      const dateObj = new Date(d.date);
+      const dayLabel = period === "7d"
+        ? dateObj.toLocaleDateString("en-US", { weekday: "short" })
+        : dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+      return {
+        day: dayLabel,
+        Chinese: d.subjects["Chinese"]?.accuracy ?? 0,
+        Math: d.subjects["Mathematics"]?.accuracy ?? 0,
+      };
+    });
   };
 
   if (loading) {
@@ -378,27 +406,50 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
-                <Link href={`/parent/child/${child.id}`} className="flex-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full text-xs"
-                  >
-                    Assign Practice
-                  </Button>
-                </Link>
-                <Link href={`/student?viewAs=${child.id}`} className="flex-1">
-                  <Button
-                    size="sm"
-                    className="w-full text-xs bg-indigo-600 hover:bg-indigo-700"
-                  >
-                    <FaEye className="mr-1" />
-                    View Progress
-                  </Button>
-                </Link>
+              {/* Accuracy Trend Line Chart */}
+              <div className="space-y-3 pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <FaChartLine className="text-indigo-600" />
+                  Accuracy Trend ({(() => {
+                    if (!dateRange) return "";
+                    const { startDate, endDate, period } = dateRange;
+                    switch (period) {
+                      case "7d":
+                        return `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+                      case "30d":
+                        return startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                      case "3m":
+                        const quarters = ["Q1", "Q2", "Q3", "Q4"];
+                        const qIndex = Math.floor(startDate.getMonth() / 3);
+                        return `${quarters[qIndex]} ${startDate.getFullYear()}`;
+                      default:
+                        return "";
+                    }
+                  })()})
+                </h4>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={buildAccuracyTrendData(child)} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={12} />
+                      <YAxis domain={[60, 100]} tickFormatter={(value) => `${value}%`} fontSize={12} />
+                      <Tooltip
+                        formatter={(value: any) => `${value}%`}
+                        contentStyle={{
+                          background: "white",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Legend verticalAlign="top" height={24} wrapperStyle={{ fontSize: 12 }} />
+                      <Line type="monotone" dataKey="Chinese" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="Math" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
+
+              {/* Action Buttons removed as requested */}
             </CardContent>
           </Card>
         );

@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import {
   FaSpinner,
   FaGraduationCap,
+  FaChartLine,
   FaExclamationTriangle,
   FaUsers,
   FaCalendarAlt,
@@ -16,6 +17,7 @@ import ChildrenSummaryCards from "./ChildrenSummaryCards";
 import DetailedChildrenPerformance from "./DetailedChildrenPerformance";
 import RecentResultsPreview from "./RecentResultsPreview";
 import MistakesReviewPreview from "./MistakesReviewPreview";
+import PerformanceCharts from "./PerformanceCharts";
 import CalendarPreview from "./CalendarPreview";
 import FullCalendarWithEvents from "./FullCalendarWithEvents";
 import DateRangeController from "./DateRangeController";
@@ -80,7 +82,7 @@ interface DashboardStats {
 
 const ModularParentDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
-    "overview" | "children"
+    "overview" | "children" | "analytics"
   >("overview");
 
   // Use the custom date range hook
@@ -105,6 +107,12 @@ const ModularParentDashboard: React.FC = () => {
       label: "Children",
       icon: FaUsers,
       description: "Detailed performance analytics per child",
+    },
+    {
+      id: "analytics" as const,
+      label: "Analytics",
+      icon: FaChartLine,
+      description: "Detailed charts and performance analytics",
     },
   ];
 
@@ -262,7 +270,20 @@ const ModularParentDashboard: React.FC = () => {
           </div>
         )}
 
-
+        {activeTab === "analytics" && (
+          <div className="space-y-8">
+            <section>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                Performance Analytics
+              </h2>
+              <PerformanceCharts
+                childrenStats={stats.children}
+                loading={false}
+                dateRange={dateRange}
+              />
+            </section>
+          </div>
+        )}
       </div>
     </div>
   );

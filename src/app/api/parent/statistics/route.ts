@@ -240,6 +240,7 @@ export async function GET(request: NextRequest) {
 
         // Daily breakdown for the selected range
         const dailyStats = [];
+        const dailySubjectStats = [];
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
         const maxDays = Math.min(daysDiff, 90); // Limit to 90 days for performance
         
@@ -271,6 +272,41 @@ export async function GET(request: NextRequest) {
             0
           );
 
+          // Subject-specific stats for the day
+          const subjectMap: {
+            [key: string]: {
+              questions: number;
+              correct: number;
+            };
+          } = {};
+          daySessions.forEach((session) => {
+            const subjectName = session.subject?.name || "Unknown";
+            if (!subjectMap[subjectName]) {
+              subjectMap[subjectName] = { questions: 0, correct: 0 };
+            }
+            subjectMap[subjectName].questions += session.totalQuestions || 0;
+            subjectMap[subjectName].correct += session.correctAnswers || 0;
+          });
+
+          const subjectAccuracy: {
+            [key: string]: {
+              questions: number;
+              correct: number;
+              accuracy: number;
+            };
+          } = {};
+
+          Object.entries(subjectMap).forEach(([subject, stats]) => {
+            subjectAccuracy[subject] = {
+              questions: stats.questions,
+              correct: stats.correct,
+              accuracy:
+                stats.questions > 0
+                  ? Math.round((stats.correct / stats.questions) * 100)
+                  : 0,
+            };
+          });
+
           dailyStats.push({
             date: startOfDay.toISOString().split("T")[0],
             questions: dayQuestions,
@@ -280,6 +316,11 @@ export async function GET(request: NextRequest) {
               dayQuestions > 0
                 ? Math.round((dayCorrect / dayQuestions) * 100)
                 : 0,
+          });
+
+          dailySubjectStats.push({
+            date: startOfDay.toISOString().split("T")[0],
+            subjects: subjectAccuracy,
           });
         }
 
@@ -335,6 +376,7 @@ export async function GET(request: NextRequest) {
             })
           ),
           dailyStats,
+          dailySubjectStats,
         };
       });
       console.log("Successfully processed children statistics");
