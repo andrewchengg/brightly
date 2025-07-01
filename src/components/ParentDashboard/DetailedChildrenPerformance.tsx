@@ -794,34 +794,6 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
           </div>
         </div>
       </div>
-
-      {/* Action Buttons */}
-      <div className="flex flex-wrap gap-4 justify-center">
-        <Link href={`/parent/child/${selectedChildData.id}`}>
-          <Button className="bg-indigo-600 hover:bg-indigo-700">
-            <FaPlay className="mr-2" />
-            Assign Practice
-          </Button>
-        </Link>
-        <Link href={`/student?viewAs=${selectedChildData.id}`}>
-          <Button variant="outline">
-            <FaEye className="mr-2" />
-            View as Student
-          </Button>
-        </Link>
-        <Link href="/parent/results">
-          <Button variant="outline">
-            <FaChartLine className="mr-2" />
-            Detailed Results
-          </Button>
-        </Link>
-        <Link href="/parent/review">
-          <Button variant="outline">
-            <FaStar className="mr-2" />
-            Review Mistakes
-          </Button>
-        </Link>
-      </div>
     </div>
   );
 };

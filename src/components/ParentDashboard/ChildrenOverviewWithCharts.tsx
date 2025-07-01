@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import moment from "moment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -108,14 +109,16 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
       (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60)
     );
 
-    if (diffHours < 24) return { status: "Today", color: "text-green-600" };
-    if (diffHours < 48) return { status: "Yesterday", color: "text-yellow-600" };
-    if (diffHours < 168)
-      return {
-        status: `${Math.floor(diffHours / 24)} days ago`,
-        color: "text-orange-600",
-      };
-    return { status: "Inactive", color: "text-red-600" };
+    // Determine color based on how recent the activity was
+    let color = "text-gray-500";
+    if (diffHours < 24) color = "text-green-600";
+    else if (diffHours < 48) color = "text-yellow-600";
+    else if (diffHours < 168) color = "text-orange-600";
+    else color = "text-red-600";
+
+    // Always return precise timestamp (e.g., Jul 1, 2025 2:18 PM)
+    const formatted = moment.utc(lastActivity).add(8, 'hours').format("MMM D, YYYY h:mm A");
+    return { status: formatted, color };
   };
 
   const getPerformanceColor = (accuracy: number) => {
