@@ -108,15 +108,6 @@ const OverviewCards: React.FC<OverviewCardsProps> = ({
       description: "Questions completed today",
     },
     {
-      title: "Correct Answers",
-      value: overallStats.todayTotalCorrect,
-      icon: FaCheckCircle,
-      color: "from-emerald-500 to-emerald-600",
-      iconColor: "#10b981",
-      bgColor: "bg-emerald-50",
-      description: "Correct answers today",
-    },
-    {
       title: "XP Earned Today",
       value: totalTodayXP,
       icon: FaTrophy,

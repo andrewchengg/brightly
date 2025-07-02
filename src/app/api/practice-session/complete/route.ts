@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { PrismaClient, PracticeSessionStatus } from "@/generated/prisma";
 import { updateQuestProgressForSession } from "@/lib/quest-progress-tracker-simple";
+import { calculateLevel } from "@/lib/xp-utils";
 
 const prisma = new PrismaClient();
 
@@ -55,14 +56,31 @@ export async function POST(request: NextRequest) {
 
     // Update XP for the student
     if (xpEarned > 0) {
-      await prisma.student.update({
+      // Get current student data to calculate new level
+      const currentStudent = await prisma.student.findUnique({
         where: { id: studentId },
-        data: {
-          xpPoints: {
-            increment: xpEarned,
-          },
+        select: {
+          xpPoints: true,
         },
       });
+
+      if (currentStudent) {
+        const newXP = currentStudent.xpPoints + xpEarned;
+        const newLevel = calculateLevel(newXP);
+
+        await prisma.student.update({
+          where: { id: studentId },
+          data: {
+            xpPoints: newXP,
+            level: newLevel,
+            updatedAt: new Date(),
+          },
+        });
+
+        console.log(
+          `📈 Updated student XP: ${currentStudent.xpPoints} → ${newXP} (+${xpEarned}), Level: ${newLevel}`
+        );
+      }
     }
 
     // Update weekly quest progress

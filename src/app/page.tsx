@@ -10,8 +10,8 @@ import Image from "next/image";
 // Rotating Pain Points Component
 const RotatingPainPoints = () => {
   const painPoints = [
-    "Worried your child isn't getting enough personalised support?",
-    "Tired of expensive tuition fees with little improvement?",
+    "Worried your child isn't getting 24/7 support?",
+    "Tired of expensive tuition fees with little improvement",
     "Finding it hard to track your child's real progress?",
   ];
 
@@ -272,6 +272,7 @@ const Homepage = () => {
           </h2>
 
           {/* Subtitle Text */}
+
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Boost your grades to AL1 with our platform today
           </p>
@@ -279,39 +280,24 @@ const Homepage = () => {
       </section>
 
       {/* Video Section */}
-      <section className="py-4">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative bg-black rounded-2xl overflow-hidden shadow-2xl">
-            {/* Video Container */}
-            <div className="aspect-video w-full">
-              <video
-                className="w-full h-full object-cover"
-                controls
-                poster="/video-thumbnail.jpg"
-              >
-                <source src="/demo-video.mp4" type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-            </div>
-
-            {/* Video Overlay (if no video file) */}
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
-              <div className="text-center text-white">
-                <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg
-                    className="w-8 h-8 text-white"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold mb-2">
-                  See Brightly in Action
-                </h3>
-                <p className="text-lg opacity-90">
-                  Watch how our AI tutor helps students succeed
-                </p>
+      <section className="py-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white p-6 rounded-3xl shadow-lg">
+            <div className="relative bg-black rounded-2xl overflow-hidden shadow-xl">
+              {/* Video Container */}
+              <div className="w-full">
+                <video
+                  className="w-full h-auto object-contain"
+                  autoPlay
+                  loop
+                  preload="auto"
+                  playsInline
+                  muted
+                >
+                  <source src="/practicesession.mov" type="video/mp4" />
+                  <source src="/practicesession.mov" type="video/quicktime" />
+                  Your browser does not support the video tag.
+                </video>
               </div>
             </div>
           </div>
@@ -337,10 +323,15 @@ const Homepage = () => {
       </section>
 
       {/* Benefits Section */}
+
       <section className="py-8">
+        <h2 className="text-xl text-gray-700 max-w-3xl mx-auto mb-4 font-medium">
+          Forget rote memorization, we build your child's ability to think
+          critically, question by question.
+        </h2>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Benefits Grid */}
-          <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 max-w-7xl mx-auto">
             <div className="bg-white p-8 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 text-center">
               <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-6">
                 <svg
@@ -383,11 +374,11 @@ const Homepage = () => {
                 </svg>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                Smart Learning
+                Mock Exams
               </h3>
               <p className="text-gray-600 text-lg leading-relaxed">
-                <strong>Personalized practice</strong> that adapts to your weak
-                areas. Learn efficiently, not harder.
+                Practice under real exam conditions while our detailed analytics
+                reveal your weaknesses and guide your study focus.
               </p>
             </div>
 
@@ -413,6 +404,56 @@ const Homepage = () => {
               <p className="text-gray-600 text-lg leading-relaxed">
                 <strong>Detailed analytics</strong> show exactly where you're
                 improving. Celebrate every win.
+              </p>
+            </div>
+
+            <div className="bg-white p-8 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 text-center">
+              <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg
+                  className="w-8 h-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                Question Bank
+              </h3>
+              <p className="text-gray-600 text-lg leading-relaxed">
+                Your personalized repository of challenging questions,
+                automatically organized by weakness for targeted review.
+              </p>
+            </div>
+
+            <div className="bg-white p-8 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 text-center">
+              <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg
+                  className="w-8 h-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                Unlimited Practice
+              </h3>
+              <p className="text-gray-600 text-lg leading-relaxed">
+                Unlimited topical practice, anytime, anywhere. Master every
+                concept at your own pace.
               </p>
             </div>
           </div>
@@ -555,6 +596,29 @@ const Homepage = () => {
           </Link>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-200 py-4 mt-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center items-center space-x-6 text-xs text-gray-500">
+            <Link
+              href="/privacy-policy"
+              className="hover:text-gray-700 transition-colors duration-200"
+            >
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link
+              href="/terms-of-service"
+              className="hover:text-gray-700 transition-colors duration-200"
+            >
+              Terms of Service
+            </Link>
+            <span>•</span>
+            <span>© 2024 Brightly</span>
+          </div>
+        </div>
+      </footer>
 
       {/* Scroll to top button */}
       {showScrollTop && (

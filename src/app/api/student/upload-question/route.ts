@@ -8,7 +8,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { saveQuestionImageIfNeeded } from "@/lib/image-storage";
 import OpenAI from "openai";
-import pdfParse from "pdf-parse";
+// import pdfParse from "pdf-parse"; // Removed due to build issues with Next.js
 
 const getOpenRouterClient = () => {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -89,36 +89,6 @@ async function extractTextFromImage(imageBase64: string): Promise<string> {
       console.log("⚠️ Google Vision API key not found in environment");
     }
 
-    // Option 2: Azure Computer Vision
-    if (process.env.AZURE_VISION_ENDPOINT && process.env.AZURE_VISION_KEY) {
-      const response = await fetch(
-        `${process.env.AZURE_VISION_ENDPOINT}/vision/v3.2/ocr`,
-        {
-          method: "POST",
-          headers: {
-            "Ocp-Apim-Subscription-Key": process.env.AZURE_VISION_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            url: `data:image/jpeg;base64,${imageBase64}`,
-          }),
-        }
-      );
-
-      const data = await response.json();
-      // Process Azure response to extract text
-      let extractedText = "";
-      if (data.regions) {
-        data.regions.forEach((region: any) => {
-          region.lines.forEach((line: any) => {
-            const lineText = line.words.map((word: any) => word.text).join(" ");
-            extractedText += lineText + "\n";
-          });
-        });
-      }
-      return extractedText.trim();
-    }
-
     // Fallback: Use OpenRouter with Claude for OCR
     if (process.env.OPENROUTER_API_KEY) {
       console.log("🔍 Using Claude via OpenRouter for OCR...");
@@ -166,7 +136,7 @@ async function extractTextFromImage(imageBase64: string): Promise<string> {
   }
 }
 
-// PDF text extraction function
+// PDF text extraction function with dynamic import to avoid build issues
 async function extractTextFromPDF(file: File): Promise<string> {
   try {
     console.log(
@@ -176,6 +146,9 @@ async function extractTextFromPDF(file: File): Promise<string> {
       file.size,
       "bytes"
     );
+
+    // Dynamic import to avoid build-time issues
+    const pdfParse = (await import("pdf-parse")).default;
 
     // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer();
@@ -197,7 +170,8 @@ async function extractTextFromPDF(file: File): Promise<string> {
     return extractedText;
   } catch (error) {
     console.error("PDF extraction failed:", error);
-    throw new Error("Failed to extract text from PDF");
+    // Fallback: suggest converting to image
+    return "Unable to extract text from PDF. Please try converting the PDF to an image format (PNG/JPG) and upload again.";
   }
 }
 
@@ -274,6 +248,7 @@ Rules:
 
         try {
           const questionData = JSON.parse(cleanResponse);
+          console.log("✅ AI processed question data:", questionData);
           return questionData;
         } catch (parseError) {
           console.error("Failed to parse OpenAI response:", parseError);
@@ -284,6 +259,7 @@ Rules:
     }
 
     // Fallback: Return sample structured data for development
+    console.log("⚠️ Using fallback sample data");
     return {
       text: ocrText || "Sample question extracted from uploaded image",
       questionType: QuestionType.MULTIPLE_CHOICE,
@@ -309,6 +285,8 @@ Rules:
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("🚀 Upload route started");
+
     // Get authenticated user
     const supabase = createClient();
     const {
@@ -321,6 +299,7 @@ export async function POST(request: NextRequest) {
     }
 
     const studentId = user.id;
+    console.log("👤 User authenticated:", studentId);
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -328,6 +307,8 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
+
+    console.log("📁 File received:", file.name, file.type, file.size);
 
     // Check if it's an image or PDF
     const isImage = file.type.startsWith("image/");
@@ -349,6 +330,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create initial record with PROCESSING status
+    console.log("💾 Creating database record...");
     const uploadedQuestion = await prisma.studentUploadedQuestion.create({
       data: {
         studentId,
@@ -358,137 +340,237 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    console.log("✅ Created question record:", uploadedQuestion.id);
+
+    // Process the file to extract text
+    let extractedText: string;
+    let extractionMethod: string;
+
     try {
-      // Step 1: Text Extraction (OCR for images, direct extraction for PDFs)
-      let extractedText: string;
-      let base64Image: string | undefined;
-
       if (isPDF) {
+        console.log("📄 Processing PDF with text extraction...");
         extractedText = await extractTextFromPDF(file);
+        extractionMethod = "PDF";
+      } else if (isImage) {
+        console.log("🖼️ Processing image with Google Cloud Vision...");
+        // Convert image to base64
+        const arrayBuffer = await file.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString("base64");
+        extractedText = await extractTextFromImage(base64);
+        extractionMethod = "Google Cloud Vision API";
       } else {
-        // Convert image to base64 for processing only (not storing)
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        base64Image = buffer.toString("base64");
-        extractedText = await extractTextFromImage(base64Image);
+        throw new Error("Unsupported file type");
       }
 
-      // Step 2: AI Processing (educational analysis)
-      const aiProcessedData = await processQuestionWithAI(extractedText);
-
-      // Step 3: Find or create subject and topic
-      let subject = await prisma.subject.findFirst({
-        where: {
-          name: { contains: aiProcessedData.subject, mode: "insensitive" },
-        },
-      });
-
-      if (!subject) {
-        subject = await prisma.subject.create({
-          data: { name: aiProcessedData.subject },
-        });
-      }
-
-      let topic = await prisma.topic.findFirst({
-        where: {
-          name: { contains: aiProcessedData.topic, mode: "insensitive" },
-          subjectId: subject.id,
-        },
-      });
-
-      if (!topic) {
-        topic = await prisma.topic.create({
-          data: {
-            name: aiProcessedData.topic,
-            subjectId: subject.id,
-          },
-        });
-      }
-
-      // Step 4: Smart image storage (only if it's an image and question requires visual elements)
-      const imageUrl = base64Image
-        ? await saveQuestionImageIfNeeded(
-            base64Image,
-            uploadedQuestion.id,
-            aiProcessedData.requiresImage || false,
-            file.name
-          )
-        : null;
-
-      // Step 5: Update the record with processed data
-      const finalQuestion = await prisma.studentUploadedQuestion.update({
-        where: { id: uploadedQuestion.id },
-        data: {
-          text: aiProcessedData.text,
-          questionType: aiProcessedData.questionType,
-          options: aiProcessedData.options,
-          correctAnswer: aiProcessedData.correctAnswer,
-          explanation: aiProcessedData.explanation,
-          hint: aiProcessedData.hint,
-          difficulty: aiProcessedData.difficulty,
-          subjectId: subject.id,
-          topicId: topic.id,
-          imageUrl: imageUrl,
-          requiresImage: aiProcessedData.requiresImage || false,
-          ocrText: extractedText,
-          processingStatus: ProcessingStatus.COMPLETED,
-          aiProcessingLog: JSON.stringify({
-            textExtracted: !!extractedText,
-            extractionMethod: isPDF ? "PDF" : "OCR",
-            aiProcessed: true,
-            timestamp: new Date().toISOString(),
-          }),
-        },
-        include: {
-          subject: { select: { name: true, id: true } },
-          topic: { select: { name: true, id: true } },
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        question: {
-          id: finalQuestion.id,
-          text: finalQuestion.text,
-          questionType: finalQuestion.questionType,
-          options: finalQuestion.options,
-          correctAnswer: finalQuestion.correctAnswer,
-          explanation: finalQuestion.explanation,
-          hint: finalQuestion.hint,
-          difficulty: finalQuestion.difficulty,
-          subject: finalQuestion.subject,
-          topic: finalQuestion.topic,
-          processingStatus: finalQuestion.processingStatus,
-        },
-      });
-    } catch (processingError) {
-      console.error("Processing error:", processingError);
-
-      // Update record to FAILED status
+      console.log(
+        "✅ Text extraction completed:",
+        extractedText.substring(0, 100) + "..."
+      );
+    } catch (error) {
+      console.error("❌ Text extraction failed:", error);
+      // Update record with error status
       await prisma.studentUploadedQuestion.update({
         where: { id: uploadedQuestion.id },
         data: {
           processingStatus: ProcessingStatus.FAILED,
           aiProcessingLog: JSON.stringify({
-            error:
-              processingError instanceof Error
-                ? processingError.message
-                : "Unknown error",
+            error: "Text extraction failed",
+            details: error instanceof Error ? error.message : "Unknown error",
             timestamp: new Date().toISOString(),
           }),
         },
       });
 
       return NextResponse.json(
-        {
-          error:
-            "Failed to process file. Please try again with a clearer file.",
-        },
+        { error: "Failed to extract text from file" },
         { status: 500 }
       );
     }
+
+    // Process with AI to structure the question
+    let questionData;
+    try {
+      console.log("🤖 Processing with AI...");
+      questionData = await processQuestionWithAI(extractedText);
+      console.log("✅ AI processing completed");
+    } catch (error) {
+      console.error("❌ AI processing failed:", error);
+      // Update record with error status
+      await prisma.studentUploadedQuestion.update({
+        where: { id: uploadedQuestion.id },
+        data: {
+          processingStatus: ProcessingStatus.FAILED,
+          aiProcessingLog: JSON.stringify({
+            textExtracted: true,
+            extractionMethod,
+            error: "AI processing failed",
+            details: error instanceof Error ? error.message : "Unknown error",
+            timestamp: new Date().toISOString(),
+          }),
+        },
+      });
+
+      return NextResponse.json(
+        { error: "Failed to process question with AI" },
+        { status: 500 }
+      );
+    }
+
+    // Find or create subject based on AI analysis
+    let subject = await prisma.subject.findFirst({
+      where: { name: { equals: questionData.subject, mode: "insensitive" } },
+    });
+
+    if (!subject) {
+      // Try to find a similar subject or use "General" as fallback
+      subject = await prisma.subject.findFirst({
+        where: { name: "General" },
+      });
+
+      if (!subject) {
+        try {
+          subject = await prisma.subject.create({
+            data: { name: "General" },
+          });
+        } catch (error) {
+          // If creation fails due to unique constraint (race condition), try to find it again
+          console.log(
+            "Subject creation failed, trying to find existing:",
+            error
+          );
+          subject = await prisma.subject.findFirst({
+            where: { name: "General" },
+          });
+
+          if (!subject) {
+            throw new Error("Failed to create or find General subject");
+          }
+        }
+      }
+    }
+
+    // Find or create topic
+    let topic = await prisma.topic.findFirst({
+      where: {
+        name: { equals: questionData.topic, mode: "insensitive" },
+        subjectId: subject.id,
+      },
+    });
+
+    if (!topic) {
+      try {
+        topic = await prisma.topic.create({
+          data: {
+            name: questionData.topic || "Uploaded Questions",
+            subjectId: subject.id,
+          },
+        });
+      } catch (error) {
+        // If creation fails due to unique constraint (race condition), try to find it again
+        console.log("Topic creation failed, trying to find existing:", error);
+        topic = await prisma.topic.findFirst({
+          where: {
+            name: {
+              equals: questionData.topic || "Uploaded Questions",
+              mode: "insensitive",
+            },
+            subjectId: subject.id,
+          },
+        });
+
+        if (!topic) {
+          throw new Error("Failed to create or find topic");
+        }
+      }
+    }
+
+    // Handle image storage - always save original for potential diagram cropping
+    let imageUrl: string | null = null;
+    let originalImageBase64: string | null = null;
+
+    if (isImage) {
+      try {
+        // Convert image to base64 for storage and cropping
+        const arrayBuffer = await file.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString("base64");
+        originalImageBase64 = base64;
+
+        // Always save the original image for potential diagram cropping
+        imageUrl = await saveQuestionImageIfNeeded(
+          base64,
+          uploadedQuestion.id,
+          true,
+          file.name
+        );
+        console.log("✅ Original image saved:", imageUrl);
+      } catch (error) {
+        console.error("⚠️ Image storage failed:", error);
+        // Continue without image - not critical
+      }
+    }
+
+    // Update the record with processed data
+    const finalQuestion = await prisma.studentUploadedQuestion.update({
+      where: { id: uploadedQuestion.id },
+      data: {
+        text: questionData.text,
+        questionType: questionData.questionType,
+        options: questionData.options
+          ? JSON.parse(JSON.stringify(questionData.options))
+          : null,
+        correctAnswer: questionData.correctAnswer || null,
+        explanation: questionData.explanation,
+        hint: questionData.hint,
+        difficulty: questionData.difficulty,
+        subjectId: subject.id,
+        topicId: topic.id,
+        ocrText: extractedText,
+        imageUrl: imageUrl,
+        processingStatus: ProcessingStatus.COMPLETED,
+        aiProcessingLog: JSON.stringify({
+          textExtracted: true,
+          extractionMethod,
+          aiProcessed: true,
+          questionType: questionData.questionType,
+          difficulty: questionData.difficulty,
+          subject: questionData.subject,
+          topic: questionData.topic,
+          requiresImage: questionData.requiresImage,
+          imageStored: !!imageUrl,
+          timestamp: new Date().toISOString(),
+        }),
+      },
+      include: {
+        subject: { select: { name: true, id: true } },
+        topic: { select: { name: true, id: true } },
+      },
+    });
+
+    console.log("✅ Successfully processed question:", finalQuestion.id);
+
+    return NextResponse.json({
+      success: true,
+      message: "File processed successfully with Google Cloud Vision",
+      question: {
+        id: finalQuestion.id,
+        text: finalQuestion.text,
+        questionType: finalQuestion.questionType,
+        options: finalQuestion.options,
+        correctAnswer: finalQuestion.correctAnswer,
+        explanation: finalQuestion.explanation,
+        hint: finalQuestion.hint,
+        difficulty: finalQuestion.difficulty,
+        subject: finalQuestion.subject,
+        topic: finalQuestion.topic,
+        processingStatus: finalQuestion.processingStatus,
+        ocrText: finalQuestion.ocrText,
+        imageUrl: finalQuestion.imageUrl,
+        originalImageBase64: originalImageBase64, // For diagram cropping
+        canCropDiagram: isImage && (questionData.requiresImage ?? false), // Enable cropping only if image and AI says diagram needed
+      },
+    });
   } catch (error) {
-    console.error("Upload error:", error);
+    console.error("❌ Upload error:", error);
     return NextResponse.json(
       { error: "Failed to upload question" },
       { status: 500 }

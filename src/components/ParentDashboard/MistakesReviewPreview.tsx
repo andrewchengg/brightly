@@ -12,6 +12,8 @@ import {
   FaBook,
   FaUser,
   FaGraduationCap,
+  FaChevronDown,
+  FaChevronRight,
 } from "react-icons/fa";
 
 interface WrongAnswer {
@@ -61,6 +63,7 @@ const MistakesReviewPreview: React.FC<MistakesReviewPreviewProps> = ({
 }) => {
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchWrongAnswers = async () => {
@@ -128,6 +131,43 @@ const MistakesReviewPreview: React.FC<MistakesReviewPreviewProps> = ({
     }
   };
 
+  // Group mistakes by child
+  const groupedMistakes = wrongAnswers.reduce((groups, mistake) => {
+    const childId = mistake.student.id;
+    if (!groups[childId]) {
+      groups[childId] = {
+        child: mistake.student,
+        mistakes: [],
+      };
+    }
+    groups[childId].mistakes.push(mistake);
+    return groups;
+  }, {} as Record<string, { child: any; mistakes: WrongAnswer[] }>);
+
+  // Group mistakes by subject within each child
+  const getSubjectGroups = (mistakes: WrongAnswer[]) => {
+    return mistakes.reduce((groups, mistake) => {
+      const subjectName = mistake.practiceSession.subject?.name || 
+                         mistake.question.subject?.name || 
+                         "Unknown";
+      if (!groups[subjectName]) {
+        groups[subjectName] = [];
+      }
+      groups[subjectName].push(mistake);
+      return groups;
+    }, {} as Record<string, WrongAnswer[]>);
+  };
+
+  const toggleGroup = (childId: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(childId)) {
+      newExpanded.delete(childId);
+    } else {
+      newExpanded.add(childId);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
   if (loading) {
     return (
       <Card className="h-full">
@@ -188,71 +228,108 @@ const MistakesReviewPreview: React.FC<MistakesReviewPreviewProps> = ({
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {wrongAnswers.map((item, index) => (
-              <div
-                key={item.studentAnswerId || item.id || index}
-                className="group border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-amber-300 transition-all duration-200"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-lg">
-                        {getDifficultyIcon(item.question.questionType)}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <FaUser className="w-3 h-3 text-gray-400" />
-                          <span className="font-semibold text-gray-900 text-sm">
-                            {item.student.name}
-                          </span>
-                          {(item.practiceSession.subject ||
-                            item.question.subject) && (
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${getSubjectColor(
-                                item.practiceSession.subject?.name ||
-                                  item.question.subject?.name
-                              )}`}
-                            >
-                              {item.practiceSession.subject?.name ||
-                                item.question.subject?.name}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 truncate">
-                          {item.question.text.length > 80
-                            ? `${item.question.text.substring(0, 80)}...`
-                            : item.question.text}
+          <div className="space-y-3">
+            {Object.entries(groupedMistakes).map(([childId, { child, mistakes }]) => {
+              const subjectGroups = getSubjectGroups(mistakes);
+              const isExpanded = expandedGroups.has(childId);
+              
+              return (
+                <div
+                  key={childId}
+                  className="border border-gray-200 rounded-lg overflow-hidden"
+                >
+                  {/* Child Header - Always Visible */}
+                  <div
+                    className="flex items-center justify-between p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => toggleGroup(childId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FaUser className="w-4 h-4 text-gray-600" />
+                      <div>
+                        <h4 className="font-semibold text-gray-900">
+                          {child.name}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {mistakes.length} mistake{mistakes.length !== 1 ? 's' : ''} to review
                         </p>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>{item.question.topic?.name || "General"}</span>
-                      <span>
-                        {new Date(item.createdAt).toLocaleDateString()}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">
+                        {Object.keys(subjectGroups).length} subject{Object.keys(subjectGroups).length !== 1 ? 's' : ''}
                       </span>
-                      <span className="flex items-center">
-                        <FaGraduationCap className="mr-1" />
-                        {item.practiceSession.title || "Practice Session"}
-                      </span>
+                      {isExpanded ? (
+                        <FaChevronDown className="w-4 h-4 text-gray-500" />
+                      ) : (
+                        <FaChevronRight className="w-4 h-4 text-gray-500" />
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center">
-                    <Link href="/parent/review">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-amber-600 hover:bg-amber-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <FaEye className="w-4 h-4" />
-                      </Button>
-                    </Link>
-                  </div>
+                  {/* Expandable Content */}
+                  {isExpanded && (
+                    <div className="border-t border-gray-200">
+                      {Object.entries(subjectGroups).map(([subjectName, subjectMistakes]) => (
+                        <div key={subjectName} className="p-4 border-b border-gray-100 last:border-b-0">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${getSubjectColor(subjectName)}`}
+                              >
+                                {subjectName}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                {subjectMistakes.length} mistake{subjectMistakes.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            <Link href="/parent/review">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-amber-600 hover:bg-amber-50"
+                              >
+                                <FaEye className="w-3 h-3 mr-1" />
+                                Review
+                              </Button>
+                            </Link>
+                          </div>
+                          
+                          {/* Sample mistake preview */}
+                          {subjectMistakes.slice(0, 1).map((mistake, index) => (
+                            <div key={index} className="bg-white rounded border border-gray-100 p-3">
+                              <div className="flex items-start gap-2">
+                                <span className="text-sm mt-0.5">
+                                  {getDifficultyIcon(mistake.question.questionType)}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-gray-700 line-clamp-2">
+                                    {mistake.question.text.length > 100
+                                      ? `${mistake.question.text.substring(0, 100)}...`
+                                      : mistake.question.text}
+                                  </p>
+                                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                                    <span>{mistake.question.topic?.name || "General"}</span>
+                                    <span>
+                                      {new Date(mistake.createdAt).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {subjectMistakes.length > 1 && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              +{subjectMistakes.length - 1} more mistake{subjectMistakes.length - 1 !== 1 ? 's' : ''} in {subjectName}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {wrongAnswers.length >= limit && (
               <div className="pt-4 border-t border-gray-200">

@@ -1,5 +1,6 @@
 import { PrismaClient, PracticeSession } from "@/generated/prisma";
 import { getWeekStart } from "./quest-service";
+import { calculateLevel } from "@/lib/xp-utils";
 
 const prisma = new PrismaClient();
 
@@ -305,10 +306,26 @@ async function updateDailyQuestProgress(
       .filter(Boolean)
   );
 
-  const currentProgress = uniqueDays.size;
-  const previousProgress = studentQuest.progress;
+  const actualUniqueDays = uniqueDays.size;
+  const recordedProgress = studentQuest.progress;
 
-  return Math.max(0, currentProgress - previousProgress);
+  // If actual days > recorded progress, we need to update to the correct value
+  if (actualUniqueDays > recordedProgress) {
+    // Update the quest progress directly to match reality
+    await prisma.studentQuest.update({
+      where: { id: studentQuest.id },
+      data: {
+        progress: Math.min(actualUniqueDays, studentQuest.target),
+        isCompleted: actualUniqueDays >= studentQuest.target,
+        completedAt:
+          actualUniqueDays >= studentQuest.target ? new Date() : null,
+      },
+    });
+
+    return actualUniqueDays - recordedProgress; // Return the increment for logging
+  }
+
+  return 0; // No increment needed
 }
 
 // Simple weekend progress tracker
@@ -354,22 +371,40 @@ async function awardQuestCompletionXP(
   questTitle: string
 ) {
   try {
-    // Update student's XP
-    const updatedStudent = await prisma.student.update({
+    // Get current student data to calculate new level
+    const currentStudent = await prisma.student.findUnique({
       where: { id: studentId },
-      data: {
-        xpPoints: {
-          increment: xpReward,
-        },
-      },
       select: {
         xpPoints: true,
         username: true,
       },
     });
 
+    if (!currentStudent) {
+      console.error(`Student not found: ${studentId}`);
+      return;
+    }
+
+    const newXP = currentStudent.xpPoints + xpReward;
+    const newLevel = calculateLevel(newXP);
+
+    // Update student's XP and level
+    const updatedStudent = await prisma.student.update({
+      where: { id: studentId },
+      data: {
+        xpPoints: newXP,
+        level: newLevel,
+        updatedAt: new Date(),
+      },
+      select: {
+        xpPoints: true,
+        level: true,
+        username: true,
+      },
+    });
+
     console.log(
-      `🎉 ${updatedStudent.username} earned ${xpReward} XP for completing "${questTitle}"! Total XP: ${updatedStudent.xpPoints}`
+      `🎉 ${updatedStudent.username} earned ${xpReward} XP for completing "${questTitle}"! Total XP: ${updatedStudent.xpPoints}, Level: ${updatedStudent.level}`
     );
   } catch (error) {
     console.error(`Failed to award XP for quest completion:`, error);

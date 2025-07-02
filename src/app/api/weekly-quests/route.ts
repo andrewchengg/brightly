@@ -149,27 +149,63 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // If no quests exist for this week, show debug info instead of auto-generating
+    // If no quests exist for this week, auto-generate them
     if (studentQuests.length === 0) {
-      console.log(`⚠️ No StudentQuest records found for this week`);
+      console.log(
+        `⚠️ No StudentQuest records found for this week - generating new quests`
+      );
       console.log(`   Available quests in DB: ${availableQuests.length}`);
       console.log(`   Student level: ${studentLevel}`);
       console.log(`   Week start: ${weekStart.toISOString()}`);
 
-      const result = {
-        quests: [],
-        message: "No quests assigned for this week.",
-        debug: {
-          studentLevel,
-          totalQuestsInDB: allQuests.length,
-          availableQuests: availableQuests.length,
-          studentQuestsThisWeek: studentQuests.length,
-          weekStart: weekStart.toISOString(),
-          availableQuestTitles: availableQuests.map((q) => q.title),
-        },
-      };
+      try {
+        // Auto-generate quests for this week
+        const { generateWeeklyQuests } = await import("@/lib/quest-service");
+        const newStudentQuests = await generateWeeklyQuests(studentId);
 
-      return NextResponse.json(result);
+        console.log(
+          `✅ Auto-generated ${newStudentQuests.length} new quests for the week`
+        );
+
+        // Format the newly generated quests
+        const formattedQuests = newStudentQuests.map((sq: any) => ({
+          id: sq.id,
+          title: sq.quest.title,
+          description: sq.quest.description,
+          progress: sq.progress,
+          target: sq.target,
+          icon: sq.quest.icon,
+          color: sq.quest.color,
+          category: sq.quest.category.toLowerCase(),
+          isCompleted: sq.isCompleted,
+          completedAt: sq.completedAt,
+        }));
+
+        const result = { quests: formattedQuests };
+        questCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        return NextResponse.json(result);
+      } catch (generateError) {
+        console.error(`❌ Failed to auto-generate quests:`, generateError);
+
+        const result = {
+          quests: [],
+          message: "No quests assigned for this week.",
+          debug: {
+            studentLevel,
+            totalQuestsInDB: allQuests.length,
+            availableQuests: availableQuests.length,
+            studentQuestsThisWeek: studentQuests.length,
+            weekStart: weekStart.toISOString(),
+            availableQuestTitles: availableQuests.map((q) => q.title),
+            generateError:
+              generateError instanceof Error
+                ? generateError.message
+                : String(generateError),
+          },
+        };
+
+        return NextResponse.json(result);
+      }
     }
 
     // Format existing quests

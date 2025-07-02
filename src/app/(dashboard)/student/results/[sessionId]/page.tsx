@@ -39,12 +39,13 @@ interface QuestionForReview {
   text: string;
   questionType: keyof typeof PrismaQuestionType;
   options: OptionClient[];
-  correctAnswer: string | string[] | Record<string, string> | null;
+  correctAnswer: any;
   explanation?: string | null;
-  hint?: string | null;
+  marks?: number;
+  pointsAwarded?: number;
+  topicName?: string;
   imageUrl?: string | null;
-  topicName: string;
-  marks: number;
+  hint?: string | null;
 }
 
 interface StudentAnswerForReview {
@@ -110,8 +111,10 @@ export default function SessionReviewPage() {
             if (sa.question && typeof sa.question.marks === "number") {
               calculatedTotalPossibleMarksFromAnswers += sa.question.marks;
             } else {
+              // If marks is not available, use pointsAwarded as fallback
+              calculatedTotalPossibleMarksFromAnswers += sa.question?.pointsAwarded || 0;
               console.warn(
-                `SessionReviewPage: Question ID ${sa.question?.id} in studentAnswers is missing marks. Assuming 0 for this question's contribution.`
+                `SessionReviewPage: Question ID ${sa.question?.id} is missing marks field. Using pointsAwarded (${sa.question?.pointsAwarded}) as fallback.`
               );
             }
           });
@@ -310,10 +313,10 @@ export default function SessionReviewPage() {
       ) {
         displayDenominatorMarks = subjectMath.both.totalMarks;
       } else if (
-        totalPossibleMarksFromAnswers !== undefined &&
-        totalPossibleMarksFromAnswers > 0
+        sessionDetails.totalPossibleMarksCalculated !== undefined &&
+        sessionDetails.totalPossibleMarksCalculated > 0
       ) {
-        displayDenominatorMarks = totalPossibleMarksFromAnswers;
+        displayDenominatorMarks = sessionDetails.totalPossibleMarksCalculated;
       } else if (
         sessionDetails.totalQuestions &&
         sessionDetails.totalQuestions > 0
@@ -343,10 +346,10 @@ export default function SessionReviewPage() {
         }
       }
     } else if (
-      totalPossibleMarksFromAnswers !== undefined &&
-      totalPossibleMarksFromAnswers > 0
+      sessionDetails.totalPossibleMarksCalculated !== undefined &&
+      sessionDetails.totalPossibleMarksCalculated > 0
     ) {
-      displayDenominatorMarks = totalPossibleMarksFromAnswers;
+      displayDenominatorMarks = sessionDetails.totalPossibleMarksCalculated;
     } else if (
       sessionDetails.totalQuestions &&
       sessionDetails.totalQuestions > 0

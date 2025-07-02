@@ -141,7 +141,7 @@ const menuItems = [
       },
       {
         icon: FaTasks,
-        label: "Assign Homework",
+        label: "Manage Homework",
         href: "/parent/assign",
         visible: ["parent"],
       },

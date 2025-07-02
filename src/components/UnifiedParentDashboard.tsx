@@ -590,7 +590,7 @@ const UnifiedParentDashboard = () => {
                       dataKey="questions"
                     >
                       {(stats.children[0]?.subjectBreakdown || []).map(
-                        (entry, index) => {
+                        (entry: any, index: number) => {
                           const colors = [
                             "#3b82f6",
                             "#10b981",
@@ -650,6 +650,9 @@ const UnifiedParentDashboard = () => {
                     <th className="text-center py-2 px-4 font-medium text-gray-600">
                       Streak
                     </th>
+                    <th className="text-center py-2 px-4 font-medium text-gray-600">
+                      Last Login
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -703,6 +706,13 @@ const UnifiedParentDashboard = () => {
                             {child.currentStreak}
                           </span>
                         </div>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="text-gray-600">
+                          {child.lastActivityDate
+                            ? moment.utc(child.lastActivityDate).add(8, 'hours').format("MMM D, YYYY h:mm A")
+                            : "—"}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -823,7 +833,7 @@ const UnifiedParentDashboard = () => {
               <FaTasks className="mx-auto text-3xl mb-2 opacity-50" />
               <p>No homework assigned yet</p>
               <p className="text-sm mt-1">
-                Create assignments from the "Assign Homework" page
+                Create assignments from the "Manage Homework" page
               </p>
             </div>
           )}
@@ -972,7 +982,7 @@ const UnifiedParentDashboard = () => {
                     <div className="space-y-1">
                       {childStats.subjectBreakdown
                         .slice(0, 3)
-                        .map((subject, index) => (
+                        .map((subject: any, index: number) => (
                           <div
                             key={index}
                             className="flex justify-between text-sm"

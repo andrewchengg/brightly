@@ -59,6 +59,7 @@ interface SessionDetails {
       subject: { name: string };
     };
   }>;
+  totalPossibleMarks?: number | null;
 }
 
 export default function ParentSessionDetailsPage() {
@@ -182,8 +183,8 @@ export default function ParentSessionDetailsPage() {
   const incorrectCount = sessionDetails.answers.filter(
     (answer) => !answer.isCorrect
   ).length;
-  const scorePercentage = sessionDetails.totalQuestions
-    ? Math.round((correctCount / sessionDetails.totalQuestions) * 100)
+  const scorePercentage = sessionDetails.totalPossibleMarks && sessionDetails.score
+    ? Math.round((sessionDetails.score / sessionDetails.totalPossibleMarks) * 100)
     : 0;
 
   return (
@@ -257,7 +258,7 @@ export default function ParentSessionDetailsPage() {
                 <FaTrophy className="text-amber-600 text-xl" />
               </div>
               <div className="text-2xl font-bold text-gray-800">
-                {sessionDetails.score || 0}
+                {sessionDetails.score || 0}/{sessionDetails.totalPossibleMarks || 0}
               </div>
               <div className="text-sm text-gray-600">Total Score</div>
             </CardContent>
