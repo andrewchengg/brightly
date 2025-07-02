@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
@@ -7,7 +9,10 @@ export async function POST(request: Request) {
     const { questionId, studentId, reportType, description } = body;
 
     if (!questionId || !studentId || !reportType || !description) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
     const report = await prisma.questionReport.create({
@@ -16,13 +21,16 @@ export async function POST(request: Request) {
         studentId,
         reportType,
         description,
-        status: 'PENDING',
+        status: "PENDING",
       },
     });
 
     return NextResponse.json(report, { status: 201 });
   } catch (error) {
-    console.error('Error creating question report:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Error creating question report:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
-} 
+}

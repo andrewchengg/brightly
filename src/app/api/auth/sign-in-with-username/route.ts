@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient, type CookieOptions } from "@supabase/ssr"; // For setting auth cookies
 import { cookies } from "next/headers";
 
+export const dynamic = "force-dynamic";
+
 // Rate limiting map (in memory - consider using Redis for production)
 const loginAttempts = new Map<string, { count: number; timestamp: number }>();
 const MAX_ATTEMPTS = 5;

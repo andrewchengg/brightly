@@ -4,6 +4,8 @@ import { PrismaClient, PracticeSessionStatus } from "@/generated/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 
 // Function to calculate current streak based on actual practice history

@@ -12,6 +12,8 @@ import {
   AITutorResponse,
 } from "@/components/AILearningAssistant/types";
 
+export const dynamic = "force-dynamic";
+
 // Initialize OpenRouter client (using OpenAI SDK with OpenRouter endpoints)
 const getOpenRouterClient = () => {
   const apiKey = process.env.OPENROUTER_API_KEY;

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAdminAuth } from "@/lib/api-protection";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   return withAdminAuth(async (auth) => {
     try {
