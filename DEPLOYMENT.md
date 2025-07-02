@@ -9,6 +9,12 @@ This guide explains how to deploy the application to a VPS (Virtual Private Serv
 - GitHub repository access
 - Domain name (optional)
 
+## Server Details
+
+- IP Address: 54.179.103.147
+- Ubuntu Server 24.04 LTS
+- Instance Type: t2.micro
+
 ## Server Requirements
 
 - Ubuntu Server 24.04 LTS
@@ -33,7 +39,7 @@ This guide explains how to deploy the application to a VPS (Virtual Private Serv
 2. **Connect to Server**:
    ```bash
    chmod 400 brightlygang.pem
-   ssh -i brightlygang.pem ubuntu@your-server-ip
+   ssh -i brightlygang.pem ubuntu@54.179.103.147
    ```
 
 ## Automatic Deployment
@@ -44,7 +50,7 @@ We have two ways to deploy:
 
 ```bash
 # From your local machine
-./scripts/deploy-vps.sh your-server-ip
+./scripts/deployment/deploy.sh
 ```
 
 This script will:
@@ -61,7 +67,7 @@ The server is configured to automatically deploy when changes are pushed to the 
 #### How it Works:
 
 1. Push changes to main branch
-2. GitHub sends webhook to server
+2. GitHub sends webhook to server (http://54.179.103.147:3001/webhook)
 3. Server pulls changes and rebuilds application
 4. Zero-downtime reload using PM2
 
@@ -72,7 +78,7 @@ If you need to deploy manually:
 1. **Connect to Server**:
 
    ```bash
-   ssh -i brightlygang.pem ubuntu@your-server-ip
+   ssh -i brightlygang.pem ubuntu@54.179.103.147
    ```
 
 2. **Update Code and Rebuild**:
@@ -82,7 +88,7 @@ If you need to deploy manually:
    npm install
    npx prisma generate
    npm run build
-   pm2 reload brightly
+   pm2 reload brightly-production
    ```
 
 ## Environment Variables
@@ -102,8 +108,8 @@ CLOUDINARY_API_SECRET=your-cloudinary-secret
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloudinary-name
 
 # Site URL
-SITE_URL=http://your-server-ip
-NEXT_PUBLIC_SITE_URL=http://your-server-ip
+SITE_URL=http://54.179.103.147
+NEXT_PUBLIC_SITE_URL=http://54.179.103.147
 
 # Public variables
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
@@ -200,10 +206,10 @@ The server automatically backs up:
 
 ```bash
 # SSH into server
-ssh -i brightlygang.pem ubuntu@your-server-ip
+ssh -i brightlygang.pem ubuntu@54.179.103.147
 
 # View logs
-pm2 logs brightly
+pm2 logs brightly-production
 
 # Check application status
 pm2 status
@@ -212,7 +218,7 @@ pm2 status
 pm2 monit
 
 # Restart application
-pm2 reload brightly
+pm2 reload brightly-production
 
 # View Nginx status
 sudo systemctl status nginx

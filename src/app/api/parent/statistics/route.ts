@@ -3,10 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 import { calculateLevel } from "@/lib/xp-utils";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     console.log("Starting parent statistics API call");
-    
+
     const supabase = createClient();
     const {
       data: { user },
@@ -52,7 +54,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(`Fetching data for period: ${period}, from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(
+      `Fetching data for period: ${period}, from ${startDate.toISOString()} to ${endDate.toISOString()}`
+    );
 
     // Get all children of the parent
     let children;
@@ -94,7 +98,9 @@ export async function GET(request: NextRequest) {
       recentDay.getMonth(),
       recentDay.getDate()
     );
-    const endOfRecentDay = new Date(startOfRecentDay.getTime() + 24 * 60 * 60 * 1000);
+    const endOfRecentDay = new Date(
+      startOfRecentDay.getTime() + 24 * 60 * 60 * 1000
+    );
 
     // Get practice sessions for the recent day (including IN_PROGRESS and COMPLETED)
     let recentDaySessions;
@@ -153,7 +159,7 @@ export async function GET(request: NextRequest) {
     try {
       childrenStats = children.map((child) => {
         console.log("Processing child:", child.name);
-        
+
         const childRecentDaySessions = recentDaySessions.filter(
           (s) => s.studentId === child.id
         );
@@ -162,24 +168,30 @@ export async function GET(request: NextRequest) {
         );
 
         // Recent day stats - calculate time for both completed and in-progress sessions
-        const recentDayTimeSpent = childRecentDaySessions.reduce((total, session) => {
-          if (session.status === "COMPLETED" && session.durationSeconds) {
-            return total + session.durationSeconds;
-          } else if (session.status === "IN_PROGRESS" && session.startTime) {
-            // Calculate elapsed time for in-progress sessions
-            const now = new Date();
-            const sessionStart = new Date(session.startTime);
-            const elapsedSeconds = Math.floor(
-              (now.getTime() - sessionStart.getTime()) / 1000
-            );
-            return total + Math.max(0, elapsedSeconds);
-          }
-          return total;
-        }, 0);
+        const recentDayTimeSpent = childRecentDaySessions.reduce(
+          (total, session) => {
+            if (session.status === "COMPLETED" && session.durationSeconds) {
+              return total + session.durationSeconds;
+            } else if (session.status === "IN_PROGRESS" && session.startTime) {
+              // Calculate elapsed time for in-progress sessions
+              const now = new Date();
+              const sessionStart = new Date(session.startTime);
+              const elapsedSeconds = Math.floor(
+                (now.getTime() - sessionStart.getTime()) / 1000
+              );
+              return total + Math.max(0, elapsedSeconds);
+            }
+            return total;
+          },
+          0
+        );
 
-        const recentDayQuestions = childRecentDaySessions.reduce((total, session) => {
-          return total + (session.totalQuestions || 0);
-        }, 0);
+        const recentDayQuestions = childRecentDaySessions.reduce(
+          (total, session) => {
+            return total + (session.totalQuestions || 0);
+          },
+          0
+        );
 
         const recentDayCorrectAnswers = childRecentDaySessions.reduce(
           (total, session) => {
@@ -188,9 +200,12 @@ export async function GET(request: NextRequest) {
           0
         );
 
-        const recentDayXPEarned = childRecentDaySessions.reduce((total, session) => {
-          return total + (session.xpEarned || 0);
-        }, 0);
+        const recentDayXPEarned = childRecentDaySessions.reduce(
+          (total, session) => {
+            return total + (session.xpEarned || 0);
+          },
+          0
+        );
 
         // Range stats - calculate time for both completed and in-progress sessions
         const rangeTimeSpent = childRangeSessions.reduce((total, session) => {
@@ -212,9 +227,12 @@ export async function GET(request: NextRequest) {
           return total + (session.totalQuestions || 0);
         }, 0);
 
-        const rangeCorrectAnswers = childRangeSessions.reduce((total, session) => {
-          return total + (session.correctAnswers || 0);
-        }, 0);
+        const rangeCorrectAnswers = childRangeSessions.reduce(
+          (total, session) => {
+            return total + (session.correctAnswers || 0);
+          },
+          0
+        );
 
         // Subject breakdown
         const subjectStats: {
@@ -241,13 +259,15 @@ export async function GET(request: NextRequest) {
         // Daily breakdown for the selected range
         const dailyStats = [];
         const dailySubjectStats = [];
-        const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+        const daysDiff = Math.ceil(
+          (endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)
+        );
         const maxDays = Math.min(daysDiff, 90); // Limit to 90 days for performance
-        
+
         for (let i = 0; i <= maxDays; i++) {
           const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
           if (date > endDate) break;
-          
+
           const startOfDay = new Date(
             date.getFullYear(),
             date.getMonth(),
@@ -347,7 +367,9 @@ export async function GET(request: NextRequest) {
             correctAnswers: recentDayCorrectAnswers,
             accuracy:
               recentDayQuestions > 0
-                ? Math.round((recentDayCorrectAnswers / recentDayQuestions) * 100)
+                ? Math.round(
+                    (recentDayCorrectAnswers / recentDayQuestions) * 100
+                  )
                 : 0,
             xpEarned: recentDayXPEarned,
             sessionsCompleted: childRecentDaySessions.length,
@@ -389,19 +411,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Overall family stats with improved time calculation
-    const totalRecentDayTimeSeconds = recentDaySessions.length > 0 ? recentDaySessions.reduce((total, session) => {
-      if (session.status === "COMPLETED" && session.durationSeconds) {
-        return total + session.durationSeconds;
-      } else if (session.status === "IN_PROGRESS" && session.startTime) {
-        const now = new Date();
-        const sessionStart = new Date(session.startTime);
-        const elapsedSeconds = Math.floor(
-          (now.getTime() - sessionStart.getTime()) / 1000
-        );
-        return total + Math.max(0, elapsedSeconds);
-      }
-      return total;
-    }, 0) : 0;
+    const totalRecentDayTimeSeconds =
+      recentDaySessions.length > 0
+        ? recentDaySessions.reduce((total, session) => {
+            if (session.status === "COMPLETED" && session.durationSeconds) {
+              return total + session.durationSeconds;
+            } else if (session.status === "IN_PROGRESS" && session.startTime) {
+              const now = new Date();
+              const sessionStart = new Date(session.startTime);
+              const elapsedSeconds = Math.floor(
+                (now.getTime() - sessionStart.getTime()) / 1000
+              );
+              return total + Math.max(0, elapsedSeconds);
+            }
+            return total;
+          }, 0)
+        : 0;
 
     const overallStats = {
       totalChildren: children.length,
@@ -428,7 +453,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Unexpected error in parent statistics API:", error);
     return NextResponse.json(
-      { error: "Internal server error", details: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

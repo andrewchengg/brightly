@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import { getAuthenticatedUser } from "@/lib/secure-auth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   // SECURITY FIX: Require authentication before generating signatures
   const auth = await getAuthenticatedUser();
