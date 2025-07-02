@@ -1,5 +1,6 @@
 "use client";
 
+// Test deployment change - verifying automatic deployment works
 import { useSupabaseUser, useUserRole } from "@/lib/hooks/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
