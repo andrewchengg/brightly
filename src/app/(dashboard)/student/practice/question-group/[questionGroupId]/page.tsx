@@ -44,16 +44,15 @@ import {
   FaArrowRight,
   FaRocket,
   FaBookReader,
+  FaRegListAlt,
 } from "react-icons/fa";
 import ConfettiComponent from "@/components/Confetti";
 import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoader";
-// ... other imports
 import PassageDisplay from "@/components/Practice/PassageDisplay";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import ClozeQuestionOptions from "@/components/Practice/ClozeQuestionOptions";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
-import { FaRegListAlt } from "react-icons/fa"; // If not already imported
-import { DifficultyLevel } from "@/generated/prisma"; // If not already imported
+import { DifficultyLevel } from "@/generated/prisma";
 
 // Interfaces (similar to TopicalPracticePage)
 interface OptionClient {
@@ -76,6 +75,7 @@ export interface QuestionClient {
   };
   difficulty?: keyof typeof DifficultyLevel; // Or string if you prefer to map later
   pointsAwarded?: number;
+  marks?: number;
   questionType?: keyof typeof PrismaQuestionType;
   imageUrl?: string;
   topicName?: string;
@@ -101,6 +101,23 @@ interface LocalStorageQuestionGroupPracticeProgress {
   sessionFinalized?: boolean;
   practiceSessionId?: string | null;
   subjectId?: number | null;
+}
+
+interface QuestionResult {
+  id: number;
+  correct: boolean;
+  question: string;
+  userAnswer: string | Record<string, string>;
+  correctAnswer: string | Record<string, string> | string[] | null;
+}
+
+interface PracticeProgress {
+  questionResults: QuestionResult[];
+  totalMarksEarned: number;
+  totalPossibleMarks: number;
+  correctAnswers: number;
+  totalQuestions: number;
+  xpEarned: number;
 }
 
 export default function QuestionGroupPracticePage() {
@@ -167,6 +184,11 @@ export default function QuestionGroupPracticePage() {
   const localStorageKey = userId
     ? `qgPracticeProgress_${userId}_${numericQuestionGroupId}`
     : null;
+
+  const [totalMarksEarned, setTotalMarksEarned] = useState(0);
+  const [totalPossibleMarks, setTotalPossibleMarks] = useState(0);
+  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
 
   useEffect(() => {
     if (authUserIsLoaded) {
@@ -644,7 +666,7 @@ export default function QuestionGroupPracticePage() {
         [currentQuestion.id]: userAns,
       }));
       setIsAnswerCorrect(isCorr);
-      const points = isCorr ? currentQuestion.pointsAwarded || 10 : 0;
+      const points = isCorr ? (currentQuestion.marks || currentQuestion.pointsAwarded || 1) : 0;
       setQuestionResults((prevResults) => {
         const newResult = {
           id: currentQuestion.id,
@@ -1295,16 +1317,10 @@ export default function QuestionGroupPracticePage() {
     );
   }
   if (showSummary) {
-    /* ... summary display ... */
-    const totalPossibleScore = questions.reduce(
-      (acc, q) => acc + (q.pointsAwarded || 10),
-      0
-    );
     const percentageCorrect =
-      totalPossibleScore > 0
-        ? Math.round((score / totalPossibleScore) * 100)
+      totalPossibleMarks > 0
+        ? Math.round((totalMarksEarned / totalPossibleMarks) * 100)
         : 0;
-    const correctCount = questionResults.filter((r) => r.correct).length;
     return (
       <div className="max-w-3xl mx-auto p-4 md:p-8">
         {showLevelUp && (
@@ -1318,139 +1334,55 @@ export default function QuestionGroupPracticePage() {
           onComplete={() => setShowConfetti(false)}
         />
         <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-          <div className="p-6 md:p-8 bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-center">
-            <FaBookReader className="text-5xl mx-auto mb-4 opacity-80" />
-            <h1 className="text-3xl font-bold mb-2">
-              Passage Practice Complete: {passageTitle}
-            </h1>
-            <p className="text-indigo-200">
-              Well done! Here's your performance:
+          <div className="p-6 text-center">
+            <h2 className="text-3xl font-bold mb-2">
+              {percentageCorrect}%
+            </h2>
+            <p className="text-gray-600 mb-4">
+              Your Marks: {totalMarksEarned} / {totalPossibleMarks}
+            </p>
+            <p className="text-gray-600 mb-4">
+              XP Earned: +{totalMarksEarned}
+            </p>
+            <p className="text-gray-600">
+              Total Questions: {totalQuestions}
+            </p>
+            <p className="text-gray-600">
+              Correct Answers: {correctAnswers} / {totalQuestions}
             </p>
           </div>
-          <div className="p-6 md:p-8">
-            <div className="text-center mb-8">
-              <p className="text-6xl font-bold text-indigo-600">
-                {percentageCorrect}%
-              </p>
-              <p className="text-gray-600 mt-1">
-                Your Score: {score} / {totalPossibleScore}
-              </p>
-              <p className="text-amber-500 font-semibold mt-1">
-                XP Earned: +{score}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-              <div className="bg-gray-50 p-4 rounded-lg text-center">
-                <p className="text-sm text-gray-500 uppercase">
-                  Total Questions
-                </p>
-                <p className="text-2xl font-semibold text-gray-700">
-                  {questions.length}
-                </p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg text-center">
-                <p className="text-sm text-gray-500 uppercase">
-                  Correct Answers
-                </p>
-                <p className="text-2xl font-semibold text-green-600">
-                  {correctCount} / {questions.length}
-                </p>
-              </div>
-            </div>
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                Review Your Answers:
-              </h3>
-              <div className="max-h-96 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                {questionResults.map((result, index) => (
-                  <div
-                    key={result.id}
-                    className={`p-4 rounded-lg border-l-4 ${
-                      result.correct
-                        ? "bg-green-50 border-green-400 text-green-800"
-                        : "bg-red-50 border-red-400 text-red-800"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold text-sm">
-                        Question {index + 1}
-                      </h4>
-                      <div className="flex items-center">
-                        {result.correct ? (
-                          <div className="flex items-center text-green-600">
-                            <FaCheck className="mr-1" />
-                            <span className="text-xs font-medium">Correct</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center text-red-600">
-                            <FaTimes className="mr-1" />
-                            <span className="text-xs font-medium">
-                              Incorrect
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="text-sm mb-3 text-gray-700 leading-relaxed">
-                      {result.question}
-                    </p>
-
-                    <div className="space-y-2 text-xs">
-                      <div className="flex flex-wrap">
-                        <span className="font-medium text-gray-600 mr-2">
-                          Your Answer:
-                        </span>
-                        <span
-                          className={`${
-                            result.correct ? "text-green-700" : "text-red-700"
-                          } font-medium`}
-                        >
-                          {typeof result.userAnswer === "object"
-                            ? Object.entries(result.userAnswer)
-                                .map(([key, value]) => `${key}: ${value}`)
-                                .join(", ")
-                            : result.userAnswer || "No answer"}
-                        </span>
-                      </div>
-
-                      {!result.correct && (
-                        <div className="flex flex-wrap">
-                          <span className="font-medium text-gray-600 mr-2">
-                            Correct Answer:
-                          </span>
-                          <span className="text-green-700 font-medium">
-                            {typeof result.correctAnswer === "object" &&
-                            result.correctAnswer !== null
-                              ? Array.isArray(result.correctAnswer)
-                                ? result.correctAnswer.join(", ")
-                                : Object.entries(result.correctAnswer)
-                                    .map(([key, value]) => `${key}: ${value}`)
-                                    .join(", ")
-                              : result.correctAnswer || "N/A"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                onClick={exitToSubjectPractice}
-                variant="outline"
-                className="flex-1"
+          <div className="border-t border-gray-200 p-6">
+            <h3 className="text-lg font-semibold mb-4">Review Your Answers:</h3>
+            {questionResults.map((result, index) => (
+              <div
+                key={result.id}
+                className={`mb-4 p-4 rounded-lg ${
+                  result.correct
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700"
+                }`}
               >
-                <FaArrowLeft className="mr-2" /> Back to Subject
-              </Button>
-              <Button
-                onClick={restartPractice}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700"
-              >
-                <FaRocket className="mr-2" /> Practice This Passage Again
-              </Button>
-            </div>
+                <div className="flex items-center justify-between">
+                  <span>Question {index + 1}</span>
+                  <span>
+                    {result.correct ? (
+                      <FaCheck className="w-5 h-5" />
+                    ) : (
+                      <FaTimes className="w-5 h-5" />
+                    )}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-gray-200 p-6 flex justify-center">
+            <Button
+              onClick={() => {
+                router.push("/student/practice");
+              }}
+            >
+              Continue Practice
+            </Button>
           </div>
         </div>
       </div>

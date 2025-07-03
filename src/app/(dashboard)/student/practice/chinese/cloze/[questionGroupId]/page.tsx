@@ -62,6 +62,7 @@ export interface QuestionClient {
   topic: { id: number; name: string; subjectId?: number };
   difficulty?: keyof typeof DifficultyLevel;
   pointsAwarded?: number;
+  marks?: number;
   questionType?: keyof typeof PrismaQuestionType;
   imageUrl?: string;
   topicName?: string;
@@ -511,7 +512,7 @@ export default function ClozePassagePracticePage() {
           String(q.correctAnswer ?? "").toLowerCase() ===
           userAnswerId.toLowerCase();
         if (isCorrect) {
-          points = q.pointsAwarded || 2;
+          points = q.marks || 0;
           calculatedScore += points;
         }
       }
@@ -642,7 +643,7 @@ export default function ClozePassagePracticePage() {
   }
   if (showSummary) {
     const totalPossibleScore = questions.reduce(
-      (acc, q) => acc + (q.pointsAwarded || 2),
+      (acc, q) => acc + (q.marks || 0),
       0
     );
     const percentageCorrect =

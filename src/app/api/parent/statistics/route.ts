@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Default to current period
       const today = new Date();
+      
       switch (period) {
         case "30d":
           startDate = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -46,9 +47,18 @@ export async function GET(request: NextRequest) {
           endDate = new Date(today.getFullYear(), quarterStart + 3, 0);
           break;
         default: // "7d"
-          endDate = new Date(today);
-          startDate = new Date(today);
-          startDate.setDate(today.getDate() - 6);
+          // Hardcode the specific date range for testing
+          endDate = new Date('2025-07-02');
+          startDate = new Date('2025-06-26');
+          
+          // Set proper times
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
+          
+          console.log('API Date Range:', {
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString()
+          });
       }
     }
 
@@ -188,9 +198,23 @@ export async function GET(request: NextRequest) {
           0
         );
 
-        const recentDayXPEarned = childRecentDaySessions.reduce((total, session) => {
-          return total + (session.xpEarned || 0);
-        }, 0);
+        const recentDayMarksEarned = childRecentDaySessions.reduce(
+          (total, session) => {
+            return total + (session.totalMarksEarned || 0);
+          },
+          0
+        );
+
+        const recentDayPossibleMarks = childRecentDaySessions.reduce(
+          (total, session) => {
+            return total + (session.totalPossibleMarks || 0);
+          },
+          0
+        );
+
+        const recentDayAccuracy = recentDayPossibleMarks > 0
+          ? Math.round((recentDayMarksEarned / recentDayPossibleMarks) * 100)
+          : 0;
 
         // Range stats - calculate time for both completed and in-progress sessions
         const rangeTimeSpent = childRangeSessions.reduce((total, session) => {
@@ -216,12 +240,26 @@ export async function GET(request: NextRequest) {
           return total + (session.correctAnswers || 0);
         }, 0);
 
+        const rangeMarksEarned = childRangeSessions.reduce((total, session) => {
+          return total + (session.totalMarksEarned || 0);
+        }, 0);
+
+        const rangePossibleMarks = childRangeSessions.reduce((total, session) => {
+          return total + (session.totalPossibleMarks || 0);
+        }, 0);
+
+        const rangeAccuracy = rangePossibleMarks > 0
+          ? Math.round((rangeMarksEarned / rangePossibleMarks) * 100)
+          : 0;
+
         // Subject breakdown
         const subjectStats: {
           [key: string]: {
             questions: number;
             correct: number;
             timeSpent: number;
+            marksEarned: number;
+            possibleMarks: number;
           };
         } = {};
         childRangeSessions.forEach((session) => {
@@ -231,23 +269,34 @@ export async function GET(request: NextRequest) {
               questions: 0,
               correct: 0,
               timeSpent: 0,
+              marksEarned: 0,
+              possibleMarks: 0,
             };
           }
           subjectStats[subjectName].questions += session.totalQuestions || 0;
           subjectStats[subjectName].correct += session.correctAnswers || 0;
           subjectStats[subjectName].timeSpent += session.durationSeconds || 0;
+          subjectStats[subjectName].marksEarned += session.totalMarksEarned || 0;
+          subjectStats[subjectName].possibleMarks += session.totalPossibleMarks || 0;
         });
 
         // Daily breakdown for the selected range
         const dailyStats = [];
         const dailySubjectStats = [];
-        const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
-        const maxDays = Math.min(daysDiff, 90); // Limit to 90 days for performance
         
-        for (let i = 0; i <= maxDays; i++) {
-          const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-          if (date > endDate) break;
-          
+        // Generate array of dates from start to end
+        const dates = [];
+        let currentDate = new Date(startDate);
+        
+        while (currentDate <= endDate) {
+          dates.push(new Date(currentDate));
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        console.log('Processing dates:', dates.map(d => d.toISOString().split('T')[0]));
+        
+        // Process each date
+        for (const date of dates) {
           const startOfDay = new Date(
             date.getFullYear(),
             date.getMonth(),
@@ -255,9 +304,13 @@ export async function GET(request: NextRequest) {
           );
           const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
+          console.log(`Processing ${startOfDay.toISOString().split('T')[0]}`);
+
           const daySessions = childRangeSessions.filter(
             (s) => s.startTime >= startOfDay && s.startTime < endOfDay
           );
+
+          console.log(`Found ${daySessions.length} sessions for ${startOfDay.toISOString().split('T')[0]}`);
 
           const dayQuestions = daySessions.reduce(
             (total, session) => total + (session.totalQuestions || 0),
@@ -271,27 +324,47 @@ export async function GET(request: NextRequest) {
             (total, session) => total + (session.durationSeconds || 0),
             0
           );
+          const dayMarksEarned = daySessions.reduce(
+            (total, session) => total + (session.totalMarksEarned || 0),
+            0
+          );
+          const dayPossibleMarks = daySessions.reduce(
+            (total, session) => total + (session.totalPossibleMarks || 0),
+            0
+          );
 
           // Subject-specific stats for the day
           const subjectMap: {
             [key: string]: {
               questions: number;
               correct: number;
+              marksEarned: number;
+              possibleMarks: number;
             };
           } = {};
+
           daySessions.forEach((session) => {
             const subjectName = session.subject?.name || "Unknown";
             if (!subjectMap[subjectName]) {
-              subjectMap[subjectName] = { questions: 0, correct: 0 };
+              subjectMap[subjectName] = { 
+                questions: 0, 
+                correct: 0,
+                marksEarned: 0,
+                possibleMarks: 0
+              };
             }
             subjectMap[subjectName].questions += session.totalQuestions || 0;
             subjectMap[subjectName].correct += session.correctAnswers || 0;
+            subjectMap[subjectName].marksEarned += session.totalMarksEarned || 0;
+            subjectMap[subjectName].possibleMarks += session.totalPossibleMarks || 0;
           });
 
           const subjectAccuracy: {
             [key: string]: {
               questions: number;
               correct: number;
+              marksEarned: number;
+              possibleMarks: number;
               accuracy: number;
             };
           } = {};
@@ -300,21 +373,27 @@ export async function GET(request: NextRequest) {
             subjectAccuracy[subject] = {
               questions: stats.questions,
               correct: stats.correct,
+              marksEarned: stats.marksEarned,
+              possibleMarks: stats.possibleMarks,
               accuracy:
-                stats.questions > 0
-                  ? Math.round((stats.correct / stats.questions) * 100)
+                stats.possibleMarks > 0
+                  ? Math.round((stats.marksEarned / stats.possibleMarks) * 100)
                   : 0,
             };
           });
+
+          console.log(`Subject accuracy for ${startOfDay.toISOString().split('T')[0]}:`, subjectAccuracy);
 
           dailyStats.push({
             date: startOfDay.toISOString().split("T")[0],
             questions: dayQuestions,
             correctAnswers: dayCorrect,
             timeSpent: dayTime,
+            marksEarned: dayMarksEarned,
+            possibleMarks: dayPossibleMarks,
             accuracy:
-              dayQuestions > 0
-                ? Math.round((dayCorrect / dayQuestions) * 100)
+              dayPossibleMarks > 0
+                ? Math.round((dayMarksEarned / dayPossibleMarks) * 100)
                 : 0,
           });
 
@@ -323,6 +402,9 @@ export async function GET(request: NextRequest) {
             subjects: subjectAccuracy,
           });
         }
+
+        console.log(`Generated ${dailySubjectStats.length} daily entries for child ${child.name}`);
+        console.log("Daily subject stats:", dailySubjectStats);
 
         let calculatedLevel;
         try {
@@ -345,11 +427,12 @@ export async function GET(request: NextRequest) {
             timeSpentMinutes: Math.round(recentDayTimeSpent / 60),
             questionsAnswered: recentDayQuestions,
             correctAnswers: recentDayCorrectAnswers,
-            accuracy:
-              recentDayQuestions > 0
-                ? Math.round((recentDayCorrectAnswers / recentDayQuestions) * 100)
-                : 0,
-            xpEarned: recentDayXPEarned,
+            marksEarned: recentDayMarksEarned,
+            possibleMarks: recentDayPossibleMarks,
+            accuracy: recentDayAccuracy,
+            xpEarned: childRecentDaySessions.reduce((total, session) => {
+              return total + (session.xpEarned || 0);
+            }, 0),
             sessionsCompleted: childRecentDaySessions.length,
           },
           week: {
@@ -357,10 +440,9 @@ export async function GET(request: NextRequest) {
             timeSpentMinutes: Math.round(rangeTimeSpent / 60),
             questionsAnswered: rangeQuestions,
             correctAnswers: rangeCorrectAnswers,
-            accuracy:
-              rangeQuestions > 0
-                ? Math.round((rangeCorrectAnswers / rangeQuestions) * 100)
-                : 0,
+            marksEarned: rangeMarksEarned,
+            possibleMarks: rangePossibleMarks,
+            accuracy: rangeAccuracy,
             sessionsCompleted: childRangeSessions.length,
           },
           subjectBreakdown: Object.entries(subjectStats).map(
@@ -368,11 +450,14 @@ export async function GET(request: NextRequest) {
               subject,
               questions: stats.questions,
               correct: stats.correct,
+              marksEarned: stats.marksEarned,
+              possibleMarks: stats.possibleMarks,
               accuracy:
-                stats.questions > 0
-                  ? Math.round((stats.correct / stats.questions) * 100)
+                stats.possibleMarks > 0
+                  ? Math.round((stats.marksEarned / stats.possibleMarks) * 100)
                   : 0,
-              timeSpent: Math.round(stats.timeSpent / 60), // in minutes
+              timeSpent: stats.timeSpent,
+              timeSpentMinutes: Math.round(stats.timeSpent / 60),
             })
           ),
           dailyStats,

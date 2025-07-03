@@ -32,18 +32,21 @@ export async function GET(request: NextRequest) {
         studentId: studentId,
         status: PracticeSessionStatus.COMPLETED,
       },
-      select: {
-        id: true,
-        title: true,
-        type: true,
-        endTime: true,
-        score: true,
-        totalQuestions: true,
-        correctAnswers: true,
-        xpEarned: true,
-        subject: { select: { name: true } }, // Include subject name
-        topic: { select: { name: true } }, // Include topic name
-        basedOnQuestionGroup: { select: { name: true } }, // Include question group name
+      include: {
+        subject: { select: { name: true } },
+        topic: { select: { name: true } },
+        basedOnQuestionGroup: { select: { name: true } },
+        studentAnswers: {
+          select: {
+            isCorrect: true,
+            pointsEarned: true,
+            question: {
+              select: {
+                marks: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         endTime: "desc", // Show most recent first
@@ -54,13 +57,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([], { status: 200 }); // Return empty array if none found
     }
 
-    // Map to a slightly friendlier structure if needed, or return as is
-    const formattedSessions = completedSessions.map((session) => ({
-      ...session,
-      subjectName: session.subject?.name,
-      topicName: session.topic?.name,
-      questionGroupName: session.basedOnQuestionGroup?.name,
-    }));
+    // Calculate session statistics and format
+    const formattedSessions = completedSessions.map((session) => {
+      // Use stored marks fields if available, fallback to calculation for older sessions
+      let totalPossibleMarks = session.totalPossibleMarks;
+      let totalMarksEarned = session.totalMarksEarned;
+
+      if (totalPossibleMarks === null || totalMarksEarned === null) {
+        // Fallback calculation for older sessions
+        totalMarksEarned = session.studentAnswers
+          .filter((answer) => answer.isCorrect)
+          .reduce((sum, answer) => sum + (answer.question?.marks || 0), 0);
+        
+        totalPossibleMarks = session.studentAnswers.reduce((sum, answer) => {
+          const questionMarks = answer.question?.marks || 0;
+          return sum + questionMarks;
+        }, 0);
+      }
+
+      return {
+        id: session.id,
+        title: session.title,
+        type: session.type,
+        endTime: session.endTime,
+        score: totalMarksEarned, // Use marks earned instead of legacy score
+        totalQuestions: session.totalQuestions,
+        correctAnswers: session.correctAnswers,
+        xpEarned: session.xpEarned,
+        totalPossibleMarks,
+        subjectName: session.subject?.name,
+        topicName: session.topic?.name,
+        questionGroupName: session.basedOnQuestionGroup?.name,
+      };
+    });
 
     return NextResponse.json(formattedSessions);
   } catch (error: any) {

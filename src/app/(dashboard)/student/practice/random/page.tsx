@@ -25,6 +25,8 @@ import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoad
 import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
+import WhiteboardModal from "@/components/ui/WhiteboardModal";
+import WhiteboardButton from "@/components/ui/WhiteboardButton";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -64,6 +66,7 @@ interface QuestionClient {
   };
   difficulty?: string;
   pointsAwarded?: number;
+  marks?: number;
   questionType?: keyof typeof PrismaQuestionType;
   imageUrl?: string;
   topicName?: string;
@@ -292,6 +295,9 @@ export default function RandomPractice() {
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  // Whiteboard state
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -350,27 +356,20 @@ export default function RandomPractice() {
         setCurrentTopicId(sessionData.topicId);
         setScore(sessionData.score || 0);
 
-        // Fetch questions based on session's subjectId
-        let questionsUrl = "/api/questions/random?limit=10";
-        if (sessionData.subjectId) {
-          questionsUrl += `&subjectId=${sessionData.subjectId}`;
-        }
-        if (sessionData.topicId) {
-          questionsUrl += `&topicId=${sessionData.topicId}`;
-        }
-
-        const questionsResponse = await fetch(questionsUrl);
+        // Fetch the original questions for this session
+        const questionsResponse = await fetch(
+          `/api/practice-session?sessionId=${sessionId}`
+        );
         if (!questionsResponse.ok) {
-          throw new Error("Failed to load questions");
+          throw new Error("Failed to load questions for this session");
         }
-        const fetchedQuestions: QuestionClient[] =
-          await questionsResponse.json();
+        const { questions } = await questionsResponse.json();
 
-        if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
-          throw new Error("No questions available.");
+        if (!Array.isArray(questions) || questions.length === 0) {
+          throw new Error("No questions available for this session.");
         }
 
-        setQuestions(fetchedQuestions);
+        setQuestions(questions);
 
         // Build answered questions map from StudentAnswer records
         const answeredQuestionsMap: Record<
@@ -379,18 +378,14 @@ export default function RandomPractice() {
         > = {};
         const results: typeof questionResults = [];
 
-        sessionData.studentAnswers.forEach((answer) => {
-          answeredQuestionsMap[answer.questionId] = answer.submittedAnswer;
-
-          const question = fetchedQuestions.find(
-            (q) => q.id === answer.questionId
-          );
-          if (question) {
+        questions.forEach((question) => {
+          if (question.submittedAnswer) {
+            answeredQuestionsMap[question.id] = question.submittedAnswer;
             results.push({
-              id: answer.questionId,
-              correct: answer.isCorrect,
+              id: question.id,
+              correct: question.isCorrect || false,
               question: question.text,
-              userAnswer: answer.submittedAnswer,
+              userAnswer: question.submittedAnswer,
               correctAnswer: question.correctAnswer,
             });
           }
@@ -400,13 +395,13 @@ export default function RandomPractice() {
         setQuestionResults(results);
 
         // Find current question index (first unanswered question)
-        const firstUnansweredIndex = fetchedQuestions.findIndex(
+        const firstUnansweredIndex = questions.findIndex(
           (q) => !answeredQuestionsMap.hasOwnProperty(q.id)
         );
 
         if (firstUnansweredIndex === -1) {
           // All questions answered, show summary
-          setCurrentQuestionIndex(fetchedQuestions.length);
+          setCurrentQuestionIndex(questions.length);
           setShowSummary(true);
           setSessionFinalized(true);
         } else {
@@ -423,38 +418,54 @@ export default function RandomPractice() {
   );
 
   // Create new practice session in database
-  const createNewPracticeSession = useCallback(async (): Promise<
-    string | null
-  > => {
+  const createNewPracticeSession = useCallback(async () => {
     if (!userId) {
       setError("User information is missing. Cannot start session.");
       return null;
     }
 
     try {
+      // Fetch questions first
+      let questionsUrl = "/api/questions/random?limit=10";
+      if (currentSubjectId) {
+        questionsUrl += `&subjectId=${currentSubjectId}`;
+      }
+      if (currentTopicId) {
+        questionsUrl += `&topicId=${currentTopicId}`;
+      }
+
+      const questionsResponse = await fetch(questionsUrl);
+      if (!questionsResponse.ok) {
+        throw new Error("Failed to load questions");
+      }
+      const fetchedQuestions: QuestionClient[] = await questionsResponse.json();
+
+      if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
+        throw new Error("No questions available.");
+      }
+
+      // Create session with questions
       const response = await fetch("/api/practice-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentId: userId,
-          title: `Random Practice - ${new Date().toLocaleDateString()}`,
+          title: `Random Practice${currentSubjectId ? ` - Subject ${currentSubjectId}` : ""}`,
           type: PracticeSessionType.PRACTICE,
           status: PracticeSessionStatus.IN_PROGRESS,
-          totalQuestions: 10, // We'll update this when we fetch questions
+          totalQuestions: fetchedQuestions.length,
           subjectId: currentSubjectId,
           topicId: currentTopicId,
+          questions: fetchedQuestions, // Pass the questions to store with session
         }),
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(
-          errData.error?.message || "Failed to create practice session"
-        );
+        throw new Error("Failed to create practice session");
       }
 
       const sessionData = await response.json();
-      setCurrentPracticeSessionId(sessionData.id);
+      setQuestions(fetchedQuestions);
       return sessionData.id;
     } catch (err: any) {
       setError(`Could not start a new practice session: ${err.message}`);
@@ -806,7 +817,7 @@ export default function RandomPractice() {
       }));
       setIsAnswerCorrect(isCorr);
 
-      const points = isCorr ? currentQuestion.pointsAwarded || 10 : 0; // Default 10 points
+      const points = isCorr ? (currentQuestion.marks || currentQuestion.pointsAwarded || 1) : 0; // Use marks field first
 
       // Update questionResults - ensure it's a new object for reactivity
       setQuestionResults((prevResults) => {
@@ -1370,7 +1381,7 @@ export default function RandomPractice() {
 
   if (showSummary) {
     const totalPossibleScore = questions.reduce(
-      (acc, q) => acc + (q.pointsAwarded || 10),
+      (acc, q) => acc + (q.marks || q.pointsAwarded || 1),
       0
     );
     const percentageCorrect =
@@ -1639,9 +1650,15 @@ export default function RandomPractice() {
               >
                 {currentQuestion?.difficulty || "MEDIUM"}
               </span>
+              {/* Whiteboard Button */}
+              <WhiteboardButton
+                onClick={() => setShowWhiteboard(true)}
+                className="ml-2"
+                size="sm"
+              />
               {/* Report Button */}
               <button
-                className="ml-4 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
+                className="ml-2 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowReportModal(true);
@@ -1782,6 +1799,15 @@ export default function RandomPractice() {
         onClose={() => setShowReportModal(false)}
         questionId={currentQuestion?.id}
         studentId={userId}
+      />
+      <WhiteboardModal
+        isOpen={showWhiteboard}
+        onClose={() => setShowWhiteboard(false)}
+        onSave={(imageDataURL) => {
+          // Optional: Save whiteboard content to session or local storage
+          console.log('Whiteboard saved:', imageDataURL);
+          setShowWhiteboard(false);
+        }}
       />
     </div>
   );

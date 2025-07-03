@@ -70,6 +70,8 @@ interface SessionDetails {
   questionGroupName?: string | null;
   studentAnswers: StudentAnswerForReview[];
   totalPossibleMarksCalculated?: number;
+  totalPossibleMarks?: number | null;
+  totalMarksEarned?: number | null;
 }
 
 export default function SessionReviewPage() {
@@ -313,6 +315,11 @@ export default function SessionReviewPage() {
       ) {
         displayDenominatorMarks = subjectMath.both.totalMarks;
       } else if (
+        sessionDetails.totalPossibleMarks &&
+        sessionDetails.totalPossibleMarks > 0
+      ) {
+        displayDenominatorMarks = sessionDetails.totalPossibleMarks;
+      } else if (
         sessionDetails.totalPossibleMarksCalculated !== undefined &&
         sessionDetails.totalPossibleMarksCalculated > 0
       ) {
@@ -346,6 +353,11 @@ export default function SessionReviewPage() {
         }
       }
     } else if (
+      sessionDetails.totalPossibleMarks &&
+      sessionDetails.totalPossibleMarks > 0
+    ) {
+      displayDenominatorMarks = sessionDetails.totalPossibleMarks;
+    } else if (
       sessionDetails.totalPossibleMarksCalculated !== undefined &&
       sessionDetails.totalPossibleMarksCalculated > 0
     ) {
@@ -360,11 +372,11 @@ export default function SessionReviewPage() {
     if (
       typeof displayDenominatorMarks === "number" &&
       displayDenominatorMarks > 0 &&
-      sessionDetails.score !== null &&
-      sessionDetails.score !== undefined
+      sessionDetails.totalMarksEarned !== null &&
+      sessionDetails.totalMarksEarned !== undefined
     ) {
       scorePercentage = Math.round(
-        (sessionDetails.score / displayDenominatorMarks) * 100
+        (sessionDetails.totalMarksEarned / displayDenominatorMarks) * 100
       );
     }
   }
@@ -396,7 +408,7 @@ export default function SessionReviewPage() {
           <div>
             <p className="text-xs text-gray-500 uppercase">Score (Marks)</p>
             <p className="text-2xl font-bold text-indigo-600">
-              {sessionDetails.score ?? 0} / {displayDenominatorMarks}
+              {sessionDetails.totalMarksEarned ?? 0} / {displayDenominatorMarks}
               {scorePercentage !== null && ` (${scorePercentage}%)`}
             </p>
           </div>

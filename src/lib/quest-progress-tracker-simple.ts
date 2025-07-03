@@ -12,11 +12,11 @@ interface PracticeSessionWithDetails extends PracticeSession {
 
 // Helper function to calculate accuracy from practice session
 function calculateAccuracy(session: PracticeSessionWithDetails): number | null {
-  if (!session.totalQuestions || session.totalQuestions === 0) {
+  if (!session.totalPossibleMarks || session.totalPossibleMarks === 0) {
     return null;
   }
-  const correctAnswers = session.correctAnswers || 0;
-  return Math.round((correctAnswers / session.totalQuestions) * 100);
+  const marksEarned = session.totalMarksEarned || 0;
+  return Math.round((marksEarned / session.totalPossibleMarks) * 100);
 }
 
 // Main function to update all quest progress when a practice session is completed
@@ -35,7 +35,10 @@ export async function updateQuestProgressForSession(
     }, Topic: ${practiceSession.topic?.name || "None"}`
   );
   console.log(
-    `   Score: ${practiceSession.score}, Correct: ${practiceSession.correctAnswers}/${practiceSession.totalQuestions}, XP: ${practiceSession.xpEarned}`
+    `Practice session completed:
+   Title: ${practiceSession.title}
+   Type: ${practiceSession.type}
+   Marks: ${practiceSession.totalMarksEarned}/${practiceSession.totalPossibleMarks}, Correct: ${practiceSession.correctAnswers}/${practiceSession.totalQuestions}, XP: ${practiceSession.xpEarned}`
   );
 
   // Get all active quests for this student for the current week

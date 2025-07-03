@@ -32,6 +32,8 @@ import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoad
 import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
+import WhiteboardModal from "@/components/ui/WhiteboardModal";
+import WhiteboardButton from "@/components/ui/WhiteboardButton";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -72,6 +74,7 @@ interface QuestionClient {
   };
   difficulty?: string;
   pointsAwarded?: number;
+  marks?: number;
   questionType?: keyof typeof PrismaQuestionType;
   imageUrl?: string;
   topicName?: string;
@@ -289,6 +292,9 @@ export default function TopicalPracticePage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
 
+  // Whiteboard state
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const aiContentRef = useRef<HTMLDivElement>(null);
@@ -344,6 +350,7 @@ export default function TopicalPracticePage() {
       }
 
       try {
+        // First get the session details
         const response = await fetch(
           `/api/student/practice-sessions/${sessionId}`
         );
@@ -375,28 +382,17 @@ export default function TopicalPracticePage() {
 
         setCurrentPracticeSessionId(sessionId);
 
-        // Fetch questions for this topic to start practice
+        // Fetch the original questions for this session
         const questionsResponse = await fetch(
-          `/api/questions/random?topicId=${numericTopicId}&limit=10`
+          `/api/practice-session?sessionId=${sessionId}`
         );
         if (!questionsResponse.ok) {
-          throw new Error("Failed to load questions for this topic");
+          throw new Error("Failed to load questions for this session");
         }
-        const questions: QuestionClient[] = await questionsResponse.json();
+        const { questions } = await questionsResponse.json();
 
         if (!Array.isArray(questions) || questions.length === 0) {
-          throw new Error("No questions available for this topic.");
-        }
-
-        // Also update the totalQuestions in the session if it wasn't set
-        if (!sessionData.totalQuestions || sessionData.totalQuestions === 0) {
-          await fetch(`/api/practice-sessions/${sessionId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              totalQuestions: questions.length,
-            }),
-          });
+          throw new Error("No questions available for this session.");
         }
 
         setQuestions(questions);
@@ -406,7 +402,7 @@ export default function TopicalPracticePage() {
         return null;
       }
     },
-    [userId, numericTopicId]
+    [userId]
   );
 
   const createNewTopicalPracticeSession = useCallback(
@@ -434,6 +430,7 @@ export default function TopicalPracticePage() {
             totalQuestions: fetchedQuestions.length,
             subjectId: subjectIdForSession,
             topicId: numericTopicId,
+            questions: fetchedQuestions, // Pass the questions to store with session
           }),
         });
         if (!response.ok) {
@@ -883,7 +880,7 @@ export default function TopicalPracticePage() {
         [currentQuestion.id]: userAns,
       }));
       setIsAnswerCorrect(isCorr);
-      const points = isCorr ? currentQuestion.pointsAwarded || 10 : 0;
+      const points = isCorr ? (currentQuestion.marks || currentQuestion.pointsAwarded || 1) : 0;
       setQuestionResults((prevResults) => {
         const newResult = {
           id: currentQuestion.id,
@@ -1538,7 +1535,7 @@ export default function TopicalPracticePage() {
   if (showSummary) {
     /* Same as RandomPractice, but "Start New Practice" button logic changes */
     const totalPossibleScore = questions.reduce(
-      (acc, q) => acc + (q.pointsAwarded || 10),
+      (acc, q) => acc + (q.marks || q.pointsAwarded || 1),
       0
     );
     const percentageCorrect =
@@ -1821,9 +1818,15 @@ export default function TopicalPracticePage() {
               >
                 {currentQuestion?.difficulty || "MEDIUM"}
               </span>
+              {/* Whiteboard Button */}
+              <WhiteboardButton
+                onClick={() => setShowWhiteboard(true)}
+                className="ml-2"
+                size="sm"
+              />
               {/* Report Button */}
               <button
-                className="ml-4 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
+                className="ml-2 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowReportModal(true);
@@ -1966,6 +1969,15 @@ export default function TopicalPracticePage() {
         onClose={() => setShowReportModal(false)}
         questionId={currentQuestion?.id}
         studentId={userId}
+      />
+      <WhiteboardModal
+        isOpen={showWhiteboard}
+        onClose={() => setShowWhiteboard(false)}
+        onSave={(imageDataURL) => {
+          // Optional: Save whiteboard content to session or local storage
+          console.log('Whiteboard saved:', imageDataURL);
+          setShowWhiteboard(false);
+        }}
       />
     </div>
   );

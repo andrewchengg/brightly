@@ -59,7 +59,9 @@ export async function GET(request: NextRequest) {
         type: true,
         totalQuestions: true,
         correctAnswers: true,
-        score: true,
+        totalMarksEarned: true,
+        totalPossibleMarks: true,
+        durationSeconds: true,
       },
       orderBy: {
         endTime: "desc",
@@ -75,19 +77,21 @@ export async function GET(request: NextRequest) {
       if (!acc[dateKey]) {
         acc[dateKey] = {
           date: dateKey,
-          sessionCount: 0,
           totalQuestions: 0,
-          totalCorrect: 0,
-          totalScore: 0,
-          avgAccuracy: 0,
-          hasPracticed: true,
+          correctAnswers: 0,
+          totalMarksEarned: 0,
+          totalPossibleMarks: 0,
+          timeSpent: 0,
+          sessionsCompleted: 0,
         };
       }
 
-      acc[dateKey].sessionCount += 1;
       acc[dateKey].totalQuestions += session.totalQuestions || 0;
-      acc[dateKey].totalCorrect += session.correctAnswers || 0;
-      acc[dateKey].totalScore += session.score || 0;
+      acc[dateKey].correctAnswers += session.correctAnswers || 0;
+      acc[dateKey].totalMarksEarned += session.totalMarksEarned || 0;
+      acc[dateKey].totalPossibleMarks += session.totalPossibleMarks || 0;
+      acc[dateKey].timeSpent += session.durationSeconds || 0;
+      acc[dateKey].sessionsCompleted += 1;
 
       return acc;
     }, {});
@@ -97,11 +101,11 @@ export async function GET(request: NextRequest) {
       (dayData: any) => {
         dayData.avgAccuracy =
           dayData.totalQuestions > 0
-            ? Math.round((dayData.totalCorrect / dayData.totalQuestions) * 100)
+            ? Math.round((dayData.correctAnswers / dayData.totalQuestions) * 100)
             : 0;
         dayData.avgScore =
-          dayData.sessionCount > 0
-            ? Math.round(dayData.totalScore / dayData.sessionCount)
+          dayData.sessionsCompleted > 0
+            ? Math.round(dayData.totalMarksEarned / dayData.sessionsCompleted)
             : 0;
         return dayData;
       }

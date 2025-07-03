@@ -41,7 +41,8 @@ interface CompletedSession {
   durationSeconds?: number | null;
   totalQuestions?: number | null;
   correctAnswers?: number | null;
-  score?: number | null;
+  totalMarksEarned?: number | null;
+  totalPossibleMarks?: number | null;
   xpEarned?: number | null;
   subjectName?: string | null;
   topicName?: string | null;
@@ -51,7 +52,6 @@ interface CompletedSession {
     name: string;
     username: string;
   };
-  totalPossibleMarks?: number | null;
 }
 
 interface Child {
@@ -141,7 +141,7 @@ export default function ParentResultsPage() {
   // Function to get emoji and color based on performance
   const getPerformanceDetails = (session: CompletedSession) => {
     const totalPossible = session.totalPossibleMarks || 0;
-    const scorePercentage = totalPossible > 0 ? ((session.score || 0) / totalPossible) * 100 : 0;
+    const scorePercentage = totalPossible > 0 ? ((session.totalMarksEarned || 0) / totalPossible) * 100 : 0;
 
     if (scorePercentage >= 80) {
       return {
@@ -261,7 +261,7 @@ export default function ParentResultsPage() {
                 const avgScore =
                   childSessions.length > 0
                     ? childSessions.reduce(
-                        (sum, session) => sum + (session.score || 0),
+                        (sum, session) => sum + (session.totalMarksEarned || 0),
                         0
                       ) / childSessions.length
                     : 0;
@@ -399,7 +399,7 @@ export default function ParentResultsPage() {
             {filteredSessions.map((session) => {
               const performanceDetails = getPerformanceDetails(session);
               const totalPossible = session.totalPossibleMarks || 0;
-              const scorePercentage = totalPossible > 0 ? ((session.score || 0) / totalPossible) * 100 : 0;
+              const scorePercentage = totalPossible > 0 ? ((session.totalMarksEarned || 0) / totalPossible) * 100 : 0;
 
               return (
                 <div
@@ -472,7 +472,7 @@ export default function ParentResultsPage() {
                             Score
                           </p>
                           <p className={`text-2xl font-bold mt-1 ${performanceDetails.textColor}`}>
-                            {session.score ?? 0}/{session.totalPossibleMarks || 0}
+                            {session.totalMarksEarned ?? 0}/{session.totalPossibleMarks || 0}
                           </p>
                         </div>
                         <div className="bg-green-50 p-3 rounded-lg text-center">

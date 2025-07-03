@@ -61,6 +61,7 @@ export interface QuestionClient {
   topic: { id: number; name: string; subjectId?: number };
   difficulty?: keyof typeof DifficultyLevel;
   pointsAwarded?: number;
+  marks?: number;
   questionType?: keyof typeof PrismaQuestionType;
   imageUrl?: string;
   topicName?: string;
@@ -424,7 +425,7 @@ export default function ReadingComprehensionPassagePracticePage() {
         [currentQuestion.id]: userAns,
       }));
       setIsAnswerCorrect(isCorr);
-      const points = isCorr ? currentQuestion.pointsAwarded || 2 : 0; // Cloze often 2 marks
+      const points = isCorr ? (currentQuestion.marks || 0) : 0; // Use marks field only
       setQuestionResults((prevResults) => {
         /* ... same logic to update results ... */
         const newResult = {
@@ -578,7 +579,7 @@ export default function ReadingComprehensionPassagePracticePage() {
   }
   if (showSummary) {
     const totalPossibleScore = questions.reduce(
-      (acc, q) => acc + (q.pointsAwarded || 10),
+      (acc, q) => acc + (q.marks || 0),
       0
     );
     const percentageCorrect =

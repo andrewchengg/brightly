@@ -49,6 +49,8 @@ interface ChildStats {
     accuracy: number;
     xpEarned: number;
     sessionsCompleted: number;
+    marksEarned: number;
+    possibleMarks: number;
   };
   week: {
     timeSpent: number;
@@ -57,6 +59,8 @@ interface ChildStats {
     correctAnswers: number;
     accuracy: number;
     sessionsCompleted: number;
+    marksEarned: number;
+    possibleMarks: number;
   };
   subjectBreakdown: Array<{
     subject: string;
@@ -64,6 +68,8 @@ interface ChildStats {
     correct: number;
     accuracy: number;
     timeSpent: number;
+    marksEarned: number;
+    possibleMarks: number;
   }>;
   dailyStats?: Array<{
     date: string;
@@ -71,10 +77,17 @@ interface ChildStats {
     correctAnswers: number;
     timeSpent: number;
     accuracy: number;
+    marksEarned: number;
+    possibleMarks: number;
   }>;
   dailySubjectStats?: Array<{
     date: string;
-    subjects: Record<string, { accuracy: number; questions: number }>;
+    subjects: Record<string, { 
+      accuracy: number; 
+      questions: number;
+      marksEarned: number;
+      possibleMarks: number;
+    }>;
   }>;
 }
 
@@ -163,26 +176,34 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
   const buildAccuracyTrendData = (child: ChildStats) => {
     if (!child.dailySubjectStats) return [];
 
-    // Determine how many points to display based on the selected period
+    // Use all the data provided by the API (which already filters by dateRange)
+    const recentStats = child.dailySubjectStats;
     const { period } = dateRange || { period: "7d" } as { period: "7d" | "30d" | "3m" };
-    let sliceCount = 7;
-    if (period === "30d") sliceCount = 30;
-    if (period === "3m") sliceCount = 90;
 
-    const recentStats = child.dailySubjectStats.slice(-sliceCount);
-
-    return recentStats.map((d) => {
+    const chartData = recentStats.map((d) => {
       const dateObj = new Date(d.date);
       const dayLabel = period === "7d"
         ? dateObj.toLocaleDateString("en-US", { weekday: "short" })
         : dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
+      // Get subject data or default to 0
+      const chineseAccuracy = d.subjects["Chinese"]?.accuracy ?? 0;
+      const mathAccuracy = d.subjects["Mathematics"]?.accuracy ?? 0;
+
       return {
         day: dayLabel,
-        Chinese: d.subjects["Chinese"]?.accuracy ?? 0,
-        Math: d.subjects["Mathematics"]?.accuracy ?? 0,
+        Chinese: chineseAccuracy,
+        Math: mathAccuracy,
+        date: d.date, // Keep original date for debugging
       };
     });
+
+    // Debug: Log the processed data
+    if (child.name) {
+      console.log(`Chart data for ${child.name}:`, chartData);
+    }
+
+    return chartData;
   };
 
   if (loading) {
@@ -413,7 +434,7 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
               <div className="space-y-3 pt-4">
                 <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <FaChartLine className="text-indigo-600" />
-                  Accuracy Trend ({(() => {
+                  Accuracy Trend ({buildAccuracyTrendData(child).length} days) ({(() => {
                     if (!dateRange) return "";
                     const { startDate, endDate, period } = dateRange;
                     switch (period) {
@@ -434,7 +455,7 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={buildAccuracyTrendData(child)} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                       <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={12} />
-                      <YAxis domain={[60, 100]} tickFormatter={(value) => `${value}%`} fontSize={12} />
+                      <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} fontSize={12} />
                       <Tooltip
                         formatter={(value: any) => `${value}%`}
                         contentStyle={{

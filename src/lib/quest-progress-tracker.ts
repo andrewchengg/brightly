@@ -9,13 +9,13 @@ interface PracticeSessionWithDetails extends PracticeSession {
   student: { id: string; level: number };
 }
 
-// Helper function to calculate score from practice session
-function calculateAccuracy(session: PracticeSessionWithDetails): number | null {
-  if (!session.totalQuestions || session.totalQuestions === 0) {
+// Helper function to calculate accuracy from practice session
+function calculateAccuracy(practiceSession: PracticeSession): number | null {
+  if (!practiceSession.totalPossibleMarks || practiceSession.totalPossibleMarks === 0) {
     return null;
   }
-  const correctAnswers = session.correctAnswers || 0;
-  return Math.round((correctAnswers / session.totalQuestions) * 100);
+  const marksEarned = practiceSession.totalMarksEarned || 0;
+  return Math.round((marksEarned / practiceSession.totalPossibleMarks) * 100);
 }
 
 // Main function to update all quest progress when a practice session is completed
@@ -65,9 +65,9 @@ async function updateSpecificQuest(
       break;
 
     case "high-score":
-      // Check if session had 80%+ score
-      const score = calculateAccuracy(practiceSession);
-      if (score && score >= 80) {
+      // Check if session had 80%+ accuracy
+      const accuracy = calculateAccuracy(practiceSession);
+      if (accuracy && accuracy >= 80) {
         progressIncrement = 1;
       }
       break;
@@ -157,11 +157,14 @@ async function updateSpecificQuest(
       break;
 
     case "score-champion":
-      // Check weekly average score (calculated at end of week)
-      progressIncrement = await updateWeeklyAccuracyProgress(
-        studentQuest,
-        practiceSession
+      // Check weekly average accuracy (calculated at end of week)
+      const weeklyAccuracy = await calculateWeeklyAccuracy(
+        practiceSession.studentId,
+        getWeekStart()
       );
+      if (weeklyAccuracy && weeklyAccuracy >= 80) {
+        progressIncrement = 1;
+      }
       break;
 
     case "speed-demon":
@@ -170,9 +173,9 @@ async function updateSpecificQuest(
       break;
 
     case "perfectionist":
-      // Check if session had 95%+ score
-      const perfectAccuracyCheck = calculateAccuracy(practiceSession);
-      if (perfectAccuracyCheck && perfectAccuracyCheck >= 95) {
+      // Check if session had 95%+ accuracy
+      const perfectAccuracy = calculateAccuracy(practiceSession);
+      if (perfectAccuracy && perfectAccuracy >= 95) {
         progressIncrement = 1;
       }
       break;
@@ -253,9 +256,9 @@ async function updateSpecificQuest(
       break;
 
     case "no-mistakes":
-      // Check if session had 100% score
-      const perfectAccuracy = calculateAccuracy(practiceSession);
-      if (perfectAccuracy && perfectAccuracy >= 100) {
+      // Check if session had 100% accuracy
+      const flawlessAccuracy = calculateAccuracy(practiceSession);
+      if (flawlessAccuracy && flawlessAccuracy >= 100) {
         progressIncrement = 1;
       }
       break;
@@ -478,16 +481,27 @@ async function updateWeeklyAccuracyProgress(
         gte: weekStart,
         lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
       },
-      score: { not: null },
+      totalMarksEarned: { not: null },
+      totalPossibleMarks: { not: null },
     },
-    select: { score: true },
+    select: { totalMarksEarned: true, totalPossibleMarks: true },
   });
 
   if (weekSessions.length === 0) return 0;
 
+  const totalMarksEarned = weekSessions.reduce(
+    (sum, session) => sum + (session.totalMarksEarned || 0),
+    0
+  );
+  const totalPossibleMarks = weekSessions.reduce(
+    (sum, session) => sum + (session.totalPossibleMarks || 0),
+    0
+  );
+
   const averageAccuracy =
-    weekSessions.reduce((sum, session) => sum + (session.score || 0), 0) /
-    weekSessions.length;
+    totalPossibleMarks > 0
+      ? (totalMarksEarned / totalPossibleMarks) * 100
+      : 0;
 
   if (averageAccuracy >= 85 && studentQuest.progress === 0) {
     return 1; // Quest completed
@@ -502,8 +516,9 @@ async function updateBalancedLearnerProgress(
 ): Promise<number> {
   if (
     !practiceSession.subjectId ||
-    !practiceSession.score ||
-    practiceSession.score < 70
+    !practiceSession.totalMarksEarned ||
+    !practiceSession.totalPossibleMarks ||
+    practiceSession.totalPossibleMarks === 0
   ) {
     return 0;
   }
@@ -520,13 +535,21 @@ async function updateBalancedLearnerProgress(
         lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
       },
       subjectId: { not: null },
-      score: { not: null },
+      totalMarksEarned: { not: null },
+      totalPossibleMarks: { not: null },
     },
-    _avg: { score: true },
+    _avg: {
+      totalMarksEarned: true,
+      totalPossibleMarks: true,
+    },
   });
 
   const subjectsWithGoodAccuracy = subjectPerformance.filter(
-    (subject) => (subject._avg.score || 0) >= 70
+    (subject) => {
+      const totalMarksEarned = subject._avg.totalMarksEarned || 0;
+      const totalPossibleMarks = subject._avg.totalPossibleMarks || 0;
+      return totalPossibleMarks > 0 && (totalMarksEarned / totalPossibleMarks) * 100 >= 70;
+    }
   ).length;
 
   const increment = Math.max(
@@ -559,10 +582,14 @@ async function getLowestPerformingSubject(
     where: {
       studentId,
       subjectId: { not: null },
-      score: { not: null },
+      totalMarksEarned: { not: null },
+      totalPossibleMarks: { not: null },
     },
-    _avg: { score: true },
-    orderBy: { _avg: { score: "asc" } },
+    _avg: {
+      totalMarksEarned: true,
+      totalPossibleMarks: true,
+    },
+    orderBy: { _avg: { totalMarksEarned: "asc" } },
   });
 
   return subjectPerformance[0]?.subjectId || null;
@@ -623,4 +650,117 @@ export async function updateMistakeReviewProgress(
   for (const quest of reviewQuests) {
     await applyQuestProgressIncrement(quest.id, mistakesReviewed);
   }
+}
+
+// Calculate average accuracy for the week
+async function calculateWeeklyAccuracy(
+  studentId: string,
+  weekStart: Date
+): Promise<number | null> {
+  const weekSessions = await prisma.practiceSession.findMany({
+    where: {
+      studentId,
+      startTime: {
+        gte: weekStart,
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
+      status: "COMPLETED",
+    },
+    select: {
+      totalMarksEarned: true,
+      totalPossibleMarks: true,
+    },
+  });
+
+  if (weekSessions.length === 0) {
+    return null;
+  }
+
+  const totalMarksEarned = weekSessions.reduce(
+    (sum, session) => sum + (session.totalMarksEarned || 0),
+    0
+  );
+  const totalPossibleMarks = weekSessions.reduce(
+    (sum, session) => sum + (session.totalPossibleMarks || 0),
+    0
+  );
+
+  if (totalPossibleMarks === 0) {
+    return null;
+  }
+
+  return Math.round((totalMarksEarned / totalPossibleMarks) * 100);
+}
+
+// Count subjects with minimum accuracy this week
+async function getSubjectsWithMinAccuracy(
+  studentId: string,
+  weekStart: Date,
+  minAccuracy: number
+): Promise<number> {
+  const subjectStats = await prisma.practiceSession.groupBy({
+    by: ["subjectId"],
+    where: {
+      studentId,
+      startTime: {
+        gte: weekStart,
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
+      totalMarksEarned: { not: null },
+      totalPossibleMarks: { not: null },
+    },
+    _sum: {
+      totalMarksEarned: true,
+      totalPossibleMarks: true,
+    },
+  });
+
+  return subjectStats.filter((subject) => {
+    const totalMarksEarned = subject._sum.totalMarksEarned || 0;
+    const totalPossibleMarks = subject._sum.totalPossibleMarks || 0;
+    return totalPossibleMarks > 0 && (totalMarksEarned / totalPossibleMarks) * 100 >= minAccuracy;
+  }).length;
+}
+
+// Get worst performing subjects
+async function getWorstPerformingSubjects(
+  studentId: string,
+  weekStart: Date
+): Promise<{ subjectId: number; accuracy: number }[]> {
+  const subjectStats = await prisma.practiceSession.groupBy({
+    by: ["subjectId"],
+    where: {
+      studentId,
+      startTime: {
+        gte: weekStart,
+        lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      },
+      totalMarksEarned: { not: null },
+      totalPossibleMarks: { not: null },
+    },
+    _sum: {
+      totalMarksEarned: true,
+      totalPossibleMarks: true,
+    },
+    orderBy: {
+      _sum: {
+        totalMarksEarned: "asc",
+      },
+    },
+  });
+
+  return subjectStats
+    .map((subject) => {
+      const totalMarksEarned = subject._sum.totalMarksEarned || 0;
+      const totalPossibleMarks = subject._sum.totalPossibleMarks || 0;
+      return {
+        subjectId: subject.subjectId!,
+        accuracy:
+          totalPossibleMarks > 0
+            ? (totalMarksEarned / totalPossibleMarks) * 100
+            : 0,
+      };
+    })
+    .filter((subject) => subject.accuracy > 0 && subject.subjectId !== null)
+    .sort((a, b) => a.accuracy - b.accuracy);
 }

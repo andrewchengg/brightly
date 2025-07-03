@@ -675,7 +675,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
   {
     id: 2,
@@ -685,7 +686,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
   {
     id: 3,
@@ -695,7 +697,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
   {
     id: 4,
@@ -705,7 +708,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
   {
     id: 5,
@@ -715,7 +719,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
   {
     id: 6,
@@ -725,7 +730,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
   {
     id: 7,
@@ -735,7 +741,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
   {
     id: 8,
@@ -745,7 +752,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
   {
     id: 9,
@@ -755,7 +763,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
   {
     id: 10,
@@ -765,7 +774,8 @@ export const resultsData = [
     student: "John Doe",
     date: "2025-01-01",
     type: "exam",
-    score: 90,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
   },
 ];
 
@@ -1060,4 +1070,32 @@ export const calendarEvents = [
     start: new Date(2024, 7, 16, 14, 0),
     end: new Date(2024, 7, 16, 14, 45),
   },
+];
+
+export const mockPracticeSessions = [
+  {
+    id: "1",
+    title: "Math Practice 1",
+    startTime: new Date("2024-01-01T10:00:00"),
+    endTime: new Date("2024-01-01T11:00:00"),
+    totalQuestions: 10,
+    correctAnswers: 9,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
+    subject: { name: "Mathematics" },
+    student: { name: "John Doe" },
+  },
+  {
+    id: "2",
+    title: "English Practice 1",
+    startTime: new Date("2024-01-02T10:00:00"),
+    endTime: new Date("2024-01-02T11:00:00"),
+    totalQuestions: 10,
+    correctAnswers: 9,
+    totalMarksEarned: 90,
+    totalPossibleMarks: 100,
+    subject: { name: "English" },
+    student: { name: "John Doe" },
+  },
+  // ... more mock sessions ...
 ];

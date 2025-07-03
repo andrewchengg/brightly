@@ -27,9 +27,11 @@ interface CompletedSession {
   totalQuestions?: number | null;
   correctAnswers?: number | null;
   xpEarned: number;
+  totalPossibleMarks?: number;
   subjectName?: string | null;
   topicName?: string | null;
   questionGroupName?: string | null;
+  totalMarksEarned?: number | null;
 }
 
 export default function StudentResultsPage() {
@@ -87,7 +89,7 @@ export default function StudentResultsPage() {
   const getPerformanceDetails = (session: CompletedSession) => {
     const totalPossible =
       (session.totalQuestions || 1) * (session.type === "MOCK_EXAM" ? 1 : 10);
-    const scorePercentage = ((session.score || 0) / totalPossible) * 100;
+    const scorePercentage = ((session.totalMarksEarned || 0) / totalPossible) * 100;
 
     if (scorePercentage >= 80) {
       return {
@@ -101,6 +103,7 @@ export default function StudentResultsPage() {
         textColor: "text-purple-700",
         cardBorder: "border-purple-200",
         buttonStyle: "border-purple-300 text-purple-700 hover:bg-purple-50",
+        totalMarksEarned: session.totalMarksEarned,
       };
     } else if (scorePercentage >= 60) {
       return {
@@ -114,6 +117,7 @@ export default function StudentResultsPage() {
         textColor: "text-indigo-700",
         cardBorder: "border-indigo-200",
         buttonStyle: "border-indigo-300 text-indigo-700 hover:bg-indigo-50",
+        totalMarksEarned: session.totalMarksEarned,
       };
     } else if (scorePercentage >= 40) {
       return {
@@ -127,6 +131,7 @@ export default function StudentResultsPage() {
         textColor: "text-amber-700",
         cardBorder: "border-amber-200",
         buttonStyle: "border-amber-300 text-amber-700 hover:bg-amber-50",
+        totalMarksEarned: session.totalMarksEarned,
       };
     } else {
       return {
@@ -139,6 +144,7 @@ export default function StudentResultsPage() {
         textColor: "text-gray-600",
         cardBorder: "border-gray-200",
         buttonStyle: "border-gray-300 text-gray-700 hover:bg-gray-50",
+        totalMarksEarned: session.totalMarksEarned,
       };
     }
   };
@@ -238,11 +244,10 @@ export default function StudentResultsPage() {
           <div className="space-y-6">
             {completedSessions.map((session) => {
               const performanceDetails = getPerformanceDetails(session);
-              const totalPossible =
-                (session.totalQuestions || 1) *
-                (session.type === "MOCK_EXAM" ? 1 : 10);
-              const scorePercentage =
-                ((session.score || 0) / totalPossible) * 100;
+              const totalPossible = session.totalPossibleMarks || 0;
+              const scorePercentage = totalPossible > 0 
+                ? ((session.totalMarksEarned || 0) / totalPossible) * 100
+                : 0;
               const PerformanceIcon = performanceDetails.icon;
 
               return (
@@ -328,7 +333,7 @@ export default function StudentResultsPage() {
                           Total Score
                         </p>
                         <p className="text-2xl font-bold text-blue-800">
-                          {session.score ?? 0}
+                          {session.totalMarksEarned ?? 0}
                           <span className="text-lg text-blue-600">
                             /{totalPossible}
                           </span>

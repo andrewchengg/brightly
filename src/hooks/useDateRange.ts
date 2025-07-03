@@ -12,9 +12,13 @@ export const useDateRange = () => {
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     // Initialize with current week
     const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - 6);
     const endDate = new Date(today);
+    // Set to end of day to ensure we capture all sessions
+    endDate.setHours(23, 59, 59, 999);
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - 6);
+    // Set to start of day
+    startDate.setHours(0, 0, 0, 0);
 
     return {
       startDate,

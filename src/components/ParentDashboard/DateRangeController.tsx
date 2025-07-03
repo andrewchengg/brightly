@@ -73,8 +73,10 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
       case "7d":
         newStartDate = new Date(startDate);
         newStartDate.setDate(startDate.getDate() + (7 * multiplier));
+        newStartDate.setHours(0, 0, 0, 0);
         newEndDate = new Date(newStartDate);
         newEndDate.setDate(newStartDate.getDate() + 6);
+        newEndDate.setHours(23, 59, 59, 999);
         break;
       case "30d":
         newStartDate = new Date(startDate);
@@ -111,8 +113,10 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
     switch (newPeriod) {
       case "7d":
         endDate = new Date(today);
+        endDate.setHours(23, 59, 59, 999);
         startDate = new Date(today);
         startDate.setDate(today.getDate() - 6);
+        startDate.setHours(0, 0, 0, 0);
         break;
       case "30d":
         startDate = new Date(today.getFullYear(), today.getMonth(), 1);

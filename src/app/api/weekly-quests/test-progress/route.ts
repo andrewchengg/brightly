@@ -25,67 +25,106 @@ export async function POST() {
 
     const studentId = user.id;
 
-    // Get the most recent practice session for this student
+    // Get the most recent session
     const recentSession = await prisma.practiceSession.findFirst({
-      where: { studentId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        subject: { select: { id: true, name: true } },
-        topic: { select: { id: true, name: true } },
-        student: { select: { id: true, level: true } },
-      },
-    });
-
-    if (!recentSession) {
-      return NextResponse.json(
-        {
-          error: "No practice sessions found for this student",
-        },
-        { status: 404 }
-      );
-    }
-
-    // Test quest progress update
-    console.log(`🧪 Testing quest progress for session ${recentSession.id}`);
-    await updateQuestProgressForSession(recentSession);
-
-    // Get updated quest progress
-    const weekStart = new Date();
-    const day = weekStart.getDay();
-    const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
-    weekStart.setDate(diff);
-    weekStart.setHours(0, 0, 0, 0);
-
-    const updatedQuests = await prisma.studentQuest.findMany({
       where: {
-        studentId,
-        weekStart: {
-          gte: weekStart,
-          lt: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000),
-        },
+        studentId: studentId,
+        status: "COMPLETED",
       },
-      include: {
-        quest: true,
+      orderBy: {
+        endTime: "desc",
       },
-      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        startTime: true,
+        endTime: true,
+        totalQuestions: true,
+        correctAnswers: true,
+        totalMarksEarned: true,
+        totalPossibleMarks: true,
+        durationSeconds: true,
+        xpEarned: true,
+      },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Quest progress test completed",
-      sessionTested: {
-        id: recentSession.id,
-        title: recentSession.title,
-        score: recentSession.score,
-        xpEarned: recentSession.xpEarned,
+    // Get all sessions for the student
+    const allSessions = await prisma.practiceSession.findMany({
+      where: {
+        studentId: studentId,
+        status: "COMPLETED",
       },
-      questProgress: updatedQuests.map((sq) => ({
-        questType: sq.quest.questType,
-        title: sq.quest.title,
-        progress: sq.progress,
-        target: sq.target,
-        isCompleted: sq.isCompleted,
+      select: {
+        id: true,
+        startTime: true,
+        endTime: true,
+        totalQuestions: true,
+        correctAnswers: true,
+        totalMarksEarned: true,
+        totalPossibleMarks: true,
+        durationSeconds: true,
+        xpEarned: true,
+      },
+      orderBy: {
+        endTime: "desc",
+      },
+    });
+
+    // Calculate accuracy for recent session
+    const recentAccuracy = recentSession?.totalPossibleMarks
+      ? Math.round((recentSession.totalMarksEarned / recentSession.totalPossibleMarks) * 100)
+      : 0;
+
+    // Calculate average accuracy for all sessions
+    const totalAccuracy = allSessions.reduce((acc, session) => {
+      if (!session.totalPossibleMarks) return acc;
+      return acc + (session.totalMarksEarned / session.totalPossibleMarks) * 100;
+    }, 0);
+    const averageAccuracy = allSessions.length > 0
+      ? Math.round(totalAccuracy / allSessions.length)
+      : 0;
+
+    // Calculate average marks per session
+    const totalMarks = allSessions.reduce((acc, session) => acc + (session.totalMarksEarned || 0), 0);
+    const averageMarks = allSessions.length > 0
+      ? Math.round(totalMarks / allSessions.length)
+      : 0;
+
+    // Calculate total XP earned
+    const totalXP = allSessions.reduce((acc, session) => acc + (session.xpEarned || 0), 0);
+
+    // Return test data
+    return NextResponse.json({
+      recentSession: recentSession
+        ? {
+            id: recentSession.id,
+            startTime: recentSession.startTime,
+            endTime: recentSession.endTime,
+            totalQuestions: recentSession.totalQuestions,
+            correctAnswers: recentSession.correctAnswers,
+            totalMarksEarned: recentSession.totalMarksEarned,
+            totalPossibleMarks: recentSession.totalPossibleMarks,
+            durationSeconds: recentSession.durationSeconds,
+            xpEarned: recentSession.xpEarned,
+            accuracy: recentAccuracy,
+          }
+        : null,
+      allSessions: allSessions.map(session => ({
+        id: session.id,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        totalQuestions: session.totalQuestions,
+        correctAnswers: session.correctAnswers,
+        totalMarksEarned: session.totalMarksEarned,
+        totalPossibleMarks: session.totalPossibleMarks,
+        durationSeconds: session.durationSeconds,
+        xpEarned: session.xpEarned,
+        accuracy: session.totalPossibleMarks
+          ? Math.round((session.totalMarksEarned / session.totalPossibleMarks) * 100)
+          : 0,
       })),
+      averageAccuracy,
+      averageMarks,
+      totalXP,
     });
   } catch (error: any) {
     console.error("Error testing quest progress:", error);

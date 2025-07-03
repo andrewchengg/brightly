@@ -15,31 +15,25 @@ import {
   FaEye,
   FaCalendarDay,
 } from "react-icons/fa";
+import { format } from "date-fns";
 
 interface CompletedSession {
   id: string;
-  title: string;
-  score: number;
-  totalQuestions: number;
-  correctAnswers: number;
-  xpEarned: number;
-  durationSeconds: number;
-  completedAt: string;
-  endTime?: string;
-  type: string;
-  student: {
-    id: string;
-    name: string;
-  };
+  title: string | null;
+  startTime: Date;
+  endTime: Date | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+  totalMarksEarned: number | null;
+  totalPossibleMarks: number | null;
+  durationSeconds: number | null;
+  completedAt: Date | null;
   subject?: {
-    name: string;
-  };
-  questionGroup?: {
-    name: string;
-  };
-  subjectName?: string;
-  topicName?: string;
-  questionGroupName?: string;
+    name: string | null;
+  } | null;
+  student?: {
+    name: string | null;
+  } | null;
 }
 
 interface RecentResultsPreviewProps {
@@ -103,9 +97,15 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
     return `${hours}h ${remainingMinutes}m`;
   };
 
-  const getPerformanceColor = (session: CompletedSession) => {
-    const achieved = session.correctAnswers ?? session.score ?? 0;
-    const totalPossible = session.totalQuestions || 1;
+  const formatDate = (date: Date | string | null) => {
+    if (!date) return "";
+    const d = new Date(date);
+    return d.toLocaleDateString();
+  };
+
+  const getScoreColor = (session: CompletedSession) => {
+    const totalPossible = session.totalPossibleMarks ?? session.totalQuestions ?? 1;
+    const achieved = session.totalMarksEarned ?? session.correctAnswers ?? 0;
     const scorePercentage = (achieved / totalPossible) * 100;
 
     if (scorePercentage >= 80) return "text-green-600 bg-green-50";
@@ -114,15 +114,15 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
     return "text-red-600 bg-red-50";
   };
 
-  const getPerformanceEmoji = (session: CompletedSession) => {
-    const achieved = session.correctAnswers ?? session.score ?? 0;
-    const totalPossible = session.totalQuestions || 1;
+  const getScoreEmoji = (session: CompletedSession) => {
+    const totalPossible = session.totalPossibleMarks ?? session.totalQuestions ?? 1;
+    const achieved = session.totalMarksEarned ?? session.correctAnswers ?? 0;
     const scorePercentage = (achieved / totalPossible) * 100;
 
     if (scorePercentage >= 80) return "🏆";
     if (scorePercentage >= 60) return "🌟";
     if (scorePercentage >= 40) return "👍";
-    return "📚";
+    return "💪";
   };
 
   if (loading) {
@@ -189,9 +189,10 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
         ) : (
           <div className="space-y-4">
             {recentSessions.map((session) => {
-              const totalPossible = session.totalQuestions || 1;
-              const achieved = session.correctAnswers ?? session.score ?? 0;
+              const totalPossible = session.totalPossibleMarks ?? session.totalQuestions ?? 1;
+              const achieved = session.totalMarksEarned ?? session.correctAnswers ?? 0;
               const scorePercentage = (achieved / totalPossible) * 100;
+              const completedDate = session.completedAt || session.endTime;
 
               return (
                 <div
@@ -202,14 +203,14 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="text-lg">
-                          {getPerformanceEmoji(session)}
+                          {getScoreEmoji(session)}
                         </span>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold text-gray-900 truncate">
-                            {session.student.name}
+                            {session.student?.name || "Unknown Student"}
                           </h4>
                           <p className="text-sm text-gray-600 truncate">
-                            {session.title}
+                            {session.title || "Practice Session"}
                           </p>
                         </div>
                       </div>
@@ -217,7 +218,7 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span className="flex items-center">
                           <FaCalendarDay className="mr-1" />
-                          {new Date(session.completedAt).toLocaleDateString()}
+                          {formatDate(completedDate)}
                         </span>
                         <span className="flex items-center">
                           <FaClock className="mr-1" />
@@ -225,14 +226,14 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
                         </span>
                         <span className="flex items-center">
                           <FaCheckCircle className="mr-1" />
-                          {session.correctAnswers}/{session.totalQuestions}
+                          {achieved}/{totalPossible} marks
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
                       <div
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${getPerformanceColor(
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${getScoreColor(
                           session
                         )}`}
                       >

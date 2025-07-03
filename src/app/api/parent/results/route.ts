@@ -91,16 +91,36 @@ export async function GET(request: NextRequest) {
         0
       );
 
-      // Calculate total possible marks by summing up the marks field from each question
-      const totalPossibleMarks = session.studentAnswers.reduce((sum, answer) => {
-        const questionMarks = answer.question?.marks || answer.question?.pointsAwarded || 0;
-        console.log(`[Session ${session.id}] Question ${answer.question?.id}: marks=${answer.question?.marks}, pointsAwarded=${answer.question?.pointsAwarded}, using=${questionMarks}`);
-        return sum + questionMarks;
-      }, 0);
-      console.log(`[Session ${session.id}] Total possible marks: ${totalPossibleMarks}, Total questions: ${totalQuestions}, Total score: ${totalScore}`);
+      // Use stored marks fields if available, fallback to calculation for older sessions
+      let totalPossibleMarks = session.totalPossibleMarks;
+      let totalMarksEarned = session.totalMarksEarned;
+
+      if (totalPossibleMarks === null || totalMarksEarned === null) {
+        // Fallback calculation for older sessions
+        totalMarksEarned = session.studentAnswers
+          .filter((answer) => answer.isCorrect)
+          .reduce((sum, answer) => sum + (answer.question?.marks || 0), 0);
+        
+        totalPossibleMarks = session.studentAnswers.reduce((sum, answer) => {
+          const questionMarks = answer.question?.marks || 0;
+          return sum + questionMarks;
+        }, 0);
+        
+        console.log(`[Session ${session.id}] Calculated marks (fallback): ${totalMarksEarned}/${totalPossibleMarks}`);
+      } else {
+        console.log(`[Session ${session.id}] Using stored marks: ${totalMarksEarned}/${totalPossibleMarks}`);
+      }
 
       // Calculate XP earned (example formula, adjust as needed)
       const xpEarned = Math.round(totalScore * 1.5); // 1.5x multiplier for XP
+
+      // Calculate duration - use durationSeconds if available, otherwise calculate from timestamps
+      let calculatedDuration = session.durationSeconds;
+      if (!calculatedDuration && session.startTime && session.endTime) {
+        calculatedDuration = Math.floor(
+          (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
+        );
+      }
 
       return {
         id: session.id,
@@ -108,10 +128,10 @@ export async function GET(request: NextRequest) {
         type: session.type,
         startTime: session.startTime,
         endTime: session.endTime,
-        durationSeconds: session.durationSeconds,
+        durationSeconds: calculatedDuration || 0,
         totalQuestions,
         correctAnswers,
-        score: totalScore,
+        score: totalMarksEarned, // Use marks earned instead of legacy score
         totalPossibleMarks,
         xpEarned,
         subjectName: session.subject?.name || null,

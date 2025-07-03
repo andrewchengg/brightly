@@ -165,6 +165,8 @@ export async function GET(
       subjectName: practiceSession.subject?.name,
       topicName: practiceSession.topic?.name,
       questionGroupName: practiceSession.basedOnQuestionGroup?.name,
+      score: practiceSession.totalMarksEarned, // Use totalMarksEarned as score
+      totalPossibleMarks: practiceSession.totalPossibleMarks, // Include total possible marks
     });
   } catch (error: any) {
     console.error("API: Error fetching practice session details:", error);

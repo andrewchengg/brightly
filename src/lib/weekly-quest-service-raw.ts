@@ -323,14 +323,10 @@ export async function updateQuestProgress(
         break;
 
       case "high-accuracy":
-        if (practiceSession.score && practiceSession.totalQuestions) {
-          const accuracy =
-            (practiceSession.correctAnswers || 0) /
-            practiceSession.totalQuestions;
+        if (practiceSession.totalMarksEarned && practiceSession.totalPossibleMarks) {
+          const accuracy = practiceSession.totalMarksEarned / practiceSession.totalPossibleMarks;
           if (accuracy >= 0.8) {
-            // 80% or higher
-            newProgress += 1;
-            shouldComplete = newProgress >= quest.target;
+            progressToAdd = 1;
           }
         }
         break;
@@ -452,14 +448,21 @@ export async function updateQuestProgress(
         break;
 
       case "perfectionist":
-        if (practiceSession.score && practiceSession.totalQuestions) {
-          const accuracy =
-            (practiceSession.correctAnswers || 0) /
-            practiceSession.totalQuestions;
+        if (practiceSession.totalMarksEarned && practiceSession.totalPossibleMarks) {
+          const accuracy = practiceSession.totalMarksEarned / practiceSession.totalPossibleMarks;
           if (accuracy >= 0.95) {
             // 95% or higher
             newProgress += 1;
             shouldComplete = newProgress >= quest.target;
+          }
+        }
+        break;
+
+      case "perfect-score":
+        if (practiceSession.totalMarksEarned && practiceSession.totalPossibleMarks) {
+          const accuracy = practiceSession.totalMarksEarned / practiceSession.totalPossibleMarks;
+          if (accuracy >= 1) { // 100%
+            progressToAdd = 1;
           }
         }
         break;
@@ -649,23 +652,33 @@ async function getLowestPerformingSubject(studentId: string): Promise<number> {
   return Number(result[0]?.subjectId || 0);
 }
 
-async function getSubjectsWithMinAccuracy(
+// Count subjects with 70%+ accuracy this week
+const getSubjectsWithMinAccuracy = async (
   studentId: string,
   weekStart: Date,
   minAccuracy: number
-): Promise<number> {
-  const weekEnd = getWeekEnd(weekStart);
-  const result = (await prisma.$queryRaw`
-    SELECT COUNT(*) as count
-    FROM "PracticeSession"
-    WHERE "studentId" = ${studentId}
-    AND "status" = 'COMPLETED'
-    AND "endTime" >= ${weekStart}
-    AND "endTime" <= ${weekEnd}
-    AND "score" >= ${minAccuracy}
-  `) as [{ count: bigint }];
+): Promise<number> => {
+  const result = await prisma.$queryRaw<[{ count: bigint }]>`
+    WITH SubjectAccuracy AS (
+      SELECT
+        "subjectId",
+        SUM("totalMarksEarned") as total_marks_earned,
+        SUM("totalPossibleMarks") as total_possible_marks
+      FROM "PracticeSession"
+      WHERE
+        "studentId" = ${studentId}
+        AND "startTime" >= ${weekStart}
+        AND "startTime" < ${new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)}
+        AND "status" = 'COMPLETED'
+      GROUP BY "subjectId"
+    )
+    SELECT COUNT(DISTINCT "subjectId") as count
+    FROM SubjectAccuracy
+    WHERE (total_marks_earned::float / NULLIF(total_possible_marks, 0)) * 100 >= ${minAccuracy}
+  `;
+
   return Number(result[0]?.count || 0);
-}
+};
 
 async function isNewSubjectThisWeek(
   studentId: string,

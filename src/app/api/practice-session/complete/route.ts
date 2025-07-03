@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId, score, correctAnswers, xpEarned } = await request.json();
+    const { sessionId, correctAnswers, xpEarned } = await request.json();
 
     if (!sessionId) {
       return NextResponse.json(
@@ -34,6 +34,57 @@ export async function POST(request: NextRequest) {
 
     const studentId = user.id;
 
+    // First get the session to calculate duration
+    const existingSession = await prisma.practiceSession.findUnique({
+      where: {
+        id: sessionId,
+        studentId: studentId,
+      },
+      select: {
+        startTime: true,
+      },
+    });
+
+    if (!existingSession) {
+      return NextResponse.json(
+        { error: "Session not found" },
+        { status: 404 }
+      );
+    }
+
+    // Calculate duration in seconds
+    const endTime = new Date();
+    const durationSeconds = Math.floor(
+      (endTime.getTime() - existingSession.startTime.getTime()) / 1000
+    );
+
+    // Calculate marks earned and total possible marks from student answers
+    const studentAnswers = await prisma.studentAnswer.findMany({
+      where: {
+        practiceSessionId: sessionId,
+      },
+      include: {
+        question: {
+          select: {
+            marks: true,
+          },
+        },
+      },
+    });
+
+    const totalMarksEarned = studentAnswers
+      .filter((answer) => answer.isCorrect)
+      .reduce((sum, answer) => sum + (answer.question.marks || 0), 0);
+
+    const totalPossibleMarks = studentAnswers.reduce(
+      (sum, answer) => sum + (answer.question.marks || 0),
+      0
+    );
+
+    console.log(
+      `📊 Marks calculation for session ${sessionId}: ${totalMarksEarned}/${totalPossibleMarks} marks`
+    );
+
     // Update the practice session as completed
     const updatedSession = await prisma.practiceSession.update({
       where: {
@@ -42,9 +93,11 @@ export async function POST(request: NextRequest) {
       },
       data: {
         status: PracticeSessionStatus.COMPLETED,
-        endTime: new Date(),
-        score: score || 0,
+        endTime: endTime,
+        durationSeconds: durationSeconds,
         correctAnswers: correctAnswers || 0,
+        totalMarksEarned: totalMarksEarned,
+        totalPossibleMarks: totalPossibleMarks,
         xpEarned: xpEarned || 0,
       },
       include: {
@@ -89,7 +142,7 @@ export async function POST(request: NextRequest) {
         `🎯 About to update quest progress for session ${sessionId}, student ${studentId}`
       );
       console.log(
-        `Session details: score=${score}, correctAnswers=${correctAnswers}, xpEarned=${xpEarned}`
+        `Session details: score=${totalMarksEarned}, correctAnswers=${correctAnswers}, xpEarned=${xpEarned}`
       );
       await updateQuestProgressForSession(updatedSession);
       console.log(`✅ Quest progress updated successfully`);

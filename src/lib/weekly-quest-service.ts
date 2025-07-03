@@ -222,12 +222,9 @@ export async function updateQuestProgress(
         break;
 
       case "high-accuracy":
-        if (practiceSession.score && practiceSession.totalQuestions) {
-          const accuracy =
-            (practiceSession.correctAnswers || 0) /
-            practiceSession.totalQuestions;
-          if (accuracy >= 0.8) {
-            // 80% or higher
+        if (practiceSession.totalMarksEarned && practiceSession.totalPossibleMarks) {
+          const accuracy = practiceSession.totalMarksEarned / practiceSession.totalPossibleMarks;
+          if (accuracy >= 0.8) { // 80% or higher
             progressToAdd = 1;
           }
         }
@@ -247,49 +244,29 @@ export async function updateQuestProgress(
         // Only update if we found more unique subjects than currently recorded
         if (subjectCount > quest.progress) {
           shouldComplete = subjectCount >= quest.target;
-
-          updates.push(
-            prisma.studentQuest.update({
-              where: { id: quest.id },
-              data: {
-                progress: Math.min(subjectCount, quest.target),
-                isCompleted: shouldComplete,
-                completedAt: shouldComplete ? new Date() : null,
-              },
-            })
-          );
+          progressToAdd = subjectCount - quest.progress;
         }
-        continue; // Skip the normal progressToAdd logic
+        break;
 
-      case "subject-specialist":
-        // Count sessions in the same subject
-        if (practiceSession.subjectId) {
-          const subjectSessionCount = await getSubjectSessionsThisWeek(
+      case "subject-master":
+        if (practiceSession.subject) {
+          // Get number of sessions for this subject this week
+          const subjectSessions = await getSubjectSessionsThisWeek(
             practiceSession.studentId,
-            practiceSession.subjectId,
+            practiceSession.subjectId!,
             weekStart
           );
 
           // Only update if we found more sessions than currently recorded
-          if (subjectSessionCount > quest.progress) {
-            shouldComplete = subjectSessionCount >= quest.target;
-
-            updates.push(
-              prisma.studentQuest.update({
-                where: { id: quest.id },
-                data: {
-                  progress: Math.min(subjectSessionCount, quest.target),
-                  isCompleted: shouldComplete,
-                  completedAt: shouldComplete ? new Date() : null,
-                },
-              })
-            );
+          if (subjectSessions > quest.progress) {
+            shouldComplete = subjectSessions >= quest.target;
+            progressToAdd = subjectSessions - quest.progress;
           }
         }
-        continue; // Skip the normal progressToAdd logic
+        break;
 
-      case "weekly-warrior":
-        // Count unique days practiced
+      case "daily-practice":
+        // Track unique days with practice this week
         const uniqueDays = await getUniqueDaysThisWeek(
           practiceSession.studentId,
           weekStart
@@ -298,123 +275,75 @@ export async function updateQuestProgress(
         // Only update if we found more unique days than currently recorded
         if (uniqueDays > quest.progress) {
           shouldComplete = uniqueDays >= quest.target;
-
-          updates.push(
-            prisma.studentQuest.update({
-              where: { id: quest.id },
-              data: {
-                progress: Math.min(uniqueDays, quest.target),
-                isCompleted: shouldComplete,
-                completedAt: shouldComplete ? new Date() : null,
-              },
-            })
-          );
+          progressToAdd = uniqueDays - quest.progress;
         }
-        continue; // Skip the normal progressToAdd logic
+        break;
 
-      case "consistent-learner":
-        // Count days with 2+ sessions
-        const consistentDays = await getDaysWithMultipleSessionsThisWeek(
+      case "practice-champion":
+        // Track days with multiple practice sessions
+        const daysWithMultiple = await getDaysWithMultipleSessionsThisWeek(
           practiceSession.studentId,
           weekStart
         );
 
-        // Only update if we found more consistent days than currently recorded
-        if (consistentDays > quest.progress) {
-          shouldComplete = consistentDays >= quest.target;
-
-          updates.push(
-            prisma.studentQuest.update({
-              where: { id: quest.id },
-              data: {
-                progress: Math.min(consistentDays, quest.target),
-                isCompleted: shouldComplete,
-                completedAt: shouldComplete ? new Date() : null,
-              },
-            })
-          );
-        }
-        continue; // Skip the normal progressToAdd logic
-
-      case "perfectionist":
-        if (practiceSession.score && practiceSession.totalQuestions) {
-          const accuracy =
-            (practiceSession.correctAnswers || 0) /
-            practiceSession.totalQuestions;
-          if (accuracy >= 0.95) {
-            // 95% or higher
-            progressToAdd = 1;
-          }
+        // Only update if we found more days than currently recorded
+        if (daysWithMultiple > quest.progress) {
+          shouldComplete = daysWithMultiple >= quest.target;
+          progressToAdd = daysWithMultiple - quest.progress;
         }
         break;
 
       case "topic-explorer":
-        // Count unique topics practiced - but only increment if this is a new topic
-        const currentTopicCount = await getUniqueTopicsThisWeek(
+        // Track unique topics practiced this week
+        const topicCount = await getUniqueTopicsThisWeek(
           practiceSession.studentId,
           weekStart
         );
 
         // Only update if we found more unique topics than currently recorded
-        if (currentTopicCount > quest.progress) {
-          const newProgress = currentTopicCount;
-          shouldComplete = newProgress >= quest.target;
-
-          // Update progress to match actual unique topics count
-          updates.push(
-            prisma.studentQuest.update({
-              where: { id: quest.id },
-              data: {
-                progress: Math.min(newProgress, quest.target),
-                isCompleted: shouldComplete,
-                completedAt: shouldComplete ? new Date() : null,
-              },
-            })
-          );
+        if (topicCount > quest.progress) {
+          shouldComplete = topicCount >= quest.target;
+          progressToAdd = topicCount - quest.progress;
         }
-        continue; // Skip the normal progressToAdd logic
+        break;
 
-      case "challenge-seeker":
-        if (practiceSession.type === "PRACTICE") {
-          // Random practice
-          progressToAdd = 1;
+      case "perfect-score":
+        if (practiceSession.totalMarksEarned && practiceSession.totalPossibleMarks) {
+          const accuracy = practiceSession.totalMarksEarned / practiceSession.totalPossibleMarks;
+          if (accuracy >= 1) { // 100%
+            progressToAdd = 1;
+          }
         }
+        break;
+
+      case "improvement":
+        // This is handled separately in a weekly review
+        break;
+
+      case "learning-streak":
+        // This is handled by the streak system
         break;
 
       default:
-        // For other quest types, just count sessions
-        progressToAdd = 1;
-        break;
+        console.log(`Unknown quest type: ${quest.quest.questType}`);
     }
 
-    if (progressToAdd > 0) {
-      const newProgress = quest.progress + progressToAdd;
-      shouldComplete = newProgress >= quest.target;
-
+    if (progressToAdd > 0 || shouldComplete) {
       updates.push(
         prisma.studentQuest.update({
           where: { id: quest.id },
           data: {
-            progress: Math.min(newProgress, quest.target),
+            progress: shouldComplete
+              ? quest.target
+              : quest.progress + progressToAdd,
             isCompleted: shouldComplete,
-            completedAt: shouldComplete ? new Date() : null,
-          },
-        })
-      );
-    } else if (shouldComplete !== undefined) {
-      updates.push(
-        prisma.studentQuest.update({
-          where: { id: quest.id },
-          data: {
-            isCompleted: shouldComplete,
-            completedAt: shouldComplete ? new Date() : null,
           },
         })
       );
     }
   }
 
-  // Execute all updates
+  // Execute all updates in parallel
   if (updates.length > 0) {
     await Promise.all(updates);
   }

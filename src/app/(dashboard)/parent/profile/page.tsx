@@ -764,6 +764,15 @@ Username: ${child.username}`;
                     </div>
                   </div>
                 )}
+                
+                <div className="mt-4 flex justify-end">
+                  <Link 
+                    href={`/parent/child/${child.id}`}
+                    className="text-indigo-600 hover:text-indigo-800 text-sm"
+                  >
+                    View Details
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

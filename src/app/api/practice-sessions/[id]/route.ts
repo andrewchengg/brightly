@@ -134,7 +134,7 @@ export async function PATCH(
     const { id: practiceSessionId } = params;
     const body = await request.json();
     // Ensure totalQuestions is destructured if sent for update
-    const { status, endTime, score, correctAnswers, xpEarned, totalQuestions } =
+    const { status, endTime, durationSeconds, correctAnswers, totalMarksEarned, totalPossibleMarks, xpEarned, totalQuestions } =
       body;
 
     const {
@@ -156,19 +156,17 @@ export async function PATCH(
     }
 
     const updateData: any = { updatedAt: new Date() };
-    if (
-      status &&
-      PracticeSessionStatus[status as keyof typeof PracticeSessionStatus]
-    ) {
+    if (status !== undefined) {
       updateData.status = status;
       console.log(
         `API PATCH /practice-sessions: Updating status to ${status} for session ${practiceSessionId}`
       );
     }
-    if (endTime) updateData.endTime = new Date(endTime);
-    if (score !== undefined) updateData.score = Number(score);
-    if (correctAnswers !== undefined)
-      updateData.correctAnswers = Number(correctAnswers);
+    if (endTime !== undefined) updateData.endTime = new Date(endTime);
+    if (durationSeconds !== undefined) updateData.durationSeconds = Number(durationSeconds);
+    if (correctAnswers !== undefined) updateData.correctAnswers = Number(correctAnswers);
+    if (totalMarksEarned !== undefined) updateData.totalMarksEarned = Number(totalMarksEarned);
+    if (totalPossibleMarks !== undefined) updateData.totalPossibleMarks = Number(totalPossibleMarks);
     if (xpEarned !== undefined) updateData.xpEarned = Number(xpEarned);
 
     // Crucially, handle totalQuestions if it's part of the PATCH payload
@@ -194,13 +192,15 @@ export async function PATCH(
       await prisma.result.upsert({
         where: { practiceSessionId: updatedPracticeSession.id },
         update: {
-          score: updatedPracticeSession.score || 0,
+          totalMarksEarned: updatedPracticeSession.totalMarksEarned || 0,
+          totalPossibleMarks: updatedPracticeSession.totalPossibleMarks || 0,
           submittedAt: updatedPracticeSession.endTime || new Date(),
         },
         create: {
-          score: updatedPracticeSession.score || 0,
-          practiceSessionId: updatedPracticeSession.id,
           studentId: updatedPracticeSession.studentId,
+          practiceSessionId: updatedPracticeSession.id,
+          totalMarksEarned: updatedPracticeSession.totalMarksEarned || 0,
+          totalPossibleMarks: updatedPracticeSession.totalPossibleMarks || 0,
           submittedAt: updatedPracticeSession.endTime || new Date(),
         },
       });
@@ -220,9 +220,7 @@ export async function PATCH(
       }
     }
 
-    console.log(
-      `API PATCH /practice-sessions: Successfully updated session ${practiceSessionId}. Status: ${updatedPracticeSession.status}, Score: ${updatedPracticeSession.score}, Correct: ${updatedPracticeSession.correctAnswers}, TotalQ: ${updatedPracticeSession.totalQuestions}`
-    );
+    console.log(`Practice session ${updatedPracticeSession.id} updated: ${updatedPracticeSession.status}, Marks: ${updatedPracticeSession.totalMarksEarned}/${updatedPracticeSession.totalPossibleMarks}, Correct: ${updatedPracticeSession.correctAnswers}, TotalQ: ${updatedPracticeSession.totalQuestions}`);
     return NextResponse.json(updatedPracticeSession);
   } catch (error: any) {
     console.error("API PATCH Error for /practice-sessions/[id]:", error);
