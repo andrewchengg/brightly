@@ -67,16 +67,26 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
     let newStartDate: Date;
     let newEndDate: Date;
 
+    console.log('DateRangeController - Navigation:', {
+      direction,
+      currentStartDate: startDate.toISOString(),
+      period
+    });
+
     const multiplier = direction === "next" ? 1 : -1;
 
     switch (period) {
       case "7d":
-        newStartDate = new Date(startDate);
-        newStartDate.setDate(startDate.getDate() + (7 * multiplier));
-        newStartDate.setHours(0, 0, 0, 0);
-        newEndDate = new Date(newStartDate);
-        newEndDate.setDate(newStartDate.getDate() + 6);
+        newEndDate = new Date();
         newEndDate.setHours(23, 59, 59, 999);
+        newStartDate = new Date(newEndDate);
+        const sixDaysMs = 6 * 24 * 60 * 60 * 1000;
+        newStartDate.setTime(newStartDate.getTime() - sixDaysMs);
+        newStartDate.setHours(0, 0, 0, 0);
+        console.log('DateRangeController - New 7d range:', {
+          newStartDate: newStartDate.toISOString(),
+          newEndDate: newEndDate.toISOString()
+        });
         break;
       case "30d":
         newStartDate = new Date(startDate);
@@ -107,6 +117,11 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
 
   const changePeriod = (newPeriod: TimePeriod) => {
     const today = new Date();
+    console.log('DateRangeController - Period change:', {
+      newPeriod,
+      today: today.toISOString()
+    });
+
     let startDate: Date;
     let endDate: Date;
 
@@ -114,9 +129,14 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
       case "7d":
         endDate = new Date(today);
         endDate.setHours(23, 59, 59, 999);
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - 6);
+        startDate = new Date(endDate);
+        const sixDaysInMs = 6 * 24 * 60 * 60 * 1000;
+        startDate.setTime(startDate.getTime() - sixDaysInMs);
         startDate.setHours(0, 0, 0, 0);
+        console.log('DateRangeController - New 7d period:', {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        });
         break;
       case "30d":
         startDate = new Date(today.getFullYear(), today.getMonth(), 1);

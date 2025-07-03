@@ -48,4 +48,8 @@ export const traceApi = async <T>(
     debug.error(`API call failed: ${name} (${duration}ms)`, error);
     throw error;
   }
-}; 
+};
+
+const today = new Date();
+console.log('today:', today);
+console.log('today.getDate():', today.getDate()); 
