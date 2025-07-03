@@ -85,10 +85,22 @@ interface SessionData {
   status: PracticeSessionStatus;
   subjectId: number | null;
   topicId: number | null;
-  score: number | null;
+  totalMarksEarned: number | null;
+  totalPossibleMarks: number | null;
   totalQuestions: number | null;
   correctAnswers: number | null;
+  xpEarned: number | null;
   studentAnswers: StudentAnswerData[];
+}
+
+interface ProgressState {
+  currentQuestion: number;
+  totalQuestions: number;
+  score: number;
+  correctAnswers: number;
+  totalMarksEarned: number;
+  totalPossibleMarks: number;
+  xpEarned: number;
 }
 
 const QUESTION_REPORT_TYPES = [
@@ -279,6 +291,16 @@ export default function RandomPractice() {
   const [currentSubjectId, setCurrentSubjectId] = useState<number | null>(null);
   const [currentTopicId, setCurrentTopicId] = useState<number | null>(null);
 
+  const [progress, setProgress] = useState<ProgressState>({
+    currentQuestion: 0,
+    totalQuestions: 0,
+    score: 0,
+    correctAnswers: 0,
+    totalMarksEarned: 0,
+    totalPossibleMarks: 0,
+    xpEarned: 0,
+  });
+
   // Set subjectId from URL after component mounts (fixes hydration issue)
   useEffect(() => {
     if (urlSubjectId) {
@@ -354,7 +376,7 @@ export default function RandomPractice() {
         setCurrentPracticeSessionId(sessionId);
         setCurrentSubjectId(sessionData.subjectId);
         setCurrentTopicId(sessionData.topicId);
-        setScore(sessionData.score || 0);
+        setScore(sessionData.totalMarksEarned || 0);
 
         // Fetch the original questions for this session
         const questionsResponse = await fetch(
@@ -407,6 +429,17 @@ export default function RandomPractice() {
         } else {
           setCurrentQuestionIndex(firstUnansweredIndex);
         }
+
+        // Update progress state
+        setProgress({
+          currentQuestion: currentQuestionIndex + 1,
+          totalQuestions: questions.length,
+          score: sessionData.totalMarksEarned || 0,
+          correctAnswers: sessionData.correctAnswers || 0,
+          totalMarksEarned: sessionData.totalMarksEarned || 0,
+          totalPossibleMarks: sessionData.totalPossibleMarks || 0,
+          xpEarned: sessionData.xpEarned || 0,
+        });
 
         return true;
       } catch (err: any) {

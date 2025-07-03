@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         title: session.title,
         type: session.type,
         endTime: session.endTime,
-        score: totalMarksEarned, // Use marks earned instead of legacy score
+        totalMarksEarned,
         totalQuestions: session.totalQuestions,
         correctAnswers: session.correctAnswers,
         xpEarned: session.xpEarned,

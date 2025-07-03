@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
         durationSeconds: calculatedDuration || 0,
         totalQuestions,
         correctAnswers,
-        score: totalMarksEarned, // Use marks earned instead of legacy score
+        totalMarksEarned,
         totalPossibleMarks,
         xpEarned,
         subjectName: session.subject?.name || null,

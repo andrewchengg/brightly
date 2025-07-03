@@ -88,6 +88,37 @@ interface LocalStorageReadingComprehensionProgress {
   subjectId?: number | null;
 }
 
+interface StudentAnswerData {
+  questionId: number;
+  submittedAnswer: string | Record<string, string>;
+  isCorrect: boolean;
+  pointsEarned: number;
+}
+
+interface SessionData {
+  id: string;
+  studentId: string;
+  status: PracticeSessionStatus;
+  subjectId: number | null;
+  topicId: number | null;
+  totalMarksEarned: number | null;
+  totalPossibleMarks: number | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+  xpEarned: number | null;
+  studentAnswers: StudentAnswerData[];
+}
+
+interface ProgressState {
+  currentQuestion: number;
+  totalQuestions: number;
+  score: number;
+  correctAnswers: number;
+  totalMarksEarned: number;
+  totalPossibleMarks: number;
+  xpEarned: number;
+}
+
 export default function ReadingComprehensionPassagePracticePage() {
   const router = useRouter();
   const params = useParams();
@@ -123,9 +154,18 @@ export default function ReadingComprehensionPassagePracticePage() {
   const { user: authUser, isLoaded: authUserIsLoaded } = useSupabaseUser();
   const [userId, setUserId] = useState<string | null>(null);
   const [currentSubjectId, setCurrentSubjectId] = useState<number | null>(null);
-
+  const [currentTopicId, setCurrentTopicId] = useState<number | null>(null);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
+  const [progress, setProgress] = useState<ProgressState>({
+    currentQuestion: 0,
+    totalQuestions: 0,
+    score: 0,
+    correctAnswers: 0,
+    totalMarksEarned: 0,
+    totalPossibleMarks: 0,
+    xpEarned: 0,
+  });
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);

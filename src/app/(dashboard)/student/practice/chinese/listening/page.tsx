@@ -88,6 +88,37 @@ interface LocalStorageLCProgress {
   pendingAnswers?: Record<number, string>;
 }
 
+interface StudentAnswerData {
+  questionId: number;
+  submittedAnswer: string | Record<string, string>;
+  isCorrect: boolean;
+  pointsEarned: number;
+}
+
+interface SessionData {
+  id: string;
+  studentId: string;
+  status: PracticeSessionStatus;
+  subjectId: number | null;
+  topicId: number | null;
+  totalMarksEarned: number | null;
+  totalPossibleMarks: number | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+  xpEarned: number | null;
+  studentAnswers: StudentAnswerData[];
+}
+
+interface ProgressState {
+  currentQuestion: number;
+  totalQuestions: number;
+  score: number;
+  correctAnswers: number;
+  totalMarksEarned: number;
+  totalPossibleMarks: number;
+  xpEarned: number;
+}
+
 const DEFAULT_PLAY_LIMIT = 2;
 const DEFAULT_MARKS_PER_QUESTION = 2;
 
@@ -130,6 +161,18 @@ export default function ListeningComprehensionPage() {
   const [newLevel, setNewLevel] = useState(0);
 
   const [notes, setNotes] = useState("");
+
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questions, setQuestions] = useState<QuestionClient[]>([]);
+  const [progress, setProgress] = useState<ProgressState>({
+    currentQuestion: 0,
+    totalQuestions: 0,
+    score: 0,
+    correctAnswers: 0,
+    totalMarksEarned: 0,
+    totalPossibleMarks: 0,
+    xpEarned: 0,
+  });
 
   const currentPassageSet: PassageSet | null =
     passageSets.length > 0 && currentPassageSetIndex < passageSets.length
