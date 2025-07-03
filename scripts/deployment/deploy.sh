@@ -11,6 +11,13 @@ cd /var/www/brightly
 # Pull latest changes
 git pull origin main
 
+# Run deployment fixes if needed
+if [ ! -f /etc/nginx/nginx.conf.fixed ] || [ ! -d node_modules/canvas ]; then
+    echo "Running deployment fixes..."
+    ./scripts/deployment/fix-deployment.sh
+    sudo touch /etc/nginx/nginx.conf.fixed
+fi
+
 # Install dependencies
 npm install
 
