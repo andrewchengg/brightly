@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 interface StreakRequestBody {
   activityType: string;
 }

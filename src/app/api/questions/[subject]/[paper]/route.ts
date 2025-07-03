@@ -5,6 +5,8 @@ import {
   QuestionType as PrismaQuestionType,
 } from "@/generated/prisma";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 
 interface Paper1Requirements {

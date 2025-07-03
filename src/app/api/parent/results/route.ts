@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -100,15 +102,19 @@ export async function GET(request: NextRequest) {
         totalMarksEarned = session.studentAnswers
           .filter((answer) => answer.isCorrect)
           .reduce((sum, answer) => sum + (answer.question?.marks || 0), 0);
-        
+
         totalPossibleMarks = session.studentAnswers.reduce((sum, answer) => {
           const questionMarks = answer.question?.marks || 0;
           return sum + questionMarks;
         }, 0);
-        
-        console.log(`[Session ${session.id}] Calculated marks (fallback): ${totalMarksEarned}/${totalPossibleMarks}`);
+
+        console.log(
+          `[Session ${session.id}] Calculated marks (fallback): ${totalMarksEarned}/${totalPossibleMarks}`
+        );
       } else {
-        console.log(`[Session ${session.id}] Using stored marks: ${totalMarksEarned}/${totalPossibleMarks}`);
+        console.log(
+          `[Session ${session.id}] Using stored marks: ${totalMarksEarned}/${totalPossibleMarks}`
+        );
       }
 
       // Calculate XP earned (example formula, adjust as needed)
@@ -118,7 +124,9 @@ export async function GET(request: NextRequest) {
       let calculatedDuration = session.durationSeconds;
       if (!calculatedDuration && session.startTime && session.endTime) {
         calculatedDuration = Math.floor(
-          (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
+          (new Date(session.endTime).getTime() -
+            new Date(session.startTime).getTime()) /
+            1000
         );
       }
 

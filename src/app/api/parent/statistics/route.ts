@@ -3,10 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 import { calculateLevel } from "@/lib/xp-utils";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     console.log("Starting parent statistics API call");
-    
+
     const supabase = createClient();
     const {
       data: { user },
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Default to current period
       const today = new Date();
-      
+
       switch (period) {
         case "30d":
           startDate = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -48,21 +50,23 @@ export async function GET(request: NextRequest) {
           break;
         default: // "7d"
           // Hardcode the specific date range for testing
-          endDate = new Date('2025-07-02');
-          startDate = new Date('2025-06-26');
-          
+          endDate = new Date("2025-07-02");
+          startDate = new Date("2025-06-26");
+
           // Set proper times
           startDate.setHours(0, 0, 0, 0);
           endDate.setHours(23, 59, 59, 999);
-          
-          console.log('API Date Range:', {
+
+          console.log("API Date Range:", {
             startDate: startDate.toISOString(),
-            endDate: endDate.toISOString()
+            endDate: endDate.toISOString(),
           });
       }
     }
 
-    console.log(`Fetching data for period: ${period}, from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(
+      `Fetching data for period: ${period}, from ${startDate.toISOString()} to ${endDate.toISOString()}`
+    );
 
     // Get all children of the parent
     let children;
@@ -104,7 +108,9 @@ export async function GET(request: NextRequest) {
       recentDay.getMonth(),
       recentDay.getDate()
     );
-    const endOfRecentDay = new Date(startOfRecentDay.getTime() + 24 * 60 * 60 * 1000);
+    const endOfRecentDay = new Date(
+      startOfRecentDay.getTime() + 24 * 60 * 60 * 1000
+    );
 
     // Get practice sessions for the recent day (including IN_PROGRESS and COMPLETED)
     let recentDaySessions;
@@ -163,7 +169,7 @@ export async function GET(request: NextRequest) {
     try {
       childrenStats = children.map((child) => {
         console.log("Processing child:", child.name);
-        
+
         const childRecentDaySessions = recentDaySessions.filter(
           (s) => s.studentId === child.id
         );
@@ -172,24 +178,30 @@ export async function GET(request: NextRequest) {
         );
 
         // Recent day stats - calculate time for both completed and in-progress sessions
-        const recentDayTimeSpent = childRecentDaySessions.reduce((total, session) => {
-          if (session.status === "COMPLETED" && session.durationSeconds) {
-            return total + session.durationSeconds;
-          } else if (session.status === "IN_PROGRESS" && session.startTime) {
-            // Calculate elapsed time for in-progress sessions
-            const now = new Date();
-            const sessionStart = new Date(session.startTime);
-            const elapsedSeconds = Math.floor(
-              (now.getTime() - sessionStart.getTime()) / 1000
-            );
-            return total + Math.max(0, elapsedSeconds);
-          }
-          return total;
-        }, 0);
+        const recentDayTimeSpent = childRecentDaySessions.reduce(
+          (total, session) => {
+            if (session.status === "COMPLETED" && session.durationSeconds) {
+              return total + session.durationSeconds;
+            } else if (session.status === "IN_PROGRESS" && session.startTime) {
+              // Calculate elapsed time for in-progress sessions
+              const now = new Date();
+              const sessionStart = new Date(session.startTime);
+              const elapsedSeconds = Math.floor(
+                (now.getTime() - sessionStart.getTime()) / 1000
+              );
+              return total + Math.max(0, elapsedSeconds);
+            }
+            return total;
+          },
+          0
+        );
 
-        const recentDayQuestions = childRecentDaySessions.reduce((total, session) => {
-          return total + (session.totalQuestions || 0);
-        }, 0);
+        const recentDayQuestions = childRecentDaySessions.reduce(
+          (total, session) => {
+            return total + (session.totalQuestions || 0);
+          },
+          0
+        );
 
         const recentDayCorrectAnswers = childRecentDaySessions.reduce(
           (total, session) => {
@@ -212,9 +224,10 @@ export async function GET(request: NextRequest) {
           0
         );
 
-        const recentDayAccuracy = recentDayPossibleMarks > 0
-          ? Math.round((recentDayMarksEarned / recentDayPossibleMarks) * 100)
-          : 0;
+        const recentDayAccuracy =
+          recentDayPossibleMarks > 0
+            ? Math.round((recentDayMarksEarned / recentDayPossibleMarks) * 100)
+            : 0;
 
         // Range stats - calculate time for both completed and in-progress sessions
         const rangeTimeSpent = childRangeSessions.reduce((total, session) => {
@@ -236,21 +249,28 @@ export async function GET(request: NextRequest) {
           return total + (session.totalQuestions || 0);
         }, 0);
 
-        const rangeCorrectAnswers = childRangeSessions.reduce((total, session) => {
-          return total + (session.correctAnswers || 0);
-        }, 0);
+        const rangeCorrectAnswers = childRangeSessions.reduce(
+          (total, session) => {
+            return total + (session.correctAnswers || 0);
+          },
+          0
+        );
 
         const rangeMarksEarned = childRangeSessions.reduce((total, session) => {
           return total + (session.totalMarksEarned || 0);
         }, 0);
 
-        const rangePossibleMarks = childRangeSessions.reduce((total, session) => {
-          return total + (session.totalPossibleMarks || 0);
-        }, 0);
+        const rangePossibleMarks = childRangeSessions.reduce(
+          (total, session) => {
+            return total + (session.totalPossibleMarks || 0);
+          },
+          0
+        );
 
-        const rangeAccuracy = rangePossibleMarks > 0
-          ? Math.round((rangeMarksEarned / rangePossibleMarks) * 100)
-          : 0;
+        const rangeAccuracy =
+          rangePossibleMarks > 0
+            ? Math.round((rangeMarksEarned / rangePossibleMarks) * 100)
+            : 0;
 
         // Subject breakdown
         const subjectStats: {
@@ -276,25 +296,30 @@ export async function GET(request: NextRequest) {
           subjectStats[subjectName].questions += session.totalQuestions || 0;
           subjectStats[subjectName].correct += session.correctAnswers || 0;
           subjectStats[subjectName].timeSpent += session.durationSeconds || 0;
-          subjectStats[subjectName].marksEarned += session.totalMarksEarned || 0;
-          subjectStats[subjectName].possibleMarks += session.totalPossibleMarks || 0;
+          subjectStats[subjectName].marksEarned +=
+            session.totalMarksEarned || 0;
+          subjectStats[subjectName].possibleMarks +=
+            session.totalPossibleMarks || 0;
         });
 
         // Daily breakdown for the selected range
         const dailyStats = [];
         const dailySubjectStats = [];
-        
+
         // Generate array of dates from start to end
         const dates = [];
         let currentDate = new Date(startDate);
-        
+
         while (currentDate <= endDate) {
           dates.push(new Date(currentDate));
           currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        console.log('Processing dates:', dates.map(d => d.toISOString().split('T')[0]));
-        
+        console.log(
+          "Processing dates:",
+          dates.map((d) => d.toISOString().split("T")[0])
+        );
+
         // Process each date
         for (const date of dates) {
           const startOfDay = new Date(
@@ -304,13 +329,17 @@ export async function GET(request: NextRequest) {
           );
           const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-          console.log(`Processing ${startOfDay.toISOString().split('T')[0]}`);
+          console.log(`Processing ${startOfDay.toISOString().split("T")[0]}`);
 
           const daySessions = childRangeSessions.filter(
             (s) => s.startTime >= startOfDay && s.startTime < endOfDay
           );
 
-          console.log(`Found ${daySessions.length} sessions for ${startOfDay.toISOString().split('T')[0]}`);
+          console.log(
+            `Found ${daySessions.length} sessions for ${
+              startOfDay.toISOString().split("T")[0]
+            }`
+          );
 
           const dayQuestions = daySessions.reduce(
             (total, session) => total + (session.totalQuestions || 0),
@@ -346,17 +375,19 @@ export async function GET(request: NextRequest) {
           daySessions.forEach((session) => {
             const subjectName = session.subject?.name || "Unknown";
             if (!subjectMap[subjectName]) {
-              subjectMap[subjectName] = { 
-                questions: 0, 
+              subjectMap[subjectName] = {
+                questions: 0,
                 correct: 0,
                 marksEarned: 0,
-                possibleMarks: 0
+                possibleMarks: 0,
               };
             }
             subjectMap[subjectName].questions += session.totalQuestions || 0;
             subjectMap[subjectName].correct += session.correctAnswers || 0;
-            subjectMap[subjectName].marksEarned += session.totalMarksEarned || 0;
-            subjectMap[subjectName].possibleMarks += session.totalPossibleMarks || 0;
+            subjectMap[subjectName].marksEarned +=
+              session.totalMarksEarned || 0;
+            subjectMap[subjectName].possibleMarks +=
+              session.totalPossibleMarks || 0;
           });
 
           const subjectAccuracy: {
@@ -382,7 +413,10 @@ export async function GET(request: NextRequest) {
             };
           });
 
-          console.log(`Subject accuracy for ${startOfDay.toISOString().split('T')[0]}:`, subjectAccuracy);
+          console.log(
+            `Subject accuracy for ${startOfDay.toISOString().split("T")[0]}:`,
+            subjectAccuracy
+          );
 
           dailyStats.push({
             date: startOfDay.toISOString().split("T")[0],
@@ -403,7 +437,9 @@ export async function GET(request: NextRequest) {
           });
         }
 
-        console.log(`Generated ${dailySubjectStats.length} daily entries for child ${child.name}`);
+        console.log(
+          `Generated ${dailySubjectStats.length} daily entries for child ${child.name}`
+        );
         console.log("Daily subject stats:", dailySubjectStats);
 
         let calculatedLevel;
@@ -474,19 +510,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Overall family stats with improved time calculation
-    const totalRecentDayTimeSeconds = recentDaySessions.length > 0 ? recentDaySessions.reduce((total, session) => {
-      if (session.status === "COMPLETED" && session.durationSeconds) {
-        return total + session.durationSeconds;
-      } else if (session.status === "IN_PROGRESS" && session.startTime) {
-        const now = new Date();
-        const sessionStart = new Date(session.startTime);
-        const elapsedSeconds = Math.floor(
-          (now.getTime() - sessionStart.getTime()) / 1000
-        );
-        return total + Math.max(0, elapsedSeconds);
-      }
-      return total;
-    }, 0) : 0;
+    const totalRecentDayTimeSeconds =
+      recentDaySessions.length > 0
+        ? recentDaySessions.reduce((total, session) => {
+            if (session.status === "COMPLETED" && session.durationSeconds) {
+              return total + session.durationSeconds;
+            } else if (session.status === "IN_PROGRESS" && session.startTime) {
+              const now = new Date();
+              const sessionStart = new Date(session.startTime);
+              const elapsedSeconds = Math.floor(
+                (now.getTime() - sessionStart.getTime()) / 1000
+              );
+              return total + Math.max(0, elapsedSeconds);
+            }
+            return total;
+          }, 0)
+        : 0;
 
     const overallStats = {
       totalChildren: children.length,
@@ -513,7 +552,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Unexpected error in parent statistics API:", error);
     return NextResponse.json(
-      { error: "Internal server error", details: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

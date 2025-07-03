@@ -13,6 +13,8 @@ import {
 } from "@/lib/student-context";
 import { PrismaClient } from "@/generated/prisma";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 
 // Initialize OpenRouter client (using OpenAI SDK with OpenRouter endpoints)

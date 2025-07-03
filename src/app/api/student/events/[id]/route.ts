@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import prisma from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export async function PUT(
   request: NextRequest,
@@ -8,16 +10,18 @@ export async function PUT(
 ) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const eventId = parseInt(params.id);
-    
+
     if (isNaN(eventId)) {
-      return NextResponse.json({ error: 'Invalid event ID' }, { status: 400 });
+      return NextResponse.json({ error: "Invalid event ID" }, { status: 400 });
     }
 
     const body = await request.json();
@@ -26,7 +30,7 @@ export async function PUT(
     // Validate required fields
     if (!title || !startTime || !endTime) {
       return NextResponse.json(
-        { error: 'Title, start time, and end time are required' },
+        { error: "Title, start time, and end time are required" },
         { status: 400 }
       );
     }
@@ -34,7 +38,7 @@ export async function PUT(
     // Validate that end time is after start time
     if (new Date(endTime) <= new Date(startTime)) {
       return NextResponse.json(
-        { error: 'End time must be after start time' },
+        { error: "End time must be after start time" },
         { status: 400 }
       );
     }
@@ -49,7 +53,7 @@ export async function PUT(
 
     if (!existingEvent) {
       return NextResponse.json(
-        { error: 'Event not found or unauthorized' },
+        { error: "Event not found or unauthorized" },
         { status: 404 }
       );
     }
@@ -61,7 +65,7 @@ export async function PUT(
       },
       data: {
         title,
-        description: description || '',
+        description: description || "",
         startTime: new Date(startTime),
         endTime: new Date(endTime),
       },
@@ -69,9 +73,9 @@ export async function PUT(
 
     return NextResponse.json(updatedEvent);
   } catch (error) {
-    console.error('Error updating student event:', error);
+    console.error("Error updating student event:", error);
     return NextResponse.json(
-      { error: 'Failed to update event' },
+      { error: "Failed to update event" },
       { status: 500 }
     );
   }
@@ -83,16 +87,18 @@ export async function DELETE(
 ) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const eventId = parseInt(params.id);
-    
+
     if (isNaN(eventId)) {
-      return NextResponse.json({ error: 'Invalid event ID' }, { status: 400 });
+      return NextResponse.json({ error: "Invalid event ID" }, { status: 400 });
     }
 
     // Check if the event exists and belongs to the current user
@@ -105,7 +111,7 @@ export async function DELETE(
 
     if (!event) {
       return NextResponse.json(
-        { error: 'Event not found or unauthorized' },
+        { error: "Event not found or unauthorized" },
         { status: 404 }
       );
     }
@@ -117,12 +123,12 @@ export async function DELETE(
       },
     });
 
-    return NextResponse.json({ message: 'Event deleted successfully' });
+    return NextResponse.json({ message: "Event deleted successfully" });
   } catch (error) {
-    console.error('Error deleting student event:', error);
+    console.error("Error deleting student event:", error);
     return NextResponse.json(
-      { error: 'Failed to delete event' },
+      { error: "Failed to delete event" },
       { status: 500 }
     );
   }
-} 
+}

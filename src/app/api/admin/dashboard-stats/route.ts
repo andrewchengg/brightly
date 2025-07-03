@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma"; // Use singleton client for better performance
 import { withCache, CACHE_KEYS } from "@/lib/cache";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     // PERFORMANCE: Use caching for dashboard stats (5 minute cache)

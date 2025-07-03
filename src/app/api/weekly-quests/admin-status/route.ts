@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getQuestRotationStatus } from "@/lib/weekly-quest-scheduler";
 import { PrismaClient } from "@/generated/prisma";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 
 export async function GET() {

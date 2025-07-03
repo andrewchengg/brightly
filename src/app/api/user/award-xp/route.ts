@@ -10,6 +10,8 @@ import {
   checkLevelUp,
 } from "@/lib/xp-utils";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 
 interface XpRequestBody {

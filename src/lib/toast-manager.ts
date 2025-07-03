@@ -66,9 +66,14 @@ export const toastManager = new ToastManager();
 
 // Export as default toast object for easy replacement of react-toastify
 export const toast = {
-  success: toastManager.success.bind(toastManager),
-  error: toastManager.error.bind(toastManager),
-  warning: toastManager.warning.bind(toastManager),
-  warn: toastManager.warn.bind(toastManager),
-  info: toastManager.info.bind(toastManager),
+  success: (message: string, options?: { title?: string; duration?: number }) =>
+    toastManager.success(message, options),
+  error: (message: string, options?: { title?: string; duration?: number }) =>
+    toastManager.error(message, options),
+  warning: (message: string, options?: { title?: string; duration?: number }) =>
+    toastManager.warning(message, options),
+  warn: (message: string, options?: { title?: string; duration?: number }) =>
+    toastManager.warn(message, options),
+  info: (message: string, options?: { title?: string; duration?: number }) =>
+    toastManager.info(message, options),
 };

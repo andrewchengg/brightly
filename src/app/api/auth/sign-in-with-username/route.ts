@@ -5,29 +5,74 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient, type CookieOptions } from "@supabase/ssr"; // For setting auth cookies
 import { cookies } from "next/headers";
 
-export async function POST(request: NextRequest) {
-  console.log("[API_SIGN_IN] Starting username-based sign-in process");
-  const { username, password } = await request.json();
+export const dynamic = "force-dynamic";
 
-  if (!username || !password) {
-    return NextResponse.json(
-      { error: "Username and password are required." },
-      { status: 400 }
-    );
+// Rate limiting map (in memory - consider using Redis for production)
+const loginAttempts = new Map<string, { count: number; timestamp: number }>();
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function isRateLimited(identifier: string): boolean {
+  const now = Date.now();
+  const userAttempts = loginAttempts.get(identifier);
+
+  // Clean up old entries
+  for (const [key, value] of loginAttempts.entries()) {
+    if (now - value.timestamp > WINDOW_MS) {
+      loginAttempts.delete(key);
+    }
   }
 
-  const cookieStore = cookies();
-  const supabaseAdmin = createAdminClient();
+  if (!userAttempts) {
+    loginAttempts.set(identifier, { count: 1, timestamp: now });
+    return false;
+  }
 
-  let emailToTry: string | null = null;
-  let userRole: string = "student";
-  let userId: string | null = null;
+  if (now - userAttempts.timestamp > WINDOW_MS) {
+    loginAttempts.set(identifier, { count: 1, timestamp: now });
+    return false;
+  }
 
+  if (userAttempts.count >= MAX_ATTEMPTS) {
+    return true;
+  }
+
+  userAttempts.count++;
+  return false;
+}
+
+export async function POST(request: NextRequest) {
   try {
+    const { username, password } = await request.json();
+    const ip =
+      request.headers.get("x-forwarded-for") || request.ip || "unknown";
+
+    if (!username || !password) {
+      console.warn("[AUTH] Missing credentials attempt from IP:", ip);
+      return NextResponse.json(
+        { error: "Username and password are required." },
+        { status: 400 }
+      );
+    }
+
+    // Check rate limiting
+    const rateLimitKey = `${username}:${ip}`;
+    if (isRateLimited(rateLimitKey)) {
+      console.warn("[AUTH] Rate limit exceeded for:", rateLimitKey);
+      return NextResponse.json(
+        { error: "Too many login attempts. Please try again later." },
+        { status: 429 }
+      );
+    }
+
+    const cookieStore = cookies();
+    const supabaseAdmin = createAdminClient();
+
+    let emailToTry: string | null = null;
+    let userRole: string = "student";
+    let userId: string | null = null;
+
     // Check Student table first (most common)
-    console.log(
-      `[API_SIGN_IN] Checking Student table for username: ${username}`
-    );
     const { data: studentData, error: studentError } = await supabaseAdmin
       .from("Student")
       .select("id, email, name")
@@ -38,12 +83,8 @@ export async function POST(request: NextRequest) {
       emailToTry = studentData.email;
       userRole = "student";
       userId = studentData.id;
-      console.log(`[API_SIGN_IN] Found Student: ${emailToTry}`);
     } else {
       // Check Parent table
-      console.log(
-        `[API_SIGN_IN] Checking Parent table for username: ${username}`
-      );
       const { data: parentData, error: parentError } = await supabaseAdmin
         .from("Parent")
         .select("id, email, name")
@@ -54,12 +95,8 @@ export async function POST(request: NextRequest) {
         emailToTry = parentData.email;
         userRole = "parent";
         userId = parentData.id;
-        console.log(`[API_SIGN_IN] Found Parent: ${emailToTry}`);
       } else {
         // Check Teacher table
-        console.log(
-          `[API_SIGN_IN] Checking Teacher table for username: ${username}`
-        );
         const { data: teacherData, error: teacherError } = await supabaseAdmin
           .from("Teacher")
           .select("id, email, name")
@@ -70,12 +107,8 @@ export async function POST(request: NextRequest) {
           emailToTry = teacherData.email;
           userRole = "teacher";
           userId = teacherData.id;
-          console.log(`[API_SIGN_IN] Found Teacher: ${emailToTry}`);
         } else {
           // Check Admin table
-          console.log(
-            `[API_SIGN_IN] Checking Admin table for username: ${username}`
-          );
           const { data: adminData, error: adminError } = await supabaseAdmin
             .from("Admin")
             .select("id, username")
@@ -83,30 +116,26 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (!adminError && adminData?.username) {
-            // Admin table stores username, get their auth email
             const { data: adminAuthUser, error: getAdminAuthError } =
               await supabaseAdmin.auth.admin.getUserById(adminData.id);
 
-            if (getAdminAuthError || !adminAuthUser?.user?.email) {
-              console.error(
-                `[API_SIGN_IN] Admin auth lookup failed for ID: ${adminData.id}`
-              );
-              return NextResponse.json(
-                { error: "Admin authentication error." },
-                { status: 400 }
-              );
+            if (!getAdminAuthError && adminAuthUser?.user?.email) {
+              emailToTry = adminAuthUser.user.email;
+              userRole = "admin";
+              userId = adminData.id;
             }
-            emailToTry = adminAuthUser.user.email;
-            userRole = "admin";
-            userId = adminData.id;
-            console.log(`[API_SIGN_IN] Found Admin: ${emailToTry}`);
           }
         }
       }
     }
 
     if (!emailToTry) {
-      console.log(`[API_SIGN_IN] Username "${username}" not found.`);
+      console.warn(
+        "[AUTH] Invalid username attempt:",
+        username,
+        "from IP:",
+        ip
+      );
       return NextResponse.json(
         { error: "Invalid username or password." },
         { status: 401 }
@@ -114,11 +143,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Attempt authentication with found email
-    const supabaseUrl =
-      process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey =
-      process.env.SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
     const supabaseServerClientForAuth = createServerClient(
       supabaseUrl,
@@ -143,9 +169,11 @@ export async function POST(request: NextRequest) {
       });
 
     if (signInError) {
-      console.error(
-        `[API_SIGN_IN] Auth error for email "${emailToTry}":`,
-        signInError.message
+      console.warn(
+        "[AUTH] Failed login attempt for user:",
+        username,
+        "from IP:",
+        ip
       );
       return NextResponse.json(
         { error: "Invalid username or password." },
@@ -153,9 +181,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Clear rate limiting on successful login
+    loginAttempts.delete(rateLimitKey);
+
     console.log(
-      `[API_SIGN_IN] User ${userId} (${emailToTry}) signed in successfully as ${userRole}.`
+      `[AUTH] Successful login for ${userRole} ${userId} (${emailToTry}) from IP: ${ip}`
     );
+
     return NextResponse.json(
       {
         message: "Sign-in successful",
@@ -166,7 +198,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
-    console.error("[API_SIGN_IN] Internal server error:", error.message);
+    console.error("[AUTH] Internal server error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

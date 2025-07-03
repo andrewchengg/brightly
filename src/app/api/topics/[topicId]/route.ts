@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { topicId: string } }
 ) {
   try {
     const topicId = parseInt(params.topicId);
-    
+
     if (isNaN(topicId)) {
-      return NextResponse.json(
-        { error: "Invalid topic ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid topic ID" }, { status: 400 });
     }
 
     const topic = await prisma.topic.findUnique({
@@ -25,10 +24,7 @@ export async function GET(
     });
 
     if (!topic) {
-      return NextResponse.json(
-        { error: "Topic not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Topic not found" }, { status: 404 });
     }
 
     return NextResponse.json(topic);
@@ -39,4 +35,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}
