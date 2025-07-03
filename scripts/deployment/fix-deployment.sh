@@ -71,7 +71,11 @@ http {
 EOF
 
 # Copy our application config
-sudo cp /var/www/brightly/config/nginx/brightly.conf /etc/nginx/sites-available/default
+sudo cp /var/www/brightly/config/nginx/brightly.conf /etc/nginx/sites-available/brightly
+sudo ln -sf /etc/nginx/sites-available/brightly /etc/nginx/sites-enabled/brightly
+
+# Remove default nginx config if it exists
+sudo rm -f /etc/nginx/sites-enabled/default
 
 # Test and reload Nginx
 echo "Testing Nginx configuration..."
@@ -89,6 +93,6 @@ npm run build
 
 # Restart PM2
 echo "Restarting PM2..."
-pm2 reload brightly-production
+pm2 reload all --update-env
 
 echo "Deployment fixes completed!" 
