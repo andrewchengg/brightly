@@ -2,22 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 import { calculateLevel } from "@/lib/xp-utils";
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
-  try {
-    console.log("Starting parent statistics API call");
-    
+  try {    
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
-      console.log("User not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    console.log("User authenticated:", user.id);
 
     // Parse query parameters for date range
     const url = new URL(request.url);
@@ -47,22 +44,16 @@ export async function GET(request: NextRequest) {
           endDate = new Date(today.getFullYear(), quarterStart + 3, 0);
           break;
         default: // "7d"
-          // Hardcode the specific date range for testing
-          endDate = new Date('2025-07-02');
-          startDate = new Date('2025-06-26');
-          
-          // Set proper times
-          startDate.setHours(0, 0, 0, 0);
+          // Set end date to end of today at 23:59:59.999
+          endDate = new Date();
           endDate.setHours(23, 59, 59, 999);
           
-          console.log('API Date Range:', {
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString()
-          });
+          // Set start date to 6 days before end date at 00:00:00.000 (for 7 days total including today)
+          startDate = new Date(endDate);
+          startDate.setDate(endDate.getDate() - 6);
+          startDate.setHours(0, 0, 0, 0);
       }
     }
-
-    console.log(`Fetching data for period: ${period}, from ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
     // Get all children of the parent
     let children;
@@ -79,9 +70,7 @@ export async function GET(request: NextRequest) {
           lastActivityDate: true,
         },
       });
-      console.log("Found children:", children.length);
     } catch (error) {
-      console.error("Error fetching children:", error);
       return NextResponse.json(
         { error: "Failed to fetch children data" },
         { status: 500 }
@@ -89,7 +78,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (children.length === 0) {
-      console.log("No children found, returning empty data");
       return NextResponse.json({ children: [], overallStats: {} });
     }
 
@@ -123,9 +111,7 @@ export async function GET(request: NextRequest) {
           subject: { select: { name: true } },
         },
       });
-      console.log("Found recent day sessions:", recentDaySessions.length);
     } catch (error) {
-      console.error("Error fetching recent day sessions:", error);
       return NextResponse.json(
         { error: "Failed to fetch recent day sessions" },
         { status: 500 }
@@ -149,9 +135,7 @@ export async function GET(request: NextRequest) {
           subject: { select: { name: true } },
         },
       });
-      console.log("Found range sessions:", rangeSessions.length);
     } catch (error) {
-      console.error("Error fetching range sessions:", error);
       return NextResponse.json(
         { error: "Failed to fetch range sessions" },
         { status: 500 }
@@ -162,8 +146,6 @@ export async function GET(request: NextRequest) {
     let childrenStats;
     try {
       childrenStats = children.map((child) => {
-        console.log("Processing child:", child.name);
-        
         const childRecentDaySessions = recentDaySessions.filter(
           (s) => s.studentId === child.id
         );
@@ -284,19 +266,26 @@ export async function GET(request: NextRequest) {
         const dailyStats = [];
         const dailySubjectStats = [];
         
-        // Generate array of dates from start to end
+        // Generate array of dates from start to end (inclusive)
         const dates = [];
         let currentDate = new Date(startDate);
+        const endOfEndDate = new Date(endDate);
+        endOfEndDate.setHours(23, 59, 59, 999);
         
-        while (currentDate <= endDate) {
-          dates.push(new Date(currentDate));
+        while (currentDate <= endOfEndDate) {
+          // Store UTC date for database lookup
+          const utcDate = new Date(currentDate);
+          
+          // Convert to UTC+8 for display
+          const displayDate = new Date(currentDate.getTime() + (8 * 60 * 60 * 1000));
+          
+          dates.push(utcDate);
           currentDate.setDate(currentDate.getDate() + 1);
         }
-
-        console.log('Processing dates:', dates.map(d => d.toISOString().split('T')[0]));
         
         // Process each date
         for (const date of dates) {
+          // Create UTC start and end of day for database lookup
           const startOfDay = new Date(
             date.getFullYear(),
             date.getMonth(),
@@ -304,13 +293,9 @@ export async function GET(request: NextRequest) {
           );
           const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-          console.log(`Processing ${startOfDay.toISOString().split('T')[0]}`);
-
           const daySessions = childRangeSessions.filter(
             (s) => s.startTime >= startOfDay && s.startTime < endOfDay
           );
-
-          console.log(`Found ${daySessions.length} sessions for ${startOfDay.toISOString().split('T')[0]}`);
 
           const dayQuestions = daySessions.reduce(
             (total, session) => total + (session.totalQuestions || 0),
@@ -382,8 +367,7 @@ export async function GET(request: NextRequest) {
             };
           });
 
-          console.log(`Subject accuracy for ${startOfDay.toISOString().split('T')[0]}:`, subjectAccuracy);
-
+          // Store date in UTC format for consistent data lookup
           dailyStats.push({
             date: startOfDay.toISOString().split("T")[0],
             questions: dayQuestions,
@@ -403,14 +387,10 @@ export async function GET(request: NextRequest) {
           });
         }
 
-        console.log(`Generated ${dailySubjectStats.length} daily entries for child ${child.name}`);
-        console.log("Daily subject stats:", dailySubjectStats);
-
         let calculatedLevel;
         try {
           calculatedLevel = calculateLevel(child.xpPoints);
         } catch (error) {
-          console.error("Error calculating level for child:", child.id, error);
           calculatedLevel = 1; // Default fallback
         }
 
@@ -464,9 +444,7 @@ export async function GET(request: NextRequest) {
           dailySubjectStats,
         };
       });
-      console.log("Successfully processed children statistics");
     } catch (error) {
-      console.error("Error processing children statistics:", error);
       return NextResponse.json(
         { error: "Failed to process children statistics" },
         { status: 500 }
@@ -505,13 +483,11 @@ export async function GET(request: NextRequest) {
       endDate: endDate.toISOString(),
     };
 
-    console.log("Returning successful response");
     return NextResponse.json({
       children: childrenStats,
       overallStats,
     });
   } catch (error) {
-    console.error("Unexpected error in parent statistics API:", error);
     return NextResponse.json(
       { error: "Internal server error", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
