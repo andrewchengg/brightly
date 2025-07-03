@@ -12,17 +12,44 @@ export const useDateRange = () => {
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     // Initialize with current week
     const today = new Date();
+    console.log('useDateRange - Local today:', today);
+    
+    // Set end date to end of current day in local time, then convert to UTC for API
     const endDate = new Date(today);
-    // Set to end of day to ensure we capture all sessions
     endDate.setHours(23, 59, 59, 999);
+    console.log('useDateRange - Local endDate:', endDate);
+    
+    // Create start date 6 days ago (for 7 day total including today)
     const startDate = new Date(endDate);
     startDate.setDate(endDate.getDate() - 6);
-    // Set to start of day
     startDate.setHours(0, 0, 0, 0);
+    console.log('useDateRange - Local startDate:', startDate);
+
+    // Convert dates to UTC for API queries
+    const utcEndDate = new Date(Date.UTC(
+      endDate.getFullYear(),
+      endDate.getMonth(),
+      endDate.getDate(),
+      23, 59, 59, 999
+    ));
+    
+    const utcStartDate = new Date(Date.UTC(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+      0, 0, 0, 0
+    ));
+
+    console.log('useDateRange - UTC conversion:', {
+      localStart: startDate.toLocaleString(),
+      utcStart: utcStartDate.toISOString(),
+      localEnd: endDate.toLocaleString(),
+      utcEnd: utcEndDate.toISOString(),
+    });
 
     return {
-      startDate,
-      endDate,
+      startDate: utcStartDate,
+      endDate: utcEndDate,
       period: "7d" as TimePeriod,
     };
   });

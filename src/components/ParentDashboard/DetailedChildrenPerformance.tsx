@@ -163,7 +163,8 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
     return (
       child.dailyStats?.map((day) => ({
         day: new Date(day.date).toLocaleDateString("en-US", {
-          weekday: "short",
+          month: "short",
+          day: "numeric"
         }),
         accuracy: day.accuracy,
         questions: day.questions,

@@ -150,15 +150,29 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
   };
 
   const prepareWeeklyData = (child: ChildStats) => {
+    console.log('ChildrenOverviewWithCharts - Raw dailyStats:', child.dailyStats);
     return (
-      child.dailyStats?.map((day) => ({
-        day: new Date(day.date).toLocaleDateString("en-US", {
-          weekday: "short",
-        }),
-        questions: day.questions,
-        timeMinutes: Math.round(day.timeSpent / 60),
-        sessions: day.questions > 0 ? 1 : 0, // Simple session indicator
-      })) || []
+      child.dailyStats?.map((day) => {
+        // Convert UTC date from API to local time for display
+        const utcDate = new Date(day.date);
+        const localDate = new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
+        
+        console.log('ChildrenOverviewWithCharts - Date conversion:', {
+          utc: utcDate.toISOString(),
+          local: localDate.toLocaleString(),
+          offset: utcDate.getTimezoneOffset() / 60
+        });
+
+        return {
+          day: localDate.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric"
+          }),
+          questions: day.questions,
+          timeMinutes: Math.round(day.timeSpent / 60),
+          sessions: day.questions > 0 ? 1 : 0,
+        };
+      }) || []
     );
   };
 
@@ -176,15 +190,27 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
   const buildAccuracyTrendData = (child: ChildStats) => {
     if (!child.dailySubjectStats) return [];
 
-    // Use all the data provided by the API (which already filters by dateRange)
+    console.log('ChildrenOverviewWithCharts - Raw dailySubjectStats:', child.dailySubjectStats);
+    console.log('ChildrenOverviewWithCharts - Current dateRange:', dateRange);
+
     const recentStats = child.dailySubjectStats;
     const { period } = dateRange || { period: "7d" } as { period: "7d" | "30d" | "3m" };
 
     const chartData = recentStats.map((d) => {
-      const dateObj = new Date(d.date);
-      const dayLabel = period === "7d"
-        ? dateObj.toLocaleDateString("en-US", { weekday: "short" })
-        : dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      // Convert UTC date from API to local time for display
+      const utcDate = new Date(d.date);
+      const localDate = new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
+      
+      console.log('ChildrenOverviewWithCharts - Subject stats date conversion:', {
+        utc: utcDate.toISOString(),
+        local: localDate.toLocaleString(),
+        offset: utcDate.getTimezoneOffset() / 60
+      });
+
+      const dayLabel = localDate.toLocaleDateString("en-US", { 
+        month: "short", 
+        day: "numeric" 
+      });
 
       // Get subject data or default to 0
       const chineseAccuracy = d.subjects["Chinese"]?.accuracy ?? 0;
@@ -194,15 +220,11 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
         day: dayLabel,
         Chinese: chineseAccuracy,
         Math: mathAccuracy,
-        date: d.date, // Keep original date for debugging
+        date: d.date,
       };
     });
 
-    // Debug: Log the processed data
-    if (child.name) {
-      console.log(`Chart data for ${child.name}:`, chartData);
-    }
-
+    console.log('ChildrenOverviewWithCharts - Final chart data:', chartData);
     return chartData;
   };
 
