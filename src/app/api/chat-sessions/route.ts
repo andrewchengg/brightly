@@ -38,7 +38,21 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(chatSessions);
+    // Transform the data to include message count and last message
+    const transformedSessions = chatSessions.map((session) => ({
+      id: session.id,
+      title: session.title,
+      isActive: session.isActive,
+      createdAt: session.createdAt,
+      lastActivity: session.lastActivity,
+      messageCount: session.messages.length,
+      lastMessage:
+        session.messages.length > 0
+          ? session.messages[session.messages.length - 1]
+          : null,
+    }));
+
+    return NextResponse.json({ sessions: transformedSessions });
   } catch (error: any) {
     console.error("API: Error fetching chat sessions:", error);
     return NextResponse.json(
@@ -68,20 +82,34 @@ export async function POST() {
     }
 
     const studentId = user.id;
+    const now = new Date();
 
     const newSession = await prisma.chatSession.create({
       data: {
+        id: crypto.randomUUID(),
         studentId,
         title: "New Chat",
         isActive: true,
-        lastActivity: new Date(),
+        lastActivity: now,
+        updatedAt: now,
       },
       include: {
         messages: true,
       },
     });
 
-    return NextResponse.json(newSession, { status: 201 });
+    // Transform to match the expected format
+    const transformedSession = {
+      id: newSession.id,
+      title: newSession.title,
+      isActive: newSession.isActive,
+      createdAt: newSession.createdAt,
+      lastActivity: newSession.lastActivity,
+      messageCount: 0,
+      lastMessage: null,
+    };
+
+    return NextResponse.json(transformedSession, { status: 201 });
   } catch (error: any) {
     console.error("API: Error creating chat session:", error);
     return NextResponse.json(

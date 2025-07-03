@@ -124,10 +124,15 @@ export async function POST(req: NextRequest) {
       })) as OpenAI.Chat.Completions.ChatCompletionMessageParam[];
     } else {
       // Create new session
+      const now = new Date();
       currentSession = await prisma.chatSession.create({
         data: {
+          id: crypto.randomUUID(),
           studentId: user.id,
           title: message ? message.substring(0, 50) + "..." : "Image Question",
+          isActive: true,
+          lastActivity: now,
+          updatedAt: now,
         },
       });
     }
@@ -298,16 +303,19 @@ IMPORTANT: If asked anything inappropriate or off-topic, respond with: "I'm here
 
     // Save messages to database
     const messagesToSave = [];
+    const now = new Date();
 
     // Save user message
     messagesToSave.push(
       prisma.chatMessage.create({
         data: {
+          id: crypto.randomUUID(),
           sessionId: currentSession.id,
           role: "USER",
           content: message || "Image question",
           imageUrl: imageBase64 || null,
           hasImage: !!imageFile,
+          updatedAt: now,
         },
       })
     );
@@ -316,18 +324,23 @@ IMPORTANT: If asked anything inappropriate or off-topic, respond with: "I'm here
     messagesToSave.push(
       prisma.chatMessage.create({
         data: {
+          id: crypto.randomUUID(),
           sessionId: currentSession.id,
           role: "ASSISTANT",
           content: moderatedResponse,
+          updatedAt: now,
         },
       })
     );
 
-    // Update session last activity
+    // Update session last activity and updatedAt
     messagesToSave.push(
       prisma.chatSession.update({
         where: { id: currentSession.id },
-        data: { lastActivity: new Date() },
+        data: {
+          lastActivity: now,
+          updatedAt: now,
+        },
       })
     );
 
