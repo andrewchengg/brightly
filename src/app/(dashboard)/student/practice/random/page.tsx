@@ -483,7 +483,9 @@ export default function RandomPractice() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentId: userId,
-          title: `Random Practice${currentSubjectId ? ` - Subject ${currentSubjectId}` : ""}`,
+          title: `Random Practice${
+            currentSubjectId ? ` - Subject ${currentSubjectId}` : ""
+          }`,
           type: PracticeSessionType.PRACTICE,
           status: PracticeSessionStatus.IN_PROGRESS,
           totalQuestions: fetchedQuestions.length,
@@ -850,7 +852,9 @@ export default function RandomPractice() {
       }));
       setIsAnswerCorrect(isCorr);
 
-      const points = isCorr ? (currentQuestion.marks || currentQuestion.pointsAwarded || 1) : 0; // Use marks field first
+      const points = isCorr
+        ? currentQuestion.marks || currentQuestion.pointsAwarded || 1
+        : 0; // Use marks field first
 
       // Update questionResults - ensure it's a new object for reactivity
       setQuestionResults((prevResults) => {
@@ -1838,7 +1842,7 @@ export default function RandomPractice() {
         onClose={() => setShowWhiteboard(false)}
         onSave={(imageDataURL) => {
           // Optional: Save whiteboard content to session or local storage
-          console.log('Whiteboard saved:', imageDataURL);
+          console.log("Whiteboard saved:", imageDataURL);
           setShowWhiteboard(false);
         }}
       />

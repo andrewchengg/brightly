@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         select: {
           id: true,
           status: true,
-          score: true,
+          totalMarksEarned: true,
           totalQuestions: true,
           startTime: true,
           endTime: true,

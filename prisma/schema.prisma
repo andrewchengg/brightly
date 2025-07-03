@@ -280,35 +280,23 @@ model PracticeSession {
   durationSeconds         Int?
   totalQuestions          Int?
   correctAnswers          Int?
-  totalMarksEarned        Int?
-  totalPossibleMarks      Int?
   xpEarned                Int                   @default(0)
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
   examDurationMinutes     Int?
-  type                    PracticeSessionType   @default(RANDOM)
+  type                    PracticeSessionType   @default(PRACTICE)
   basedOnQuestionGroupId  Int?
   challengeWeekIdentifier DateTime?
-
-  // Relations
-  student              Student         @relation(fields: [studentId], references: [id])
-  subject              Subject?        @relation("SubjectPracticeSessions", fields: [subjectId], references: [id])
-  topic                Topic?          @relation("TopicPracticeSessions", fields: [topicId], references: [id])
-  assignedByParent     Parent?         @relation("AssignedSessionsByParent", fields: [assignedByParentId], references: [id])
-  assignedByTeacher    Teacher?        @relation("AssignedSessionsByTeacher", fields: [assignedByTeacherId], references: [id])
-  basedOnQuestionGroup QuestionGroup?  @relation("BasedOnQuestionGroup", fields: [basedOnQuestionGroupId], references: [id])
-  studentAnswers       StudentAnswer[]
-  chatSessions         ChatSession[]
-  quests               Quest[]
-  Result               Result?
-
-  @@index([studentId])
-  @@index([subjectId])
-  @@index([topicId])
-  @@index([assignedByParentId])
-  @@index([assignedByTeacherId])
-  @@index([basedOnQuestionGroupId])
-  @@index([challengeWeekIdentifier])
+  totalMarksEarned        Int?
+  totalPossibleMarks      Int?
+  assignedByParent        Parent?               @relation("AssignedSessionsByParent", fields: [assignedByParentId], references: [id])
+  assignedByTeacher       Teacher?              @relation("AssignedSessionsByTeacher", fields: [assignedByTeacherId], references: [id])
+  basedOnQuestionGroup    QuestionGroup?        @relation("BasedOnQuestionGroup", fields: [basedOnQuestionGroupId], references: [id])
+  student                 Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject                 Subject?              @relation("SubjectPracticeSessions", fields: [subjectId], references: [id])
+  topic                   Topic?                @relation("TopicPracticeSessions", fields: [topicId], references: [id])
+  Result                  Result?
+  studentAnswers          StudentAnswer[]
 }
 
 model StudentAnswer {
@@ -332,16 +320,15 @@ model StudentAnswer {
 }
 
 model Result {
-  id                 Int             @id @default(autoincrement())
-  totalMarksEarned   Int
-  totalPossibleMarks Int
-  studentId          String
-  practiceSessionId  String          @unique
-  submittedAt        DateTime        @default(now())
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  practiceSession    PracticeSession @relation(fields: [practiceSessionId], references: [id], onDelete: Cascade)
-  student            Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id                Int             @id @default(autoincrement())
+  score             Int
+  studentId         String
+  practiceSessionId String          @unique
+  submittedAt       DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  practiceSession   PracticeSession @relation(fields: [practiceSessionId], references: [id], onDelete: Cascade)
+  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model Attendance {
@@ -486,23 +473,21 @@ model OralPracticeAttempt {
 }
 
 model ChatSession {
-  id                String           @id @default(uuid())
-  studentId         String
-  title             String?
-  isActive          Boolean          @default(true)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  lastActivity      DateTime         @default(now())
-  messages          ChatMessage[]
-  student           Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  PracticeSession   PracticeSession? @relation(fields: [practiceSessionId], references: [id])
-  practiceSessionId String?
+  id           String        @id
+  studentId    String
+  title        String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime
+  lastActivity DateTime      @default(now())
+  messages     ChatMessage[]
+  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId, lastActivity])
 }
 
 model ChatMessage {
-  id        String      @id @default(uuid())
+  id        String      @id
   sessionId String
   role      MessageRole
   content   String
@@ -510,32 +495,30 @@ model ChatMessage {
   hasImage  Boolean     @default(false)
   timestamp DateTime    @default(now())
   createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  updatedAt DateTime
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, timestamp])
 }
 
 model Quest {
-  id                String              @id @default(uuid())
-  questType         String              @unique
-  title             String
-  description       String
-  baseTarget        Int
-  targetFormula     String?
-  icon              String
-  color             String
-  category          WeeklyQuestCategory
-  isActive          Boolean             @default(true)
-  minLevel          Int                 @default(1)
-  maxLevel          Int?
-  rarity            QuestRarity         @default(COMMON)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  xpReward          Int                 @default(25)
-  studentQuests     StudentQuest[]
-  PracticeSession   PracticeSession?    @relation(fields: [practiceSessionId], references: [id])
-  practiceSessionId String?
+  id            String              @id @default(uuid())
+  questType     String              @unique
+  title         String
+  description   String
+  baseTarget    Int
+  targetFormula String?
+  icon          String
+  color         String
+  category      WeeklyQuestCategory
+  isActive      Boolean             @default(true)
+  minLevel      Int                 @default(1)
+  maxLevel      Int?
+  rarity        QuestRarity         @default(COMMON)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  xpReward      Int                 @default(25)
+  studentQuests StudentQuest[]
 }
 
 model StudentQuest {
@@ -574,17 +557,6 @@ model QuestionReport {
   @@index([questionId])
   @@index([studentId])
   @@index([status])
-}
-
-enum MessageRole {
-  USER
-  ASSISTANT
-}
-
-enum OralPromptType {
-  PASSAGE_READING
-  PICTURE_CONVERSATION
-  VIDEO_CONVERSATION
 }
 
 enum UserSex {
@@ -633,7 +605,6 @@ enum PracticeSessionType {
   QUESTION_GROUP_PRACTICE
   WEEKLY_CHALLENGE
   LISTENING_COMPREHENSION
-  RANDOM
 }
 
 enum ProcessingStatus {
@@ -674,4 +645,15 @@ enum ReportStatus {
   UNDER_REVIEW
   RESOLVED
   REJECTED
+}
+
+enum OralPromptType {
+  PASSAGE_READING
+  PICTURE_CONVERSATION
+  VIDEO_CONVERSATION
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
 }
