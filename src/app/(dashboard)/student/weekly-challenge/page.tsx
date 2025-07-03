@@ -1149,18 +1149,15 @@ export default function WeeklyChallengePage() {
 
   if (viewState === "summary") {
     const summaryData = sessionDetailsForSummary || {};
-    const finalScore = summaryData.score ?? score;
+    const finalMarks = summaryData.totalMarksEarned ?? score;
     const finalTotalQuestions = summaryData.totalQuestions ?? questions.length;
-    const finalCorrectAnswers =
-      summaryData.correctAnswers ??
-      questionResults.filter((r) => r.correct).length;
-    const finalXpEarned = summaryData.xpEarned ?? score; // Use score as XP for this attempt
+    const finalCorrectAnswers = summaryData.correctAnswers ?? questionResults.filter((r) => r.correct).length;
 
     const totalPossibleScore =
       finalTotalQuestions * CHALLENGE_POINTS_PER_QUESTION;
     const percentageCorrect =
       totalPossibleScore > 0
-        ? Math.round((finalScore / totalPossibleScore) * 100)
+        ? Math.round((finalMarks / totalPossibleScore) * 100)
         : 0;
 
     // Use `questionResults` if it's populated (meaning this summary is for the session just finished)
@@ -1225,7 +1222,7 @@ export default function WeeklyChallengePage() {
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-indigo-600">
-                    {finalScore} / {totalPossibleScore}
+                    {finalMarks} / {totalPossibleScore}
                   </p>
                 </div>
 
@@ -1249,7 +1246,7 @@ export default function WeeklyChallengePage() {
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-amber-600">
-                    +{finalXpEarned}
+                    +{finalMarks}
                   </p>
                 </div>
               </div>
@@ -1359,7 +1356,7 @@ export default function WeeklyChallengePage() {
                 <p className="text-gray-600 mt-2">
                   You achieved a score of{" "}
                   <span className="font-bold text-indigo-600">
-                    {finalScore}
+                    {finalMarks}
                   </span>{" "}
                   points.
                 </p>

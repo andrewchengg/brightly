@@ -89,6 +89,37 @@ interface LocalStorageClozePracticeProgress {
   subjectId?: number | null;
 }
 
+interface StudentAnswerData {
+  questionId: number;
+  submittedAnswer: string | Record<string, string>;
+  isCorrect: boolean;
+  pointsEarned: number;
+}
+
+interface SessionData {
+  id: string;
+  studentId: string;
+  status: PracticeSessionStatus;
+  subjectId: number | null;
+  topicId: number | null;
+  totalMarksEarned: number | null;
+  totalPossibleMarks: number | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+  xpEarned: number | null;
+  studentAnswers: StudentAnswerData[];
+}
+
+interface ProgressState {
+  currentQuestion: number;
+  totalQuestions: number;
+  score: number;
+  correctAnswers: number;
+  totalMarksEarned: number;
+  totalPossibleMarks: number;
+  xpEarned: number;
+}
+
 export default function ClozePassagePracticePage() {
   const router = useRouter();
   const params = useParams();
@@ -132,6 +163,17 @@ export default function ClozePassagePracticePage() {
   const localStorageKey = userId
     ? `clozeInlinePracticeProgress_${userId}_${numericQuestionGroupId}`
     : null;
+
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [progress, setProgress] = useState<ProgressState>({
+    currentQuestion: 0,
+    totalQuestions: 0,
+    score: 0,
+    correctAnswers: 0,
+    totalMarksEarned: 0,
+    totalPossibleMarks: 0,
+    xpEarned: 0,
+  });
 
   // Function to pass text to the AI assistant
   const addTextToAI = (text: string) => {

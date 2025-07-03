@@ -69,6 +69,37 @@ interface DialogueBlank {
   userAnswer: number | null;
 }
 
+interface StudentAnswerData {
+  questionId: number;
+  submittedAnswer: string | Record<string, string>;
+  isCorrect: boolean;
+  pointsEarned: number;
+}
+
+interface SessionData {
+  id: string;
+  studentId: string;
+  status: PracticeSessionStatus;
+  subjectId: number | null;
+  topicId: number | null;
+  totalMarksEarned: number | null;
+  totalPossibleMarks: number | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+  xpEarned: number | null;
+  studentAnswers: StudentAnswerData[];
+}
+
+interface ProgressState {
+  currentQuestion: number;
+  totalQuestions: number;
+  score: number;
+  correctAnswers: number;
+  totalMarksEarned: number;
+  totalPossibleMarks: number;
+  xpEarned: number;
+}
+
 interface LocalStorageDialoguePracticeProgress {
   questionGroupId: number;
   passageTitle: string;
@@ -134,6 +165,18 @@ export default function DialoguePassagePracticePage() {
   const localStorageKey = userId
     ? `dialoguePracticeProgress_${userId}_${numericQuestionGroupId}`
     : null;
+
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answeredQuestions, setAnsweredQuestions] = useState<Record<number, string | Record<string, string>>>({});
+  const [progress, setProgress] = useState<ProgressState>({
+    currentQuestion: 0,
+    totalQuestions: 0,
+    score: 0,
+    correctAnswers: 0,
+    totalMarksEarned: 0,
+    totalPossibleMarks: 0,
+    xpEarned: 0,
+  });
 
   // Function to parse dialogue data from QuestionGroup description
   const parseDialogueData = useCallback((description: string) => {
