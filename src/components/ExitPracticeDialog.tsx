@@ -19,6 +19,9 @@ interface ExitPracticeDialogProps {
     totalQuestions: number;
     score: number;
     correctAnswers: number;
+    totalMarksEarned: number;
+    totalPossibleMarks: number;
+    xpEarned: number;
   };
   showSaveOption?: boolean;
 }
@@ -77,7 +80,7 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
               <div className="flex justify-between">
                 <span className="text-gray-600">Score:</span>
                 <span className="font-medium text-amber-600">
-                  {currentProgress.score} XP
+                  {currentProgress.totalMarksEarned} / {currentProgress.totalPossibleMarks} marks
                 </span>
               </div>
               <div className="flex justify-between">
@@ -97,6 +100,15 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
                   %
                 </span>
               </div>
+            </div>
+            <div className="text-center mb-4">
+              <p className="text-gray-600">Current Progress:</p>
+              <p className="text-lg font-semibold">
+                {currentProgress.totalMarksEarned} / {currentProgress.totalPossibleMarks} marks
+              </p>
+              <p className="text-sm text-gray-500">
+                {currentProgress.xpEarned} XP earned
+              </p>
             </div>
           </div>
         )}
