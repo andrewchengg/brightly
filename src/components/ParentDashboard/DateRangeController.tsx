@@ -35,8 +35,11 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
     
     switch (period) {
       case "7d":
+        // For 7d period, display the actual 7-day range by showing the day before endDate
+        const displayEndDate = new Date(endDate);
+        displayEndDate.setDate(displayEndDate.getDate() - 1);
         return {
-          main: `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+          main: `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${displayEndDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
           subtitle: "7-day period"
         };
       case "30d":
@@ -67,26 +70,18 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
     let newStartDate: Date;
     let newEndDate: Date;
 
-    console.log('DateRangeController - Navigation:', {
-      direction,
-      currentStartDate: startDate.toISOString(),
-      period
-    });
-
     const multiplier = direction === "next" ? 1 : -1;
 
     switch (period) {
       case "7d":
+        // Set end date to end of today at 23:59:59.999
         newEndDate = new Date();
         newEndDate.setHours(23, 59, 59, 999);
+        
+        // Set start date to 6 days before end date at 00:00:00.000 (for 7 days total including today)
         newStartDate = new Date(newEndDate);
-        const sixDaysMs = 6 * 24 * 60 * 60 * 1000;
-        newStartDate.setTime(newStartDate.getTime() - sixDaysMs);
+        newStartDate.setDate(newEndDate.getDate() - 6);
         newStartDate.setHours(0, 0, 0, 0);
-        console.log('DateRangeController - New 7d range:', {
-          newStartDate: newStartDate.toISOString(),
-          newEndDate: newEndDate.toISOString()
-        });
         break;
       case "30d":
         newStartDate = new Date(startDate);
@@ -117,26 +112,19 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
 
   const changePeriod = (newPeriod: TimePeriod) => {
     const today = new Date();
-    console.log('DateRangeController - Period change:', {
-      newPeriod,
-      today: today.toISOString()
-    });
-
     let startDate: Date;
     let endDate: Date;
 
     switch (newPeriod) {
       case "7d":
+        // Set end date to end of today at 23:59:59.999
         endDate = new Date(today);
         endDate.setHours(23, 59, 59, 999);
+        
+        // Set start date to 6 days before end date at 00:00:00.000 (for 7 days total including today)
         startDate = new Date(endDate);
-        const sixDaysInMs = 6 * 24 * 60 * 60 * 1000;
-        startDate.setTime(startDate.getTime() - sixDaysInMs);
+        startDate.setDate(endDate.getDate() - 6);
         startDate.setHours(0, 0, 0, 0);
-        console.log('DateRangeController - New 7d period:', {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString()
-        });
         break;
       case "30d":
         startDate = new Date(today.getFullYear(), today.getMonth(), 1);

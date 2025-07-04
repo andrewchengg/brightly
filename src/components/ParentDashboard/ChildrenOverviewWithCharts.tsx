@@ -150,30 +150,45 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
   };
 
   const prepareWeeklyData = (child: ChildStats) => {
-    console.log('ChildrenOverviewWithCharts - Raw dailyStats:', child.dailyStats);
-    return (
-      child.dailyStats?.map((day) => {
-        // Convert UTC date from API to local time for display
-        const utcDate = new Date(day.date);
-        const localDate = new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
-        
-        console.log('ChildrenOverviewWithCharts - Date conversion:', {
-          utc: utcDate.toISOString(),
-          local: localDate.toLocaleString(),
-          offset: utcDate.getTimezoneOffset() / 60
-        });
+    // Create a map of all expected dates
+    const dateMap = new Map();
+    if (!dateRange) return [];
 
-        return {
-          day: localDate.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric"
-          }),
-          questions: day.questions,
-          timeMinutes: Math.round(day.timeSpent / 60),
-          sessions: day.questions > 0 ? 1 : 0,
-        };
-      }) || []
-    );
+    // Convert start and end dates to UTC+8 for consistent display
+    const startDate = new Date(dateRange.startDate);
+    const endDate = new Date(dateRange.endDate);
+    
+    let currentDate = new Date(startDate);
+    
+    // Include both start and end dates in the range
+    while (currentDate <= endDate) {
+      // Format date key in UTC
+      const dateKey = currentDate.toISOString().split('T')[0];
+      
+      // Convert to UTC+8 for display
+      const displayDate = new Date(currentDate.getTime() + (8 * 60 * 60 * 1000));
+      
+      dateMap.set(dateKey, {
+        day: displayDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        questions: 0,
+        timeMinutes: 0,
+        sessions: 0
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Process daily stats
+    child.dailyStats?.forEach((day) => {
+      const dateKey = new Date(day.date).toISOString().split('T')[0];
+      if (dateMap.has(dateKey)) {
+        const data = dateMap.get(dateKey);
+        data.questions = day.questions;
+        data.timeMinutes = Math.round(day.timeSpent / 60);
+        data.sessions = day.questions > 0 ? 1 : 0;
+      }
+    });
+
+    return Array.from(dateMap.values());
   };
 
   const prepareSubjectData = (child: ChildStats) => {
@@ -188,44 +203,93 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
 
   // Build accuracy trend from backend stats per subject
   const buildAccuracyTrendData = (child: ChildStats) => {
-    if (!child.dailySubjectStats) return [];
+    // Create a map of all expected dates
+    const dateMap = new Map();
+    if (!dateRange) {
+      return { data: [], title: "Accuracy Trend", subtitle: "" };
+    }
 
-    console.log('ChildrenOverviewWithCharts - Raw dailySubjectStats:', child.dailySubjectStats);
-    console.log('ChildrenOverviewWithCharts - Current dateRange:', dateRange);
-
-    const recentStats = child.dailySubjectStats;
-    const { period } = dateRange || { period: "7d" } as { period: "7d" | "30d" | "3m" };
-
-    const chartData = recentStats.map((d) => {
-      // Convert UTC date from API to local time for display
-      const utcDate = new Date(d.date);
-      const localDate = new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
+    // Use UTC dates for data lookup
+    const startDate = new Date(dateRange.startDate);
+    const endDate = new Date(dateRange.endDate);
+    
+    let currentDate = new Date(startDate);
+    
+    // Include both start and end dates in the range
+    while (currentDate <= endDate) {
+      // Format date key in UTC
+      const dateKey = currentDate.toISOString().split('T')[0];
       
-      console.log('ChildrenOverviewWithCharts - Subject stats date conversion:', {
-        utc: utcDate.toISOString(),
-        local: localDate.toLocaleString(),
-        offset: utcDate.getTimezoneOffset() / 60
+      // Convert to UTC+8 for display
+      const displayDate = new Date(currentDate.getTime() + (8 * 60 * 60 * 1000));
+      
+      dateMap.set(dateKey, {
+        day: displayDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        Chinese: 0,
+        Math: 0
       });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
 
-      const dayLabel = localDate.toLocaleDateString("en-US", { 
-        month: "short", 
-        day: "numeric" 
-      });
-
-      // Get subject data or default to 0
-      const chineseAccuracy = d.subjects["Chinese"]?.accuracy ?? 0;
-      const mathAccuracy = d.subjects["Mathematics"]?.accuracy ?? 0;
-
-      return {
-        day: dayLabel,
-        Chinese: chineseAccuracy,
-        Math: mathAccuracy,
-        date: d.date,
-      };
+    // Process daily subject stats
+    child.dailySubjectStats?.forEach((day) => {
+      const dateKey = new Date(day.date).toISOString().split('T')[0];
+      if (dateMap.has(dateKey)) {
+        const data = dateMap.get(dateKey);
+        Object.entries(day.subjects).forEach(([subject, stats]) => {
+          if (subject === "Mathematics") {
+            data.Math = stats.accuracy || 0;
+          } else if (subject === "Chinese") {
+            data.Chinese = stats.accuracy || 0;
+          }
+        });
+      }
     });
 
-    console.log('ChildrenOverviewWithCharts - Final chart data:', chartData);
-    return chartData;
+    // Convert dates to UTC+8 for display in subtitle
+    const displayStartDate = new Date(startDate.getTime() + (8 * 60 * 60 * 1000));
+    const displayEndDate = new Date(endDate.getTime() + (8 * 60 * 60 * 1000));
+
+    return {
+      data: Array.from(dateMap.values()),
+      title: "Accuracy Trend (7 days)",
+      subtitle: `${displayStartDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${displayEndDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+    };
+  };
+
+  // Render accuracy trend chart
+  const renderAccuracyTrendChart = (child: ChildStats) => {
+    const { data, title, subtitle } = buildAccuracyTrendData(child);
+    if (!data || data.length === 0) return null;
+
+    return (
+      <div className="space-y-3 pt-4">
+        <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+          <FaChartLine className="text-indigo-600" />
+          {title}
+        </h4>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={12} />
+              <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} fontSize={12} />
+              <Tooltip
+                formatter={(value: any) => `${value}%`}
+                contentStyle={{
+                  background: "white",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                }}
+              />
+              <Legend verticalAlign="top" height={24} wrapperStyle={{ fontSize: 12 }} />
+              <Line type="monotone" dataKey="Chinese" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="Math" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -453,47 +517,7 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
               </div>
 
               {/* Accuracy Trend Line Chart */}
-              <div className="space-y-3 pt-4">
-                <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <FaChartLine className="text-indigo-600" />
-                  Accuracy Trend ({buildAccuracyTrendData(child).length} days) ({(() => {
-                    if (!dateRange) return "";
-                    const { startDate, endDate, period } = dateRange;
-                    switch (period) {
-                      case "7d":
-                        return `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-                      case "30d":
-                        return startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-                      case "3m":
-                        const quarters = ["Q1", "Q2", "Q3", "Q4"];
-                        const qIndex = Math.floor(startDate.getMonth() / 3);
-                        return `${quarters[qIndex]} ${startDate.getFullYear()}`;
-                      default:
-                        return "";
-                    }
-                  })()})
-                </h4>
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={buildAccuracyTrendData(child)} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                      <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={12} />
-                      <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} fontSize={12} />
-                      <Tooltip
-                        formatter={(value: any) => `${value}%`}
-                        contentStyle={{
-                          background: "white",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: "8px",
-                          fontSize: "12px",
-                        }}
-                      />
-                      <Legend verticalAlign="top" height={24} wrapperStyle={{ fontSize: 12 }} />
-                      <Line type="monotone" dataKey="Chinese" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="Math" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 3 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+              {renderAccuracyTrendChart(child)}
 
               {/* Action Buttons removed as requested */}
             </CardContent>
