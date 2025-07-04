@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { PrismaClient, PracticeSessionStatus } from "@/generated/prisma";
+import { cookies } from "next/headers";
+
+export const dynamic = "force-dynamic";
 
 const prisma = new PrismaClient();
 

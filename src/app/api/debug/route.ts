@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   // Use server-only variables for better security, with fallback to public ones
   const supabaseUrl =

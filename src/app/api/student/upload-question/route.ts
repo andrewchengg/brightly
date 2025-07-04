@@ -10,6 +10,8 @@ import { saveQuestionImageIfNeeded } from "@/lib/image-storage";
 import OpenAI from "openai";
 // import pdfParse from "pdf-parse"; // Removed due to build issues with Next.js
 
+export const dynamic = "force-dynamic";
+
 const getOpenRouterClient = () => {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { performWeeklyQuestRotation } from "@/lib/weekly-quest-scheduler";
 
+export const dynamic = "force-dynamic";
+
 // This endpoint can be called by cron services (like Vercel Cron, cron-job.org, etc.)
 // to automatically rotate weekly quests every Monday
 export async function GET() {

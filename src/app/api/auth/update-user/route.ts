@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUser } from "@/lib/secure-auth";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     // SECURITY FIX: Verify admin access before allowing user updates

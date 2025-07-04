@@ -7,6 +7,8 @@ import {
 } from "@/generated/prisma";
 import { withAdminAuth } from "@/lib/api-protection";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 
 export async function PATCH(

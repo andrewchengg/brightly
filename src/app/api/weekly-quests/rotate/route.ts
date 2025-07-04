@@ -5,6 +5,8 @@ import {
   performWeeklyQuestRotation,
 } from "@/lib/weekly-quest-scheduler";
 
+export const dynamic = "force-dynamic";
+
 // GET: Check quest rotation status
 export async function GET() {
   try {

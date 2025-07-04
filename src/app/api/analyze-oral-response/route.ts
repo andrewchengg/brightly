@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
+export const dynamic = "force-dynamic";
+
 const getOpenRouterClient = () => {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {

@@ -13,6 +13,8 @@ import { getCurrentChallengeWeekStartDate } from "@/lib/dateUtils";
 import { createHash } from "crypto"; // For seeded shuffle
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 const CHALLENGE_QUESTION_COUNT = 5;
 const CHALLENGE_DURATION_MINUTES = 20;
@@ -163,7 +165,7 @@ export async function POST(request: NextRequest) {
         select: {
           id: true,
           status: true,
-          score: true,
+          totalMarksEarned: true,
           totalQuestions: true,
           startTime: true,
           endTime: true,

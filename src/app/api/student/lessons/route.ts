@@ -1,14 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import prisma from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // First, get the student's class
@@ -39,7 +43,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: {
-        startTime: 'asc',
+        startTime: "asc",
       },
     });
 
@@ -71,14 +75,21 @@ export async function GET(request: NextRequest) {
 
           // Calculate the date for this lesson
           const lessonDate = new Date(startOfWeek);
-          lessonDate.setDate(startOfWeek.getDate() + (week * 7) + (dayOfWeek - 1));
+          lessonDate.setDate(
+            startOfWeek.getDate() + week * 7 + (dayOfWeek - 1)
+          );
 
           // Create start and end times for this specific date
           const startTime = new Date(lesson.startTime);
           const endTime = new Date(lesson.endTime);
 
           const eventStart = new Date(lessonDate);
-          eventStart.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+          eventStart.setHours(
+            startTime.getHours(),
+            startTime.getMinutes(),
+            0,
+            0
+          );
 
           const eventEnd = new Date(lessonDate);
           eventEnd.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
@@ -101,10 +112,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(recurringEvents);
   } catch (error) {
-    console.error('Error fetching student lessons:', error);
+    console.error("Error fetching student lessons:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch lessons' },
+      { error: "Failed to fetch lessons" },
       { status: 500 }
     );
   }
-} 
+}
