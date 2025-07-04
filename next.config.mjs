@@ -32,6 +32,15 @@ const nextConfig = {
 
     return config;
   },
+  // Add configuration for dynamic routes
+  experimental: {
+    missingSuspenseWithCSRError: false,
+  },
+  // Configure routes that should not be statically generated
+  output: "standalone",
+  generateStaticParams: async () => {
+    return [];
+  },
 };
 
 export default nextConfig;
