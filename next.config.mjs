@@ -32,8 +32,6 @@ const nextConfig = {
 
     return config;
   },
-  // Configure output for deployment
-  output: "standalone",
 };
 
 export default nextConfig;
