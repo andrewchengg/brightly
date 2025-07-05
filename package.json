@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "node prisma/seed.js",
-    "create-admin": "node src/scripts/create-admin-account.js"
+    "create-admin": "node src/scripts/create-admin-account.js",
+    "fix-security": "node scripts/fix-auth-security.js",
+    "debug-admin": "node scripts/debug-admin-auth.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

@@ -20,8 +20,6 @@ import {
   FaRuler,
   FaTrash,
   FaUndo,
-  FaRedo,
-  FaDownload,
   FaMinus,
   FaPlus,
 } from "react-icons/fa";
@@ -86,10 +84,6 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
     const [tool, setTool] = useState<"pen" | "eraser" | "line">("pen");
     const [lines, setLines] = useState<DrawingLine[]>([]);
     const [straightLines, setStraightLines] = useState<StraightLine[]>([]);
-    const [history, setHistory] = useState<
-      { lines: DrawingLine[]; straightLines: StraightLine[] }[]
-    >([]);
-    const [historyStep, setHistoryStep] = useState(-1);
     const [isDrawing, setIsDrawing] = useState(false);
     const [penSize, setPenSize] = useState(3);
     const [eraserSize, setEraserSize] = useState(10);
@@ -100,8 +94,8 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
     const [konvaLoaded, setKonvaLoaded] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
 
-    const stageWidth = 280;
-    const stageHeight = 350;
+    const stageWidth = 400;
+    const stageHeight = 500;
 
     // Load Konva components when component mounts
     useEffect(() => {
@@ -126,12 +120,6 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
     }, []);
 
     // Whiteboard functionality
-    const saveToHistory = useCallback(() => {
-      const newHistory = history.slice(0, historyStep + 1);
-      newHistory.push({ lines: [...lines], straightLines: [...straightLines] });
-      setHistory(newHistory);
-      setHistoryStep(newHistory.length - 1);
-    }, [lines, straightLines, history, historyStep]);
 
     const handleMouseDown = useCallback(
       (e: any) => {
@@ -153,7 +141,6 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
             setStraightLines((prev) => [...prev, newLine]);
             setLineStart(null);
             setTempLine(null);
-            saveToHistory();
           }
         } else {
           const newLine: DrawingLine = {
@@ -168,7 +155,7 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
           setLines((prev) => [...prev, newLine]);
         }
       },
-      [tool, penSize, eraserSize, lineStart, mode, saveToHistory, konvaLoaded]
+      [tool, penSize, eraserSize, lineStart, mode, konvaLoaded]
     );
 
     const handleMouseMove = useCallback(
@@ -202,55 +189,29 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
     const handleMouseUp = useCallback(() => {
       if (tool !== "line") {
         setIsDrawing(false);
-        saveToHistory();
       }
-    }, [tool, saveToHistory]);
+    }, [tool]);
 
     const clearCanvas = useCallback(() => {
       setLines([]);
       setStraightLines([]);
       setLineStart(null);
       setTempLine(null);
-      saveToHistory();
-    }, [saveToHistory]);
+    }, []);
 
     const undo = useCallback(() => {
-      if (historyStep > 0) {
-        const prevStep = historyStep - 1;
-        const prevState = history[prevStep];
-        setLines(prevState.lines);
-        setStraightLines(prevState.straightLines);
-        setHistoryStep(prevStep);
+      // Remove the last drawn line (either freehand or straight)
+      if (straightLines.length > 0) {
+        // Remove the last straight line
+        setStraightLines((prev) => prev.slice(0, -1));
+      } else if (lines.length > 0) {
+        // Remove the last freehand line
+        setLines((prev) => prev.slice(0, -1));
       }
-    }, [history, historyStep]);
-
-    const redo = useCallback(() => {
-      if (historyStep < history.length - 1) {
-        const nextStep = historyStep + 1;
-        const nextState = history[nextStep];
-        setLines(nextState.lines);
-        setStraightLines(nextState.straightLines);
-        setHistoryStep(nextStep);
-      }
-    }, [history, historyStep]);
-
-    const saveCanvas = useCallback(() => {
-      if (stageRef.current && konvaLoaded) {
-        const dataURL = stageRef.current.toDataURL({
-          mimeType: "image/png",
-          quality: 1,
-          pixelRatio: 2,
-        });
-
-        const link = document.createElement("a");
-        link.download = `whiteboard-${Date.now()}.png`;
-        link.href = dataURL;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success("Whiteboard saved!");
-      }
-    }, [konvaLoaded]);
+      // Clear any temporary line or line start
+      setTempLine(null);
+      setLineStart(null);
+    }, [lines, straightLines]);
 
     // Function to split text into larger chunks for smooth display (roughly twice the size)
     const splitIntoSentences = (text: string): string[] => {
@@ -616,10 +577,6 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
                 <FaChalkboard size={12} />
               </button>
             </div>
-            <div className="text-xs text-indigo-600 flex items-center">
-              <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1 border border-indigo-100 shadow-sm"></span>
-              Online
-            </div>
           </div>
         </div>
 
@@ -856,19 +813,14 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
               <div className="flex items-center gap-1">
                 <button
                   onClick={undo}
-                  disabled={historyStep <= 0 || !konvaLoaded}
+                  disabled={
+                    (lines.length === 0 && straightLines.length === 0) ||
+                    !konvaLoaded
+                  }
                   className="p-1 rounded text-xs text-indigo-600 hover:bg-indigo-50 border border-indigo-200 disabled:opacity-50"
                   title="Undo"
                 >
                   <FaUndo size={10} />
-                </button>
-                <button
-                  onClick={redo}
-                  disabled={historyStep >= history.length - 1 || !konvaLoaded}
-                  className="p-1 rounded text-xs text-indigo-600 hover:bg-indigo-50 border border-indigo-200 disabled:opacity-50"
-                  title="Redo"
-                >
-                  <FaRedo size={10} />
                 </button>
                 <button
                   onClick={clearCanvas}
@@ -878,99 +830,101 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
                 >
                   <FaTrash size={10} />
                 </button>
-                <button
-                  onClick={saveCanvas}
-                  className="p-1 rounded text-xs text-indigo-600 hover:bg-indigo-50 border border-indigo-200"
-                  disabled={!konvaLoaded}
-                  title="Save"
-                >
-                  <FaDownload size={10} />
-                </button>
               </div>
             </div>
 
             {/* Whiteboard Canvas */}
-            <div className="flex-1 flex items-center justify-center p-2 bg-gray-50">
-              <div className="bg-white border border-gray-300 rounded shadow-sm">
+            <div className="flex-1 overflow-hidden bg-gray-50 p-2">
+              <div className="w-full h-full bg-white border border-gray-300 rounded-lg shadow-inner">
                 {loadError ? (
-                  <div
-                    className="flex items-center justify-center bg-red-50 text-red-600 p-4 text-xs"
-                    style={{ width: stageWidth, height: stageHeight }}
-                  >
+                  <div className="flex items-center justify-center h-full bg-red-50 text-red-600 p-4 text-xs">
                     <div className="text-center">
                       <p className="font-semibold">Error loading whiteboard</p>
                       <p className="text-xs mt-1">{loadError}</p>
                     </div>
                   </div>
                 ) : !konvaLoaded ? (
-                  <div
-                    className="flex items-center justify-center bg-white text-gray-500 text-xs"
-                    style={{ width: stageWidth, height: stageHeight }}
-                  >
-                    Loading whiteboard...
+                  <div className="flex items-center justify-center h-full bg-white text-gray-500 text-xs">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500 mx-auto mb-2"></div>
+                      <p>Loading whiteboard...</p>
+                    </div>
+                  </div>
+                ) : Stage && Layer && Line && Rect ? (
+                  <div className="w-full h-full">
+                    <Stage
+                      ref={stageRef}
+                      width={stageWidth}
+                      height={stageHeight}
+                      onMouseDown={handleMouseDown}
+                      onMousemove={handleMouseMove}
+                      onMouseup={handleMouseUp}
+                      onTouchStart={handleMouseDown}
+                      onTouchMove={handleMouseMove}
+                      onTouchEnd={handleMouseUp}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                      }}
+                    >
+                      <Layer>
+                        {/* Background */}
+                        <Rect
+                          x={0}
+                          y={0}
+                          width={stageWidth}
+                          height={stageHeight}
+                          fill="white"
+                        />
+
+                        {/* Freehand lines */}
+                        {lines.map((line) => (
+                          <Line
+                            key={line.id}
+                            points={line.points}
+                            stroke={line.stroke}
+                            strokeWidth={line.strokeWidth}
+                            tension={0.5}
+                            lineCap="round"
+                            lineJoin="round"
+                            globalCompositeOperation={
+                              line.globalCompositeOperation
+                            }
+                          />
+                        ))}
+
+                        {/* Straight lines */}
+                        {straightLines.map((line) => (
+                          <Line
+                            key={line.id}
+                            points={line.points}
+                            stroke={line.stroke}
+                            strokeWidth={line.strokeWidth}
+                            lineCap="round"
+                          />
+                        ))}
+
+                        {/* Temporary line preview */}
+                        {tempLine && (
+                          <Line
+                            points={tempLine.points}
+                            stroke={tempLine.stroke}
+                            strokeWidth={tempLine.strokeWidth}
+                            lineCap="round"
+                            opacity={0.7}
+                            dash={[5, 5]}
+                          />
+                        )}
+                      </Layer>
+                    </Stage>
                   </div>
                 ) : (
-                  <Stage
-                    ref={stageRef}
-                    width={stageWidth}
-                    height={stageHeight}
-                    onMouseDown={handleMouseDown}
-                    onMousemove={handleMouseMove}
-                    onMouseup={handleMouseUp}
-                    onTouchStart={handleMouseDown}
-                    onTouchMove={handleMouseMove}
-                    onTouchEnd={handleMouseUp}
-                  >
-                    <Layer>
-                      {/* Background */}
-                      <Rect
-                        x={0}
-                        y={0}
-                        width={stageWidth}
-                        height={stageHeight}
-                        fill="white"
-                      />
-
-                      {/* Freehand lines */}
-                      {lines.map((line) => (
-                        <Line
-                          key={line.id}
-                          points={line.points}
-                          stroke={line.stroke}
-                          strokeWidth={line.strokeWidth}
-                          tension={0.5}
-                          lineCap="round"
-                          lineJoin="round"
-                          globalCompositeOperation={
-                            line.globalCompositeOperation
-                          }
-                        />
-                      ))}
-
-                      {/* Straight lines */}
-                      {straightLines.map((line) => (
-                        <Line
-                          key={line.id}
-                          points={line.points}
-                          stroke={line.stroke}
-                          strokeWidth={line.strokeWidth}
-                          lineCap="round"
-                        />
-                      ))}
-
-                      {/* Temporary line preview */}
-                      {tempLine && (
-                        <Line
-                          points={tempLine.points}
-                          stroke={tempLine.stroke}
-                          strokeWidth={tempLine.strokeWidth}
-                          lineCap="round"
-                          opacity={0.7}
-                          dash={[5, 5]}
-                        />
-                      )}
-                    </Layer>
-                  </Stage>
+                  <div className="flex items-center justify-center h-full bg-white text-gray-500 text-xs">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500 mx-auto mb-2"></div>
+                      <p>Loading whiteboard...</p>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
