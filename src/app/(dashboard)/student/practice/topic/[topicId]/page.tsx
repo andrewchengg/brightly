@@ -32,7 +32,7 @@ import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoad
 import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
-import WhiteboardModal from "@/components/ui/WhiteboardModal";
+import dynamic from "next/dynamic";
 import WhiteboardButton from "@/components/ui/WhiteboardButton";
 import {
   FaLightbulb,
@@ -52,6 +52,15 @@ import {
   FaBookOpen,
   FaFlag,
 } from "react-icons/fa";
+
+// Dynamically import WhiteboardModal to prevent SSR issues
+const WhiteboardModal = dynamic(
+  () => import("@/components/ui/WhiteboardModal"),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 // Interfaces (same as RandomPractice)
 interface OptionClient {
@@ -880,7 +889,9 @@ export default function TopicalPracticePage() {
         [currentQuestion.id]: userAns,
       }));
       setIsAnswerCorrect(isCorr);
-      const points = isCorr ? (currentQuestion.marks || currentQuestion.pointsAwarded || 1) : 0;
+      const points = isCorr
+        ? currentQuestion.marks || currentQuestion.pointsAwarded || 1
+        : 0;
       setQuestionResults((prevResults) => {
         const newResult = {
           id: currentQuestion.id,
@@ -1975,7 +1986,7 @@ export default function TopicalPracticePage() {
         onClose={() => setShowWhiteboard(false)}
         onSave={(imageDataURL) => {
           // Optional: Save whiteboard content to session or local storage
-          console.log('Whiteboard saved:', imageDataURL);
+          console.log("Whiteboard saved:", imageDataURL);
           setShowWhiteboard(false);
         }}
       />

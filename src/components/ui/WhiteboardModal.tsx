@@ -1,21 +1,26 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Stage, Layer, Line, Rect } from 'react-konva';
-import Konva from 'konva';
-import { Button } from '@/components/ui/button';
-import { 
-  FaTimes, 
-  FaPen, 
-  FaEraser, 
-  FaRuler, 
-  FaTrash, 
-  FaUndo, 
-  FaRedo, 
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  FaTimes,
+  FaPen,
+  FaEraser,
+  FaRuler,
+  FaTrash,
+  FaUndo,
+  FaRedo,
   FaDownload,
   FaMinus,
-  FaPlus
-} from 'react-icons/fa';
+  FaPlus,
+} from "react-icons/fa";
+
+// Lazy load Konva components
+let Stage: any = null;
+let Layer: any = null;
+let Line: any = null;
+let Rect: any = null;
+let Konva: any = null;
 
 interface WhiteboardModalProps {
   isOpen: boolean;
@@ -25,11 +30,11 @@ interface WhiteboardModalProps {
 
 interface DrawingLine {
   id: string;
-  tool: 'pen' | 'eraser';
+  tool: "pen" | "eraser";
   points: number[];
   stroke: string;
   strokeWidth: number;
-  globalCompositeOperation?: string;
+  globalCompositeOperation?: "source-over" | "destination-out";
 }
 
 interface StraightLine {
@@ -39,25 +44,56 @@ interface StraightLine {
   strokeWidth: number;
 }
 
-const WhiteboardModal: React.FC<WhiteboardModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onSave 
+const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
 }) => {
-  const stageRef = useRef<Konva.Stage>(null);
-  const [tool, setTool] = useState<'pen' | 'eraser' | 'line'>('pen');
+  const stageRef = useRef<any>(null);
+  const [tool, setTool] = useState<"pen" | "eraser" | "line">("pen");
   const [lines, setLines] = useState<DrawingLine[]>([]);
   const [straightLines, setStraightLines] = useState<StraightLine[]>([]);
-  const [history, setHistory] = useState<{ lines: DrawingLine[], straightLines: StraightLine[] }[]>([]);
+  const [history, setHistory] = useState<
+    { lines: DrawingLine[]; straightLines: StraightLine[] }[]
+  >([]);
   const [historyStep, setHistoryStep] = useState(-1);
   const [isDrawing, setIsDrawing] = useState(false);
   const [penSize, setPenSize] = useState(3);
   const [eraserSize, setEraserSize] = useState(10);
-  const [lineStart, setLineStart] = useState<{ x: number, y: number } | null>(null);
+  const [lineStart, setLineStart] = useState<{ x: number; y: number } | null>(
+    null
+  );
   const [tempLine, setTempLine] = useState<StraightLine | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [konvaLoaded, setKonvaLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const stageWidth = 800;
   const stageHeight = 600;
+
+  // Load Konva components when on client side
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsClient(true);
+
+      // Load Konva components
+      Promise.all([import("react-konva"), import("konva")])
+        .then(([reactKonva, konvaModule]) => {
+          Stage = reactKonva.Stage;
+          Layer = reactKonva.Layer;
+          Line = reactKonva.Line;
+          Rect = reactKonva.Rect;
+          Konva = konvaModule.default;
+          setKonvaLoaded(true);
+        })
+        .catch((error) => {
+          console.error("Failed to load Konva:", error);
+          setLoadError(
+            "Failed to load drawing components. Please refresh the page."
+          );
+        });
+    }
+  }, []);
 
   // Save state to history
   const saveToHistory = useCallback(() => {
@@ -68,74 +104,90 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   }, [lines, straightLines, history, historyStep]);
 
   // Handle mouse/touch down
-  const handleMouseDown = useCallback((e: any) => {
-    if (!isOpen) return;
-    
-    const pos = e.target.getStage().getPointerPosition();
-    setIsDrawing(true);
+  const handleMouseDown = useCallback(
+    (e: any) => {
+      if (!isOpen || !isClient || !konvaLoaded) return;
 
-    if (tool === 'line') {
-      if (!lineStart) {
-        // Start drawing line
-        setLineStart({ x: pos.x, y: pos.y });
+      const pos = e.target.getStage().getPointerPosition();
+      setIsDrawing(true);
+
+      if (tool === "line") {
+        if (!lineStart) {
+          // Start drawing line
+          setLineStart({ x: pos.x, y: pos.y });
+        } else {
+          // Finish drawing line
+          const newLine: StraightLine = {
+            id: Date.now().toString(),
+            points: [lineStart.x, lineStart.y, pos.x, pos.y],
+            stroke: "#000000",
+            strokeWidth: penSize,
+          };
+          setStraightLines((prev) => [...prev, newLine]);
+          setLineStart(null);
+          setTempLine(null);
+          saveToHistory();
+        }
       } else {
-        // Finish drawing line
-        const newLine: StraightLine = {
+        // Start drawing freehand
+        const newLine: DrawingLine = {
           id: Date.now().toString(),
-          points: [lineStart.x, lineStart.y, pos.x, pos.y],
-          stroke: '#000000',
-          strokeWidth: penSize,
+          tool,
+          points: [pos.x, pos.y],
+          stroke: tool === "pen" ? "#000000" : "#FFFFFF",
+          strokeWidth: tool === "pen" ? penSize : eraserSize,
+          globalCompositeOperation:
+            tool === "eraser" ? "destination-out" : "source-over",
         };
-        setStraightLines(prev => [...prev, newLine]);
-        setLineStart(null);
-        setTempLine(null);
-        saveToHistory();
+        setLines((prev) => [...prev, newLine]);
       }
-    } else {
-      // Start drawing freehand
-      const newLine: DrawingLine = {
-        id: Date.now().toString(),
-        tool,
-        points: [pos.x, pos.y],
-        stroke: tool === 'pen' ? '#000000' : '#FFFFFF',
-        strokeWidth: tool === 'pen' ? penSize : eraserSize,
-        globalCompositeOperation: tool === 'eraser' ? 'destination-out' : 'source-over',
-      };
-      setLines(prev => [...prev, newLine]);
-    }
-  }, [tool, penSize, eraserSize, lineStart, isOpen, saveToHistory]);
+    },
+    [
+      tool,
+      penSize,
+      eraserSize,
+      lineStart,
+      isOpen,
+      saveToHistory,
+      isClient,
+      konvaLoaded,
+    ]
+  );
 
   // Handle mouse/touch move
-  const handleMouseMove = useCallback((e: any) => {
-    if (!isDrawing || !isOpen) return;
+  const handleMouseMove = useCallback(
+    (e: any) => {
+      if (!isDrawing || !isOpen || !isClient || !konvaLoaded) return;
 
-    const stage = e.target.getStage();
-    const point = stage.getPointerPosition();
+      const stage = e.target.getStage();
+      const point = stage.getPointerPosition();
 
-    if (tool === 'line' && lineStart) {
-      // Update temporary line preview
-      setTempLine({
-        id: 'temp',
-        points: [lineStart.x, lineStart.y, point.x, point.y],
-        stroke: '#000000',
-        strokeWidth: penSize,
-      });
-    } else if (tool !== 'line') {
-      // Continue freehand drawing
-      setLines(prev => {
-        const newLines = [...prev];
-        const lastLine = newLines[newLines.length - 1];
-        if (lastLine) {
-          lastLine.points = lastLine.points.concat([point.x, point.y]);
-        }
-        return newLines;
-      });
-    }
-  }, [isDrawing, tool, lineStart, penSize, isOpen]);
+      if (tool === "line" && lineStart) {
+        // Update temporary line preview
+        setTempLine({
+          id: "temp",
+          points: [lineStart.x, lineStart.y, point.x, point.y],
+          stroke: "#000000",
+          strokeWidth: penSize,
+        });
+      } else if (tool !== "line") {
+        // Continue freehand drawing
+        setLines((prev) => {
+          const newLines = [...prev];
+          const lastLine = newLines[newLines.length - 1];
+          if (lastLine) {
+            lastLine.points = lastLine.points.concat([point.x, point.y]);
+          }
+          return newLines;
+        });
+      }
+    },
+    [isDrawing, tool, lineStart, penSize, isOpen, isClient, konvaLoaded]
+  );
 
   // Handle mouse/touch up
   const handleMouseUp = useCallback(() => {
-    if (tool !== 'line') {
+    if (tool !== "line") {
       setIsDrawing(false);
       saveToHistory();
     }
@@ -174,18 +226,18 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
 
   // Save/Download canvas
   const saveCanvas = useCallback(() => {
-    if (stageRef.current) {
+    if (stageRef.current && isClient && konvaLoaded) {
       const dataURL = stageRef.current.toDataURL({
-        mimeType: 'image/png',
+        mimeType: "image/png",
         quality: 1,
         pixelRatio: 2,
       });
-      
+
       if (onSave) {
         onSave(dataURL);
       } else {
         // Download the image
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.download = `whiteboard-${Date.now()}.png`;
         link.href = dataURL;
         document.body.appendChild(link);
@@ -193,7 +245,7 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
         document.body.removeChild(link);
       }
     }
-  }, [onSave]);
+  }, [onSave, isClient, konvaLoaded]);
 
   // Reset when modal closes
   useEffect(() => {
@@ -211,17 +263,17 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   // Cancel line drawing on escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && tool === 'line' && lineStart) {
+      if (e.key === "Escape" && tool === "line" && lineStart) {
         setLineStart(null);
         setTempLine(null);
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
+    if (isOpen && isClient) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
     }
-  }, [isOpen, tool, lineStart]);
+  }, [isOpen, tool, lineStart, isClient]);
 
   if (!isOpen) return null;
 
@@ -245,85 +297,96 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
             {/* Tools */}
             <div className="flex items-center gap-1 bg-white rounded-lg p-1 border">
               <Button
-                variant={tool === 'pen' ? 'default' : 'outline'}
+                variant={tool === "pen" ? "default" : "outline"}
                 size="sm"
                 onClick={() => {
-                  setTool('pen');
+                  setTool("pen");
                   setLineStart(null);
                   setTempLine(null);
                 }}
                 className="h-8 w-8 p-0"
+                disabled={!konvaLoaded}
               >
                 <FaPen size={14} />
               </Button>
               <Button
-                variant={tool === 'eraser' ? 'default' : 'outline'}
+                variant={tool === "eraser" ? "default" : "outline"}
                 size="sm"
                 onClick={() => {
-                  setTool('eraser');
+                  setTool("eraser");
                   setLineStart(null);
                   setTempLine(null);
                 }}
                 className="h-8 w-8 p-0"
+                disabled={!konvaLoaded}
               >
                 <FaEraser size={14} />
               </Button>
               <Button
-                variant={tool === 'line' ? 'default' : 'outline'}
+                variant={tool === "line" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setTool('line')}
+                onClick={() => setTool("line")}
                 className="h-8 w-8 p-0"
+                disabled={!konvaLoaded}
               >
                 <FaRuler size={14} />
               </Button>
             </div>
 
             {/* Size Controls */}
-            <div className="flex items-center gap-2 bg-white rounded-lg p-2 border">
-              <span className="text-sm font-medium">
-                {tool === 'eraser' ? 'Eraser' : 'Pen'} Size:
+            <div className="flex items-center gap-2 ml-4">
+              <span className="text-sm text-gray-600">
+                {tool === "pen" ? "Pen" : tool === "eraser" ? "Eraser" : "Line"}{" "}
+                Size:
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (tool === 'eraser') {
-                    setEraserSize(Math.max(5, eraserSize - 5));
-                  } else {
-                    setPenSize(Math.max(1, penSize - 1));
-                  }
-                }}
-                className="h-6 w-6 p-0"
-              >
-                <FaMinus size={10} />
-              </Button>
-              <span className="min-w-[2rem] text-center text-sm">
-                {tool === 'eraser' ? eraserSize : penSize}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (tool === 'eraser') {
-                    setEraserSize(Math.min(50, eraserSize + 5));
-                  } else {
-                    setPenSize(Math.min(20, penSize + 1));
-                  }
-                }}
-                className="h-6 w-6 p-0"
-              >
-                <FaPlus size={10} />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (tool === "pen") {
+                      setPenSize(Math.max(1, penSize - 1));
+                    } else if (tool === "eraser") {
+                      setEraserSize(Math.max(5, eraserSize - 2));
+                    }
+                  }}
+                  className="h-6 w-6 p-0"
+                  disabled={!konvaLoaded}
+                >
+                  <FaMinus size={10} />
+                </Button>
+                <span className="text-sm w-8 text-center">
+                  {tool === "pen"
+                    ? penSize
+                    : tool === "eraser"
+                    ? eraserSize
+                    : penSize}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (tool === "pen") {
+                      setPenSize(Math.min(20, penSize + 1));
+                    } else if (tool === "eraser") {
+                      setEraserSize(Math.min(50, eraserSize + 2));
+                    }
+                  }}
+                  className="h-6 w-6 p-0"
+                  disabled={!konvaLoaded}
+                >
+                  <FaPlus size={10} />
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={undo}
-              disabled={historyStep <= 0}
+              disabled={historyStep <= 0 || !konvaLoaded}
               className="h-8"
             >
               <FaUndo size={14} className="mr-1" />
@@ -333,7 +396,7 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
               variant="outline"
               size="sm"
               onClick={redo}
-              disabled={historyStep >= history.length - 1}
+              disabled={historyStep >= history.length - 1 || !konvaLoaded}
               className="h-8"
             >
               <FaRedo size={14} className="mr-1" />
@@ -344,6 +407,7 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
               size="sm"
               onClick={clearCanvas}
               className="h-8"
+              disabled={!konvaLoaded}
             >
               <FaTrash size={14} className="mr-1" />
               Clear
@@ -353,6 +417,7 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
               size="sm"
               onClick={saveCanvas}
               className="h-8"
+              disabled={!konvaLoaded}
             >
               <FaDownload size={14} className="mr-1" />
               Save
@@ -363,80 +428,98 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
         {/* Canvas Area */}
         <div className="flex-1 overflow-hidden bg-gray-100 flex items-center justify-center">
           <div className="bg-white border-2 border-gray-300 rounded-lg shadow-inner">
-            <Stage
-              ref={stageRef}
-              width={stageWidth}
-              height={stageHeight}
-              onMouseDown={handleMouseDown}
-              onMousemove={handleMouseMove}
-              onMouseup={handleMouseUp}
-              onTouchStart={handleMouseDown}
-              onTouchMove={handleMouseMove}
-              onTouchEnd={handleMouseUp}
-            >
-              <Layer>
-                {/* Background */}
-                <Rect
-                  x={0}
-                  y={0}
-                  width={stageWidth}
-                  height={stageHeight}
-                  fill="white"
-                />
-                
-                {/* Freehand lines */}
-                {lines.map((line) => (
-                  <Line
-                    key={line.id}
-                    points={line.points}
-                    stroke={line.stroke}
-                    strokeWidth={line.strokeWidth}
-                    tension={0.5}
-                    lineCap="round"
-                    lineJoin="round"
-                    globalCompositeOperation={line.globalCompositeOperation}
+            {loadError ? (
+              <div
+                className="flex items-center justify-center bg-red-50 text-red-600 p-4"
+                style={{ width: stageWidth, height: stageHeight }}
+              >
+                <div className="text-center">
+                  <p className="font-semibold">Error loading whiteboard</p>
+                  <p className="text-sm mt-1">{loadError}</p>
+                </div>
+              </div>
+            ) : !isClient || !konvaLoaded ? (
+              <div
+                className="flex items-center justify-center bg-white"
+                style={{ width: stageWidth, height: stageHeight }}
+              >
+                <div className="text-gray-500">Loading whiteboard...</div>
+              </div>
+            ) : (
+              <Stage
+                ref={stageRef}
+                width={stageWidth}
+                height={stageHeight}
+                onMouseDown={handleMouseDown}
+                onMousemove={handleMouseMove}
+                onMouseup={handleMouseUp}
+                onTouchStart={handleMouseDown}
+                onTouchMove={handleMouseMove}
+                onTouchEnd={handleMouseUp}
+              >
+                <Layer>
+                  {/* Background */}
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={stageWidth}
+                    height={stageHeight}
+                    fill="white"
                   />
-                ))}
-                
-                {/* Straight lines */}
-                {straightLines.map((line) => (
-                  <Line
-                    key={line.id}
-                    points={line.points}
-                    stroke={line.stroke}
-                    strokeWidth={line.strokeWidth}
-                    lineCap="round"
-                  />
-                ))}
-                
-                {/* Temporary line preview */}
-                {tempLine && (
-                  <Line
-                    points={tempLine.points}
-                    stroke={tempLine.stroke}
-                    strokeWidth={tempLine.strokeWidth}
-                    lineCap="round"
-                    opacity={0.7}
-                    dash={[5, 5]}
-                  />
-                )}
-              </Layer>
-            </Stage>
+
+                  {/* Freehand lines */}
+                  {lines.map((line) => (
+                    <Line
+                      key={line.id}
+                      points={line.points}
+                      stroke={line.stroke}
+                      strokeWidth={line.strokeWidth}
+                      tension={0.5}
+                      lineCap="round"
+                      lineJoin="round"
+                      globalCompositeOperation={line.globalCompositeOperation}
+                    />
+                  ))}
+
+                  {/* Straight lines */}
+                  {straightLines.map((line) => (
+                    <Line
+                      key={line.id}
+                      points={line.points}
+                      stroke={line.stroke}
+                      strokeWidth={line.strokeWidth}
+                      lineCap="round"
+                    />
+                  ))}
+
+                  {/* Temporary line preview */}
+                  {tempLine && (
+                    <Line
+                      points={tempLine.points}
+                      stroke={tempLine.stroke}
+                      strokeWidth={tempLine.strokeWidth}
+                      lineCap="round"
+                      opacity={0.7}
+                      dash={[5, 5]}
+                    />
+                  )}
+                </Layer>
+              </Stage>
+            )}
           </div>
         </div>
 
         {/* Instructions */}
         <div className="p-3 bg-gray-50 border-t text-sm text-gray-600">
-          {tool === 'line' && !lineStart && (
+          {!konvaLoaded ? (
+            <span>Loading drawing tools...</span>
+          ) : tool === "line" && !lineStart ? (
             <span>Click to start drawing a straight line</span>
-          )}
-          {tool === 'line' && lineStart && (
+          ) : tool === "line" && lineStart ? (
             <span>Click to finish the line, or press Escape to cancel</span>
-          )}
-          {tool === 'pen' && (
+          ) : tool === "pen" ? (
             <span>Click and drag to draw with the pen</span>
-          )}
-          {tool === 'eraser' && (
+          ) : (
             <span>Click and drag to erase</span>
           )}
         </div>
@@ -445,4 +528,4 @@ const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   );
 };
 
-export default WhiteboardModal; 
+export default WhiteboardModal;

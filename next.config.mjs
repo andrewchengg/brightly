@@ -34,10 +34,6 @@ const nextConfig = {
   },
   // Configure output for deployment
   output: "standalone",
-  // Disable static optimization for dynamic routes
-  experimental: {
-    serverActions: true,
-  },
 };
 
 export default nextConfig;

@@ -25,7 +25,7 @@ import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoad
 import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
-import WhiteboardModal from "@/components/ui/WhiteboardModal";
+import dynamic from "next/dynamic";
 import WhiteboardButton from "@/components/ui/WhiteboardButton";
 import {
   FaLightbulb,
@@ -44,6 +44,15 @@ import {
   FaRocket,
   FaFlag,
 } from "react-icons/fa";
+
+// Dynamically import WhiteboardModal to prevent SSR issues
+const WhiteboardModal = dynamic(
+  () => import("@/components/ui/WhiteboardModal"),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 // Interfaces
 interface OptionClient {

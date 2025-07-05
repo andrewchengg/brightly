@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.49.5",
     "@types/react-big-calendar": "^1.8.9",
     "@types/recharts": "^1.8.29",
+    "canvas": "^3.1.2",
     "cc-cedict": "^1.0.2",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.6.1",

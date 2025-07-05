@@ -1,20 +1,25 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const supabase = createRouteHandlerClient({ cookies });
 
   // Get current date in UTC
   const now = new Date();
-  const utcNow = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    now.getUTCHours(),
-    now.getUTCMinutes(),
-    now.getUTCSeconds()
-  ));
+  const utcNow = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      now.getUTCHours(),
+      now.getUTCMinutes(),
+      now.getUTCSeconds()
+    )
+  );
 
   // Get start date (7 days ago)
   const startDate = new Date(utcNow);
@@ -25,16 +30,17 @@ export async function GET() {
   const endDate = new Date(utcNow);
   endDate.setUTCHours(23, 59, 59, 999);
 
-  console.log('Debug Query Date Range:', {
+  console.log("Debug Query Date Range:", {
     start: startDate.toISOString(),
     end: endDate.toISOString(),
     now: utcNow.toISOString(),
-    localNow: now.toLocaleString()
+    localNow: now.toLocaleString(),
   });
 
   const { data: sessions, error } = await supabase
-    .from('PracticeSession')
-    .select(`
+    .from("PracticeSession")
+    .select(
+      `
       id,
       startTime,
       endTime,
@@ -45,31 +51,34 @@ export async function GET() {
         id,
         name
       )
-    `)
-    .gte('startTime', startDate.toISOString())
-    .lte('startTime', endDate.toISOString())
-    .order('startTime', { ascending: true });
+    `
+    )
+    .gte("startTime", startDate.toISOString())
+    .lte("startTime", endDate.toISOString())
+    .order("startTime", { ascending: true });
 
   if (error) {
-    console.error('Error fetching practice sessions:', error);
+    console.error("Error fetching practice sessions:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   // Process and format the data for easier reading
-  const formattedSessions = sessions.map(session => ({
+  const formattedSessions = sessions.map((session) => ({
     id: session.id,
-    student: session.Student?.name,
+    student: (session.Student as any)?.name || "Unknown",
     startTime: {
       utc: session.startTime,
       local: new Date(session.startTime).toLocaleString(),
     },
     endTime: {
       utc: session.endTime,
-      local: session.endTime ? new Date(session.endTime).toLocaleString() : null,
+      local: session.endTime
+        ? new Date(session.endTime).toLocaleString()
+        : null,
     },
     totalQuestions: session.totalQuestions,
     correctAnswers: session.correctAnswers,
-    durationSeconds: session.durationSeconds
+    durationSeconds: session.durationSeconds,
   }));
 
   return NextResponse.json({
@@ -77,8 +86,8 @@ export async function GET() {
       start: startDate.toISOString(),
       end: endDate.toISOString(),
       now: utcNow.toISOString(),
-      localNow: now.toLocaleString()
+      localNow: now.toLocaleString(),
     },
-    sessions: formattedSessions
+    sessions: formattedSessions,
   });
-} 
+}
