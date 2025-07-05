@@ -10,7 +10,7 @@
     "seed": "node prisma/seed.js",
     "create-admin": "node src/scripts/create-admin-account.js",
     "fix-security": "node scripts/fix-auth-security.js",
-    "debug-admin": "node scripts/debug-admin-auth.js"
+    "cleanup-users": "node scripts/execute-cleanup.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

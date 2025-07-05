@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
 import QuestionEditorForm, {
@@ -20,6 +21,10 @@ import {
   FaImage,
   FaFilter,
   FaLightbulb,
+  FaFlag,
+  FaUser,
+  FaCalendarAlt,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import Image from "next/image";
 import Pagination from "@/components/Pagination";
@@ -160,6 +165,9 @@ const renderSourceSchool = (question: {
 };
 
 export default function QuestionReviewPage() {
+  const searchParams = useSearchParams();
+  const questionId = searchParams.get("questionId");
+
   const [viewMode, setViewMode] = useState<ViewMode>("subjects");
   const [subjects, setSubjects] = useState<SubjectStats[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<SubjectStats | null>(
@@ -171,6 +179,9 @@ export default function QuestionReviewPage() {
     useState<QuestionReviewData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Report details state for questions accessed from question-reports
+  const [reportDetails, setReportDetails] = useState<any>(null);
 
   // Filtered questions state
   const [filteredQuestions, setFilteredQuestions] = useState<
@@ -194,6 +205,40 @@ export default function QuestionReviewPage() {
   const [previewQuestion, setPreviewQuestion] =
     useState<QuestionReviewData | null>(null);
   const [usePreviewData, setUsePreviewData] = useState(false);
+
+  // Check for direct question access via URL parameter
+  useEffect(() => {
+    if (questionId) {
+      const parsedQuestionId = parseInt(questionId, 10);
+      if (!isNaN(parsedQuestionId)) {
+        // Check for report details in sessionStorage
+        const storedReportDetails = sessionStorage.getItem(
+          "questionReportDetails"
+        );
+        if (storedReportDetails) {
+          try {
+            const reportData = JSON.parse(storedReportDetails);
+            setReportDetails(reportData);
+            // Clear the sessionStorage after retrieving
+            sessionStorage.removeItem("questionReportDetails");
+          } catch (error) {
+            console.error(
+              "Error parsing report details from sessionStorage:",
+              error
+            );
+          }
+        }
+
+        setViewMode("questionDetail");
+        fetchQuestionDetail(parsedQuestionId);
+      } else {
+        toast.error("Invalid question ID in URL");
+        fetchSubjects();
+      }
+    } else {
+      fetchSubjects();
+    }
+  }, [questionId]);
 
   // Fetch subjects with statistics
   const fetchSubjects = useCallback(async () => {
@@ -1809,6 +1854,92 @@ export default function QuestionReviewPage() {
           </h1>
           <div></div>
         </div>
+
+        {/* Report Details Section - Only shown when accessed from question-reports */}
+        {reportDetails && (
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-lg p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-red-800 flex items-center">
+                <FaFlag className="mr-2" />
+                Student Report Details
+              </h2>
+              <div className="flex items-center space-x-3">
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-300">
+                  {reportDetails.reportTypeLabel}
+                </span>
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 border border-gray-300">
+                  {reportDetails.statusLabel}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2 flex items-center">
+                  <FaUser className="mr-2 text-blue-500" />
+                  Reported By
+                </h3>
+                <div className="bg-white p-3 rounded-lg border border-gray-200">
+                  <p className="font-medium text-gray-800">
+                    {reportDetails.student.name}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    @{reportDetails.student.username}
+                  </p>
+                  {reportDetails.student.email && (
+                    <p className="text-sm text-gray-600">
+                      {reportDetails.student.email}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2 flex items-center">
+                  <FaCalendarAlt className="mr-2 text-green-500" />
+                  Report Timeline
+                </h3>
+                <div className="bg-white p-3 rounded-lg border border-gray-200">
+                  <p className="text-sm">
+                    <span className="font-medium">Reported:</span>{" "}
+                    {new Date(reportDetails.createdAt).toLocaleDateString()} at{" "}
+                    {new Date(reportDetails.createdAt).toLocaleTimeString()}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Updated:</span>{" "}
+                    {new Date(reportDetails.updatedAt).toLocaleDateString()} at{" "}
+                    {new Date(reportDetails.updatedAt).toLocaleTimeString()}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Report ID:</span>{" "}
+                    {reportDetails.reportId}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-medium text-gray-900 mb-2 flex items-center">
+                <FaExclamationTriangle className="mr-2 text-orange-500" />
+                Student's Description of the Problem
+              </h3>
+              <div className="bg-white p-4 rounded-lg border border-gray-200">
+                <p className="text-gray-800 whitespace-pre-wrap">
+                  {reportDetails.description}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                <strong>📝 Note:</strong> Please review the student's feedback
+                and make necessary corrections to the question. The report will
+                be automatically marked as "Under Review" once you save changes
+                to this question.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Question Preview */}
         {renderQuestionPreview(selectedQuestion)}

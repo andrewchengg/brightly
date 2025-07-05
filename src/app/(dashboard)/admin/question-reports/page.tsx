@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "react-toastify";
@@ -69,10 +70,10 @@ const STATUS_COLORS = {
 };
 
 export default function QuestionReportsPage() {
+  const router = useRouter();
   const [reports, setReports] = useState<QuestionReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedReport, setSelectedReport] = useState<QuestionReport | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -103,20 +104,57 @@ export default function QuestionReportsPage() {
         body: JSON.stringify({ reportId, status: newStatus }),
       });
       if (!response.ok) throw new Error("Failed to update status");
-      
+
       // Update local state
-      setReports(reports.map(report => 
-        report.id === reportId 
-          ? { ...report, status: newStatus, updatedAt: new Date().toISOString() }
-          : report
-      ));
-      
-      toast.success(`Report status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]}`);
+      setReports(
+        reports.map((report) =>
+          report.id === reportId
+            ? {
+                ...report,
+                status: newStatus,
+                updatedAt: new Date().toISOString(),
+              }
+            : report
+        )
+      );
+
+      toast.success(
+        `Report status updated to ${
+          STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]
+        }`
+      );
     } catch (err: any) {
       toast.error("Failed to update report status");
     } finally {
       setUpdatingStatus(null);
     }
+  };
+
+  const handleViewDetails = (questionId: number) => {
+    // Find the report for this question
+    const report = reports.find((r) => r.question.id === questionId);
+    if (report) {
+      // Store report details in sessionStorage to be accessed by question-review page
+      sessionStorage.setItem(
+        "questionReportDetails",
+        JSON.stringify({
+          reportId: report.id,
+          reportType: report.reportType,
+          description: report.description,
+          status: report.status,
+          createdAt: report.createdAt,
+          updatedAt: report.updatedAt,
+          student: report.student,
+          reportTypeLabel:
+            REPORT_TYPE_LABELS[
+              report.reportType as keyof typeof REPORT_TYPE_LABELS
+            ],
+          statusLabel:
+            STATUS_LABELS[report.status as keyof typeof STATUS_LABELS],
+        })
+      );
+    }
+    router.push(`/admin/question-review?questionId=${questionId}`);
   };
 
   if (loading) {
@@ -157,13 +195,20 @@ export default function QuestionReportsPage() {
       {reports.length === 0 ? (
         <Card className="p-8 text-center">
           <FaFlag className="text-4xl text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">No Reports Yet</h3>
-          <p className="text-gray-500">No question reports have been submitted by students.</p>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            No Reports Yet
+          </h3>
+          <p className="text-gray-500">
+            No question reports have been submitted by students.
+          </p>
         </Card>
       ) : (
         <div className="space-y-6">
           {reports.map((report) => (
-            <Card key={report.id} className="p-6 hover:shadow-lg transition-shadow">
+            <Card
+              key={report.id}
+              className="p-6 hover:shadow-lg transition-shadow"
+            >
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-red-100 rounded-full">
@@ -171,7 +216,11 @@ export default function QuestionReportsPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">
-                      {REPORT_TYPE_LABELS[report.reportType as keyof typeof REPORT_TYPE_LABELS]}
+                      {
+                        REPORT_TYPE_LABELS[
+                          report.reportType as keyof typeof REPORT_TYPE_LABELS
+                        ]
+                      }
                     </h3>
                     <p className="text-sm text-gray-500 flex items-center">
                       <FaCalendarAlt className="mr-1" />
@@ -179,7 +228,9 @@ export default function QuestionReportsPage() {
                       {new Date(report.createdAt).toLocaleTimeString()}
                     </p>
                     <p className="text-sm text-gray-600 font-medium mt-1">
-                      Question ID: {report.question.id} • {report.question.subject.name} • {report.question.topic.name}
+                      Question ID: {report.question.id} •{" "}
+                      {report.question.subject.name} •{" "}
+                      {report.question.topic.name}
                     </p>
                   </div>
                 </div>
@@ -194,7 +245,7 @@ export default function QuestionReportsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setSelectedReport(report)}
+                    onClick={() => handleViewDetails(report.question.id)}
                   >
                     <FaEye className="mr-1" /> View Details
                   </Button>
@@ -209,9 +260,13 @@ export default function QuestionReportsPage() {
                   </h4>
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <p className="font-medium">{report.student.name}</p>
-                    <p className="text-sm text-gray-600">@{report.student.username}</p>
+                    <p className="text-sm text-gray-600">
+                      @{report.student.username}
+                    </p>
                     {report.student.email && (
-                      <p className="text-sm text-gray-600">{report.student.email}</p>
+                      <p className="text-sm text-gray-600">
+                        {report.student.email}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -223,26 +278,33 @@ export default function QuestionReportsPage() {
                   </h4>
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <p className="text-sm">
-                      <span className="font-medium">Question ID:</span> {report.question.id}
+                      <span className="font-medium">Question ID:</span>{" "}
+                      {report.question.id}
                     </p>
                     <p className="text-sm">
-                      <span className="font-medium">Subject:</span> {report.question.subject.name}
+                      <span className="font-medium">Subject:</span>{" "}
+                      {report.question.subject.name}
                     </p>
                     <p className="text-sm">
-                      <span className="font-medium">Topic:</span> {report.question.topic.name}
+                      <span className="font-medium">Topic:</span>{" "}
+                      {report.question.topic.name}
                     </p>
                     <p className="text-sm">
-                      <span className="font-medium">Type:</span> {report.question.questionType}
+                      <span className="font-medium">Type:</span>{" "}
+                      {report.question.questionType}
                     </p>
                     <p className="text-sm">
-                      <span className="font-medium">Difficulty:</span> {report.question.difficulty}
+                      <span className="font-medium">Difficulty:</span>{" "}
+                      {report.question.difficulty}
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-4">
-                <h4 className="font-medium text-gray-900 mb-2">Report Description</h4>
+                <h4 className="font-medium text-gray-900 mb-2">
+                  Report Description
+                </h4>
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-r-lg">
                   <p className="text-gray-700">{report.description}</p>
                 </div>
@@ -252,11 +314,15 @@ export default function QuestionReportsPage() {
                 <div className="mt-4 flex space-x-2">
                   <Button
                     size="sm"
-                    onClick={() => updateReportStatus(report.id, "UNDER_REVIEW")}
+                    onClick={() =>
+                      updateReportStatus(report.id, "UNDER_REVIEW")
+                    }
                     disabled={updatingStatus === report.id}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
-                    {updatingStatus === report.id ? <FaSpinner className="animate-spin mr-1" /> : null}
+                    {updatingStatus === report.id ? (
+                      <FaSpinner className="animate-spin mr-1" />
+                    ) : null}
                     Mark Under Review
                   </Button>
                   <Button
@@ -265,7 +331,9 @@ export default function QuestionReportsPage() {
                     disabled={updatingStatus === report.id}
                     className="bg-green-600 hover:bg-green-700"
                   >
-                    {updatingStatus === report.id ? <FaSpinner className="animate-spin mr-1" /> : null}
+                    {updatingStatus === report.id ? (
+                      <FaSpinner className="animate-spin mr-1" />
+                    ) : null}
                     Mark Resolved
                   </Button>
                   <Button
@@ -275,7 +343,9 @@ export default function QuestionReportsPage() {
                     disabled={updatingStatus === report.id}
                     className="border-red-300 text-red-600 hover:bg-red-50"
                   >
-                    {updatingStatus === report.id ? <FaSpinner className="animate-spin mr-1" /> : null}
+                    {updatingStatus === report.id ? (
+                      <FaSpinner className="animate-spin mr-1" />
+                    ) : null}
                     Reject
                   </Button>
                 </div>
@@ -284,67 +354,6 @@ export default function QuestionReportsPage() {
           ))}
         </div>
       )}
-
-      {/* Question Details Modal */}
-      {selectedReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-6">
-              <h2 className="text-2xl font-bold">Question Details</h2>
-              <button
-                onClick={() => setSelectedReport(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-semibold text-lg mb-3">Question Text</h3>
-                <div className="bg-gray-50 p-4 rounded-lg border">
-                  <p className="text-gray-800">{selectedReport.question.text}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold text-lg mb-3">Question Metadata</h3>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">ID:</span> {selectedReport.question.id}</p>
-                    <p><span className="font-medium">Type:</span> {selectedReport.question.questionType}</p>
-                    <p><span className="font-medium">Difficulty:</span> {selectedReport.question.difficulty}</p>
-                    <p><span className="font-medium">Subject:</span> {selectedReport.question.subject.name}</p>
-                    <p><span className="font-medium">Topic:</span> {selectedReport.question.topic.name}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-lg mb-3">Report Details</h3>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">Report ID:</span> {selectedReport.id}</p>
-                    <p><span className="font-medium">Type:</span> {REPORT_TYPE_LABELS[selectedReport.reportType as keyof typeof REPORT_TYPE_LABELS]}</p>
-                    <p><span className="font-medium">Status:</span> {STATUS_LABELS[selectedReport.status as keyof typeof STATUS_LABELS]}</p>
-                    <p><span className="font-medium">Submitted:</span> {new Date(selectedReport.createdAt).toLocaleString()}</p>
-                    <p><span className="font-medium">Updated:</span> {new Date(selectedReport.updatedAt).toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-lg mb-3">Student Report</h3>
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
-                  <p className="text-gray-700 whitespace-pre-wrap">{selectedReport.description}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => setSelectedReport(null)}>Close</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
-} 
+}
