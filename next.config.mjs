@@ -32,14 +32,11 @@ const nextConfig = {
 
     return config;
   },
-  // Add configuration for dynamic routes
-  experimental: {
-    missingSuspenseWithCSRError: false,
-  },
-  // Configure routes that should not be statically generated
+  // Configure output for deployment
   output: "standalone",
-  generateStaticParams: async () => {
-    return [];
+  // Disable static optimization for dynamic routes
+  experimental: {
+    serverActions: true,
   },
 };
 
