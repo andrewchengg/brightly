@@ -30,6 +30,20 @@ const nextConfig = {
       message: /Critical dependency/,
     });
 
+    // Handle canvas module for server-side rendering
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push({
+        canvas: "commonjs canvas",
+      });
+    }
+
+    // Handle optional canvas dependency
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      canvas: false,
+    };
+
     return config;
   },
   // Configure output for standalone deployment

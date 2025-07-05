@@ -1,4 +1,6 @@
-import React, { useState, useRef, useCallback } from "react";
+"use client";
+
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import ReactCrop, {
   type Crop,
   centerCrop,
@@ -25,6 +27,10 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 async function getCroppedImage(imageSrc: string, crop: Crop): Promise<string> {
+  if (typeof document === "undefined") {
+    throw new Error("Canvas operations not available on server");
+  }
+
   const img = await loadImage(imageSrc);
   const canvas = document.createElement("canvas");
   const scaleX = img.naturalWidth / (img.width || 1);
@@ -73,13 +79,18 @@ export const DiagramCropperModal: React.FC<DiagramCropperModalProps> = ({
     height: 50,
   }));
   const [saving, setSaving] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const onComplete = useCallback((c: Crop) => {
     setCrop(c);
   }, []);
 
   const handleSave = async () => {
-    if (!crop.width || !crop.height) return;
+    if (!crop.width || !crop.height || !isClient) return;
     try {
       setSaving(true);
       const base64 = await getCroppedImage(imageSrc, crop);
@@ -90,6 +101,17 @@ export const DiagramCropperModal: React.FC<DiagramCropperModalProps> = ({
       setSaving(false);
     }
   };
+
+  if (!isClient) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+          <p className="mt-4 text-gray-600">Loading image cropper...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

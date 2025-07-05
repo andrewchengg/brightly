@@ -12,7 +12,25 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { toast } from "react-toastify";
-import { DiagramCropperModal } from "@/components/ImageCropper/DiagramCropperModal";
+import dynamic from "next/dynamic";
+
+const DiagramCropperModal = dynamic(
+  () =>
+    import("@/components/ImageCropper/DiagramCropperModal").then((mod) => ({
+      default: mod.DiagramCropperModal,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+          <p className="mt-4 text-gray-600">Loading image cropper...</p>
+        </div>
+      </div>
+    ),
+  }
+);
 import {
   FaLightbulb,
   FaBook,
