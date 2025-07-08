@@ -35,6 +35,7 @@ import { triggerQuestRefresh } from "@/lib/quest-refresh";
 import WhiteboardButton from "@/components/ui/WhiteboardButton";
 import WhiteboardModal from "@/components/ui/WhiteboardModal";
 import MobileFloatingButtons from "@/components/MobileFloatingButtons";
+import { cleanupPracticeSession } from "@/lib/session-management";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -295,7 +296,7 @@ export default function TopicalPracticePage() {
 
   // Whiteboard state
   const [showWhiteboard, setShowWhiteboard] = useState(false);
-  
+
   // Mobile detection state
   const [isMobile, setIsMobile] = useState(false);
 
@@ -333,14 +334,55 @@ export default function TopicalPracticePage() {
 
   useEffect(() => {
     if (authUserIsLoaded) {
-      if (authUser) {
-        setUserId(authUser.id);
-      } else {
-        toast.error("User session not found. Please sign in.");
-        router.push("/sign-in");
-      }
+      setUserId(authUser?.id || null);
     }
-  }, [authUser, authUserIsLoaded, router]);
+  }, [authUser, authUserIsLoaded]);
+
+  // Delete session when user closes window or navigates away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (currentPracticeSessionId && !sessionFinalized) {
+        console.log(
+          "🗑️ DEBUG: Window closing - deleting session:",
+          currentPracticeSessionId
+        );
+        // Use sendBeacon for reliable cleanup during page unload
+        navigator.sendBeacon(
+          `/api/practice-sessions/${currentPracticeSessionId}`,
+          JSON.stringify({ method: "DELETE" })
+        );
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
+        console.log(
+          "🗑️ DEBUG: Page hidden - deleting session:",
+          currentPracticeSessionId
+        );
+        // User switched tabs or minimized - clean up session
+        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          method: "DELETE",
+        }).catch((err) => {
+          console.warn("Failed to delete session on visibility change:", err);
+        });
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Final cleanup on component unmount
+      if (currentPracticeSessionId && !sessionFinalized) {
+        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+    };
+  }, [currentPracticeSessionId, sessionFinalized]);
 
   // Fetch Topic Details
   useEffect(() => {
@@ -844,8 +886,8 @@ export default function TopicalPracticePage() {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
       const totalMarksEarned = questionResults.reduce((acc, result) => {
-        const question = questions.find(q => q.id === result.id);
-        return acc + (result.correct ? (question?.marks || 1) : 0);
+        const question = questions.find((q) => q.id === result.id);
+        return acc + (result.correct ? question?.marks || 1 : 0);
       }, 0);
       const totalPossibleMarks = questions.reduce(
         (acc, q) => acc + (q.marks || 1),
@@ -861,7 +903,7 @@ export default function TopicalPracticePage() {
           correctAnswers: correctCount,
           xpEarned: calculatedScore,
           totalMarksEarned,
-          totalPossibleMarks
+          totalPossibleMarks,
         }),
       });
       if (!response.ok) {
@@ -1102,16 +1144,29 @@ export default function TopicalPracticePage() {
   }, [localStorageKey, fetchTopicalQuestionsAndStartSession]);
 
   const handleExitConfirm = useCallback(() => {
-    // Exit immediately without waiting for API call
+    console.log(
+      "🚪 DEBUG: User confirmed exit - deleting session and navigating"
+    );
+
+    // Delete session immediately
+    if (currentPracticeSessionId) {
+      fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+        method: "DELETE",
+      }).catch((err) => {
+        console.warn("Failed to delete practice session:", err);
+      });
+    }
+
+    // Clear localStorage
+    if (localStorageKey) {
+      safeStorage.removeItem(localStorageKey, "local");
+    }
+
+    // Navigate away
     if (userId && currentTopic?.subjectId) {
       router.push(`/student/practice/subject/${currentTopic.subjectId}`);
     } else {
       router.push("/student/practice");
-    }
-
-    // Clean up session in background if needed
-    if (currentPracticeSessionId && localStorageKey) {
-      safeStorage.removeItem(localStorageKey, "local");
     }
   }, [userId, currentTopic, router, currentPracticeSessionId, localStorageKey]);
 
@@ -1483,7 +1538,9 @@ export default function TopicalPracticePage() {
                     Explanation:
                   </p>
                   <ExplanationFormatter
-                    explanation={currentQuestion.explanation || "No explanation available."}
+                    explanation={
+                      currentQuestion.explanation || "No explanation available."
+                    }
                     className="text-gray-700"
                   />
                 </div>
@@ -1566,8 +1623,8 @@ export default function TopicalPracticePage() {
   if (showSummary) {
     /* Same as RandomPractice, but "Start New Practice" button logic changes */
     const totalMarksEarned = questionResults.reduce((acc, result) => {
-      const question = questions.find(q => q.id === result.id);
-      return acc + (result.correct ? (question?.marks || 1) : 0);
+      const question = questions.find((q) => q.id === result.id);
+      return acc + (result.correct ? question?.marks || 1 : 0);
     }, 0);
     const totalPossibleMarks = questions.reduce(
       (acc, q) => acc + (q.marks || 1),
@@ -1803,14 +1860,14 @@ export default function TopicalPracticePage() {
           score: score,
           correctAnswers: questionResults.filter((r) => r.correct).length,
           totalMarksEarned: questionResults.reduce((acc, result) => {
-            const question = questions.find(q => q.id === result.id);
-            return acc + (result.correct ? (question?.marks || 1) : 0);
+            const question = questions.find((q) => q.id === result.id);
+            return acc + (result.correct ? question?.marks || 1 : 0);
           }, 0),
           totalPossibleMarks: questions.reduce(
             (acc, q) => acc + (q.marks || 1),
             0
           ),
-          xpEarned: score
+          xpEarned: score,
         }}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
@@ -1836,10 +1893,12 @@ export default function TopicalPracticePage() {
         />
       </div>
 
-      <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : ''}`}>
+      <div
+        className={`flex flex-1 overflow-hidden ${isMobile ? "flex-col" : ""}`}
+      >
         <div
           className={`overflow-auto bg-white custom-scrollbar ${
-            isMobile ? 'w-full' : ''
+            isMobile ? "w-full" : ""
           }`}
           style={isMobile ? {} : { width: `${splitPosition}%` }}
         >
@@ -1989,37 +2048,37 @@ export default function TopicalPracticePage() {
             style={{ width: `${100 - splitPosition - 0.5}%` }}
           >
             <AIAssistant
-            questionContext={
-              currentQuestion
-                ? createQuestionContext(
-                    currentQuestion.id,
-                    currentQuestion.text,
-                    currentQuestion.questionType || "MULTIPLE_CHOICE",
-                    currentQuestion.options,
-                    currentQuestion.correctAnswer || undefined,
-                    currentQuestion.explanation || undefined,
-                    currentQuestion.hint,
-                    selectedAnswer || undefined,
-                    selectedAnswer !== null
-                      ? isAnswerCorrect || false
-                      : undefined
-                  )
-                : undefined
-            }
-            sessionContext={createSessionContext(
-              "topic_practice",
-              questions.length,
-              currentQuestionIndex + (selectedAnswer ? 1 : 0),
-              questionResults.filter((r) => r.correct).length,
-              sessionFinalized,
-              currentPracticeSessionId || undefined,
-              "Primary School",
-              currentTopic?.subjectId,
-              undefined // Subject name will be determined from subjectId in the helper function
-            )}
-            disabled={false}
-            className="h-full"
-          />
+              questionContext={
+                currentQuestion
+                  ? createQuestionContext(
+                      currentQuestion.id,
+                      currentQuestion.text,
+                      currentQuestion.questionType || "MULTIPLE_CHOICE",
+                      currentQuestion.options,
+                      currentQuestion.correctAnswer || undefined,
+                      currentQuestion.explanation || undefined,
+                      currentQuestion.hint,
+                      selectedAnswer || undefined,
+                      selectedAnswer !== null
+                        ? isAnswerCorrect || false
+                        : undefined
+                    )
+                  : undefined
+              }
+              sessionContext={createSessionContext(
+                "topic_practice",
+                questions.length,
+                currentQuestionIndex + (selectedAnswer ? 1 : 0),
+                questionResults.filter((r) => r.correct).length,
+                sessionFinalized,
+                currentPracticeSessionId || undefined,
+                "Primary School",
+                currentTopic?.subjectId,
+                undefined // Subject name will be determined from subjectId in the helper function
+              )}
+              disabled={false}
+              className="h-full"
+            />
           </div>
         )}
       </div>
@@ -2072,9 +2131,7 @@ export default function TopicalPracticePage() {
                 currentQuestion.explanation || undefined,
                 currentQuestion.hint,
                 selectedAnswer || undefined,
-                selectedAnswer !== null
-                  ? isAnswerCorrect || false
-                  : undefined
+                selectedAnswer !== null ? isAnswerCorrect || false : undefined
               )
             : undefined,
           sessionContext: createSessionContext(

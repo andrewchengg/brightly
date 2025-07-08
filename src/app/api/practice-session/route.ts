@@ -164,6 +164,9 @@ export async function GET(request: Request) {
               },
             },
           },
+          orderBy: {
+            createdAt: "asc", // Preserve original question sequence
+          },
         },
       },
     });
