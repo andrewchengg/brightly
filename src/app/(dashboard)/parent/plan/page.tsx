@@ -6,8 +6,6 @@ import {
   FaPaperPlane,
   FaSpinner,
   FaCalendarPlus,
-  FaCheck,
-  FaTimes,
   FaLightbulb,
   FaChartLine,
   FaBookOpen,
@@ -79,9 +77,6 @@ export default function ParentPlanPage() {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingRoadmap, setPendingRoadmap] = useState<RoadmapItem[] | null>(
-    null
-  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -94,6 +89,8 @@ export default function ParentPlanPage() {
 
   const handleSuggestedQuestion = (question: string) => {
     setInputValue(question);
+    // Optionally, you can trigger send message automatically
+    // handleSendMessage(question);
   };
 
   const generateAIResponse = async (
@@ -125,11 +122,12 @@ export default function ParentPlanPage() {
   };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    const messageToSend = inputValue;
+    if (!messageToSend.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: inputValue,
+      content: messageToSend,
       isBot: false,
       timestamp: new Date(),
     };
@@ -139,7 +137,7 @@ export default function ParentPlanPage() {
     setIsLoading(true);
 
     try {
-      const response = await generateAIResponse(inputValue);
+      const response = await generateAIResponse(messageToSend);
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -151,10 +149,6 @@ export default function ParentPlanPage() {
       };
 
       setMessages((prev) => [...prev, botMessage]);
-
-      if (response.roadmap) {
-        setPendingRoadmap(response.roadmap);
-      }
     } catch (error) {
       console.error("Error generating response:", error);
       const errorMessage: Message = {
@@ -169,206 +163,209 @@ export default function ParentPlanPage() {
     }
   };
 
-  const handleApproveRoadmap = async () => {
-    if (!pendingRoadmap) return;
-
-    // Here you would integrate with your calendar API
-    console.log("Adding roadmap to calendar:", pendingRoadmap);
-
-    const confirmationMessage: Message = {
-      id: Date.now().toString(),
-      content:
-        "Perfect! I've added the roadmap to your child's calendar. You'll receive notifications for each milestone, and we'll track progress together. The plan will automatically adjust based on your child's performance.",
-      isBot: true,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, confirmationMessage]);
-    setPendingRoadmap(null);
-  };
-
-  const handleRejectRoadmap = () => {
-    const rejectionMessage: Message = {
-      id: Date.now().toString(),
-      content:
-        "No problem! Let me know if you'd like me to modify the plan or create a different approach. I can adjust the timeline, focus areas, or methodology based on your preferences.",
-      isBot: true,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, rejectionMessage]);
-    setPendingRoadmap(null);
-  };
-
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
       case "high":
         return "bg-purple-100 text-purple-800";
       case "medium":
-        return "bg-purple-100 text-purple-800";
+        return "bg-yellow-100 text-yellow-800"; // Changed for visual distinction
       case "low":
-        return "bg-purple-100 text-purple-800";
+        return "bg-green-100 text-green-800"; // Changed for visual distinction
       default:
-        return "bg-gray-100 text-gray-600";
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 via-white to-purple-100">
+    <div className="flex flex-col h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 via-white to-purple-100 p-4">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-purple-800 text-white shadow-lg">
+      <div className="flex items-center justify-between p-4 bg-purple-800 text-white shadow-lg rounded-t-lg">
         <div className="flex items-center space-x-3">
           <FaRobot className="w-8 h-8" />
           <div>
             <h1 className="text-xl font-bold">AI Educational Planner</h1>
             <p className="text-sm text-purple-100">
-              Get personalized insights and plans for your child's learning journey
+              Personalized insights for your child's learning journey
             </p>
           </div>
         </div>
       </div>
 
-      {/* Quick Questions */}
-      <div className="p-4 bg-white border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-700 mb-3">Quick Questions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {suggestedQuestions.map((question, index) => (
-            <button
-              key={index}
-              onClick={() => handleSuggestedQuestion(question.text)}
-              className="flex items-start p-3 text-left rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200"
-            >
-              <question.icon className="w-5 h-5 text-purple-800 mt-1 mr-3" />
-              <div>
-                <p className="text-gray-700">{question.text}</p>
-                <span className="text-sm text-purple-800">{question.category}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Chat Interface */}
-      <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.isBot ? "justify-start" : "justify-end"}`}
-            >
-              <div
-                className={`max-w-3xl rounded-lg p-4 ${
-                  message.isBot
-                    ? "bg-white border border-gray-200"
-                    : "bg-purple-800 text-white"
-                }`}
+      <div className="flex gap-4 flex-1 min-h-0">
+        {/* Suggested Questions Sidebar */}
+        <div className="w-80 bg-white rounded-b-lg lg:rounded-bl-lg lg:rounded-br-none shadow-sm border border-gray-200 p-6 overflow-y-auto hidden md:block">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Quick Questions
+          </h3>
+          <div className="space-y-3">
+            {suggestedQuestions.map((question, index) => (
+              <button
+                key={index}
+                onClick={() => handleSuggestedQuestion(question.text)}
+                className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200 group"
               >
-                {message.isBot && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <FaRobot className="text-purple-800" />
-                    <span className="font-semibold text-purple-800">AI Planner</span>
+                <div className="flex items-start gap-3">
+                  <question.icon
+                    className="text-purple-600 mt-1 flex-shrink-0"
+                    size={16}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 group-hover:text-purple-700">
+                      {question.text}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {question.category}
+                    </p>
                   </div>
-                )}
-                <p className="whitespace-pre-wrap">{message.content}</p>
-
-                {/* Roadmap Display */}
-                {message.roadmap && (
-                  <div className="mt-4 space-y-3">
-                    <h3 className="font-semibold text-purple-800">Learning Roadmap</h3>
-                    {message.roadmap.map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-white rounded-lg border border-gray-200 p-3"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-purple-800">{item.title}</h4>
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(
-                              item.priority
-                            )}`}
-                          >
-                            {item.priority}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">{item.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <FaClock className="text-purple-800" />
-                            {item.estimatedTime}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <FaBookOpen className="text-purple-800" />
-                            {item.category}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Schedule Display */}
-                {message.schedule && (
-                  <div className="mt-4 space-y-3">
-                    <h3 className="font-semibold text-purple-800">Daily Schedule</h3>
-                    {message.schedule.map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-white rounded-lg border border-gray-200 p-3"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-purple-800">{item.title}</h4>
-                          <span className="text-sm text-purple-800">{item.time}</span>
-                        </div>
-                        <p className="text-sm text-gray-600">{item.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <FaClock className="text-purple-800" />
-                            {item.duration}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <FaBookOpen className="text-purple-800" />
-                            {item.subject}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Input Area */}
-        <div className="border-t border-gray-200 p-4 bg-white">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-              placeholder="Ask me anything about your child's learning..."
-              className="flex-1 px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={isLoading || !inputValue.trim()}
-              className="px-4 py-2 bg-purple-800 text-white rounded-lg hover:bg-purple-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <FaSpinner className="animate-spin" />
-                  Thinking...
-                </>
-              ) : (
-                <>
-                  <FaPaperPlane />
-                  Send
-                </>
-              )}
-            </button>
+        {/* Chat Interface */}
+        <div className="flex-1 bg-white rounded-b-lg lg:rounded-br-lg lg:rounded-bl-none shadow-sm border border-gray-200 flex flex-col h-full">
+          {/* Messages */}
+          <div className="flex-1 p-6 overflow-y-auto min-h-0">
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${
+                    message.isBot ? "justify-start" : "justify-end"
+                  }`}
+                >
+                  <div
+                    className={`max-w-3xl rounded-lg p-4 ${
+                      message.isBot
+                        ? "bg-gray-100 text-gray-900"
+                        : "bg-purple-800 text-white"
+                    }`}
+                  >
+                    {message.isBot && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <FaRobot className="text-purple-800" />
+                        <span className="font-semibold text-purple-800">
+                          AI Planner
+                        </span>
+                      </div>
+                    )}
+                    <div className="whitespace-pre-wrap">{message.content}</div>
+
+                    {/* Roadmap Display */}
+                    {message.roadmap && (
+                      <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <FaCalendarPlus className="text-purple-600" />
+                          Learning Roadmap
+                        </h4>
+                        <div className="space-y-3">
+                          {message.roadmap.map((item, index) => (
+                            <div
+                              key={item.id}
+                              className="border border-gray-200 rounded-lg p-4 relative"
+                            >
+                              <div className="absolute -top-3 -left-3 bg-purple-800 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                                {index + 1}
+                              </div>
+                              <h5 className="font-semibold text-gray-900 text-base">
+                                {item.title}
+                              </h5>
+                              <p className="text-sm text-gray-700 mt-2 leading-relaxed">
+                                {item.description}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-3 mt-3">
+                                <span
+                                  className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                                    item.priority
+                                  )}`}
+                                >
+                                  {item.priority} priority
+                                </span>
+                                <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded flex items-center gap-1">
+                                  <FaClock /> {item.estimatedTime}
+                                </span>
+                                <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded flex items-center gap-1">
+                                  <FaBookOpen /> {item.category}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Schedule Display */}
+                    {message.schedule && (
+                      <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <FaClock className="text-purple-600" />
+                          Daily Study Schedule
+                        </h4>
+                        <div className="space-y-2">
+                          {message.schedule.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
+                            >
+                              <div className="font-medium text-purple-800 text-sm min-w-[60px]">
+                                {item.time}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900 text-sm">
+                                  {item.title}
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {item.description}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full">
+                                  {item.subject}
+                                </span>
+                                <span>{item.duration}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Input Area */}
+          <div className="border-t border-gray-200 p-4 bg-white rounded-b-lg lg:rounded-bl-none">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                placeholder="Ask me anything about your child's learning..."
+                className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={isLoading || !inputValue.trim()}
+                className="px-4 py-2 bg-purple-800 text-white rounded-lg hover:bg-purple-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+              >
+                {isLoading ? (
+                  <>
+                    <FaSpinner className="animate-spin" />
+                    <span>Thinking...</span>
+                  </>
+                ) : (
+                  <>
+                    <FaPaperPlane />
+                    <span>Send</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -43,6 +43,7 @@ import {
 } from "react-icons/fa";
 import { Topic, Subject as PrismaSubject } from "@/generated/prisma";
 import { toast } from "react-toastify";
+import { useSupabaseUser } from "@/lib/hooks/auth";
 
 // Configuration for subject-specific display (can be expanded)
 const subjectDisplayConfig = {
@@ -230,6 +231,63 @@ export default function SubjectPracticePage({
   };
   const SubjectIcon = displayConfig.icon;
 
+  // Get subject name for subscription gate
+  const getSubjectInfo = (id: number) => {
+    switch (id) {
+      case 1:
+        return { name: "Math", displayName: "Mathematics" };
+      case 4:
+        return { name: "Chinese", displayName: "Chinese" };
+      default:
+        return { name: "Unknown", displayName: "Unknown Subject" };
+    }
+  };
+
+  const subjectInfo = getSubjectInfo(numericSubjectId);
+
+  // DEVELOPMENT MODE: Remove all subscription gates, allow direct access to all subjects
+  console.log(
+    `[DEV MODE] Subject practice access granted for subject ${numericSubjectId} (${subjectInfo.name})`
+  );
+
+  return (
+    <SubjectPracticeContent
+      params={params}
+      numericSubjectId={numericSubjectId}
+    />
+  );
+}
+
+// Extract the main component logic
+function SubjectPracticeContent({
+  params,
+  numericSubjectId,
+}: {
+  params: { subjectId: string };
+  numericSubjectId: number;
+}) {
+  const router = useRouter();
+  const { user } = useSupabaseUser();
+
+  const [topicsWithMastery, setTopicsWithMastery] = useState<
+    TopicWithMastery[]
+  >([]);
+  const [currentSubject, setCurrentSubject] = useState<SubjectDetails | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true);
+  const [masteryLoading, setMasteryLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const displayConfig = subjectDisplayConfig[
+    numericSubjectId.toString() as keyof typeof subjectDisplayConfig
+  ] || {
+    gradient: "from-gray-500 to-gray-600",
+    name: "Subject",
+    icon: FaBook,
+  };
+  const SubjectIcon = displayConfig.icon;
+
   useEffect(() => {
     async function fetchInitialData() {
       if (isNaN(numericSubjectId)) {
@@ -278,7 +336,10 @@ export default function SubjectPracticePage({
           fetchMasteryData(numericSubjectId, subjectData);
         }
       } catch (err: any) {
-        console.error(`Error fetching data for subject ${subjectId}:`, err);
+        console.error(
+          `Error fetching data for subject ${numericSubjectId}:`,
+          err
+        );
         setError(err.message || "Failed to load data.");
         setLoading(false);
       }
@@ -325,7 +386,7 @@ export default function SubjectPracticePage({
     }
 
     fetchInitialData();
-  }, [numericSubjectId, subjectId]);
+  }, [numericSubjectId]);
 
   const handleGeneralNavigate = (path?: string) => {
     if (path) {
@@ -338,6 +399,32 @@ export default function SubjectPracticePage({
   };
 
   const handleStartRandomPractice = async () => {
+    // Check for existing in-progress sessions for this subject
+    if (user?.id) {
+      try {
+        const response = await fetch(
+          `/api/student/practice-sessions/in-progress?studentId=${user.id}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const subjectSession = data.sessions?.find(
+            (session: any) => session.subjectId === numericSubjectId
+          );
+
+          if (subjectSession) {
+            // Redirect to existing session
+            router.push(
+              `/student/practice/random?sessionId=${subjectSession.id}`
+            );
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error checking for existing sessions:", error);
+      }
+    }
+
+    // No existing session found, start new practice
     router.push(`/student/practice/random?subjectId=${numericSubjectId}`);
   };
 
