@@ -6,8 +6,6 @@ import {
   FaPaperPlane,
   FaSpinner,
   FaCalendarPlus,
-  FaCheck,
-  FaTimes,
   FaLightbulb,
   FaChartLine,
   FaBookOpen,
@@ -79,9 +77,7 @@ export default function ParentPlanPage() {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingRoadmap, setPendingRoadmap] = useState<RoadmapItem[] | null>(
-    null
-  );
+  // Removed pendingRoadmap - roadmaps display directly in chat
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -152,9 +148,7 @@ export default function ParentPlanPage() {
 
       setMessages((prev) => [...prev, botMessage]);
 
-      if (response.roadmap) {
-        setPendingRoadmap(response.roadmap);
-      }
+      // Don't set pending roadmap - display roadmap directly in chat
     } catch (error) {
       console.error("Error generating response:", error);
       const errorMessage: Message = {
@@ -169,36 +163,7 @@ export default function ParentPlanPage() {
     }
   };
 
-  const handleApproveRoadmap = async () => {
-    if (!pendingRoadmap) return;
-
-    // Here you would integrate with your calendar API
-    console.log("Adding roadmap to calendar:", pendingRoadmap);
-
-    const confirmationMessage: Message = {
-      id: Date.now().toString(),
-      content:
-        "Perfect! I've added the roadmap to your child's calendar. You'll receive notifications for each milestone, and we'll track progress together. The plan will automatically adjust based on your child's performance.",
-      isBot: true,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, confirmationMessage]);
-    setPendingRoadmap(null);
-  };
-
-  const handleRejectRoadmap = () => {
-    const rejectionMessage: Message = {
-      id: Date.now().toString(),
-      content:
-        "No problem! Let me know if you'd like me to modify the plan or create a different approach. I can adjust the timeline, focus areas, or methodology based on your preferences.",
-      isBot: true,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, rejectionMessage]);
-    setPendingRoadmap(null);
-  };
+  // Removed approval functions - roadmaps display directly
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -233,9 +198,9 @@ export default function ParentPlanPage() {
         </div>
       </div>
 
-      <div className="flex gap-6 min-h-[600px]">
+      <div className="flex gap-6 h-[80vh] max-h-[800px]">
         {/* Suggested Questions Sidebar */}
-        <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-y-auto">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Quick Questions
           </h3>
@@ -266,9 +231,9 @@ export default function ParentPlanPage() {
         </div>
 
         {/* Chat Interface */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
+        <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
           {/* Messages */}
-          <div className="flex-1 p-6 overflow-y-auto">
+          <div className="flex-1 p-6 overflow-y-auto min-h-0">
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
@@ -341,24 +306,7 @@ export default function ParentPlanPage() {
                           ))}
                         </div>
 
-                        {pendingRoadmap && (
-                          <div className="flex gap-3 mt-4">
-                            <button
-                              onClick={handleApproveRoadmap}
-                              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                              <FaCheck size={14} />
-                              Add to Calendar
-                            </button>
-                            <button
-                              onClick={handleRejectRoadmap}
-                              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                            >
-                              <FaTimes size={14} />
-                              Modify Plan
-                            </button>
-                          </div>
-                        )}
+                        {/* Roadmap displays directly without approval buttons */}
                       </div>
                     )}
 

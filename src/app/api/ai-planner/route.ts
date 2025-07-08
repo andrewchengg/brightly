@@ -61,83 +61,111 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch student data for context
+    // Fetch topic-level performance data for better educational insights
     let studentContext = "";
     try {
-      const statsResponse = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-        }/api/parent/statistics`,
-        {
-          headers: {
-            Cookie: req.headers.get("Cookie") || "",
-          },
-        }
-      );
+      // Import required functions
+      const { getStudentContext } = await import("@/lib/student-context");
 
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
+      // First, get all children of this parent using Prisma
+      const prisma = (await import("@/lib/prisma")).default;
+      const children = await prisma.student.findMany({
+        where: { parentId: user.id },
+        select: { id: true, name: true },
+      });
 
-        // Format the data for AI context
-        const contextSummary = statsData.children
-          .map((child: any) => {
-            const weakSubjects = child.subjectBreakdown
-              .filter((subject: any) => subject.accuracy < 70)
-              .map(
-                (subject: any) =>
-                  `${subject.subject} (${subject.accuracy}% accuracy)`
-              );
+      if (children.length === 0) {
+        studentContext = `
+STUDENT LEARNING ANALYSIS DATA:
+No children found for this parent account. Please ensure children are properly linked to this parent account.
+`;
+      } else {
+        // Get learning context for all children
+        const childrenData = await Promise.all(
+          children.map(async (child) => {
+            const contextData = await getStudentContext(child.id);
+            return { name: child.name, data: contextData };
+          })
+        );
 
-            const strongSubjects = child.subjectBreakdown
-              .filter((subject: any) => subject.accuracy >= 85)
-              .map(
-                (subject: any) =>
-                  `${subject.subject} (${subject.accuracy}% accuracy)`
-              );
+        // Format combined data for all children
+        const childSummaries = childrenData
+          .filter((child) => child.data !== null)
+          .map((child) => {
+            const data = child.data!;
+
+            const weakTopicsText =
+              data.weakTopics.length > 0
+                ? data.weakTopics
+                    .map(
+                      (topic) =>
+                        `${topic.subject} - ${topic.topic}: ${topic.accuracy}% accuracy (${topic.incorrectCount}/${topic.totalCount} incorrect)`
+                    )
+                    .join("\n    ")
+                : "No specific weak topics identified yet";
+
+            const recentMistakesText =
+              data.recentMistakes.length > 0
+                ? data.recentMistakes
+                    .map(
+                      (mistake) =>
+                        `${mistake.subject} - ${mistake.topic}: "${mistake.questionText}" | Answer: "${mistake.userAnswer}" | Correct: "${mistake.correctAnswer}"`
+                    )
+                    .join("\n    ")
+                : "No recent mistakes to analyze";
 
             return `
 CHILD: ${child.name}
-- Current Level: ${child.level}, XP: ${child.xpPoints}
-- Study Streak: ${child.currentStreak} days (longest: ${child.longestStreak})
-- Today's Performance: ${child.today.questionsAnswered} questions, ${
-              child.today.accuracy
-            }% accuracy, ${child.today.timeSpentMinutes} minutes
-- Weekly Performance: ${child.week.questionsAnswered} questions, ${
-              child.week.accuracy
-            }% accuracy, ${child.week.timeSpentMinutes} minutes
-- Strong Subjects: ${
-              strongSubjects.length > 0
-                ? strongSubjects.join(", ")
-                : "None identified yet"
-            }
-- Weak Subjects: ${
-              weakSubjects.length > 0
-                ? weakSubjects.join(", ")
-                : "None identified yet"
-            }
-- Recent Daily Performance: ${child.dailyStats
-              .slice(-7)
-              .map(
-                (day: any) => `${day.date}: ${day.questions}q, ${day.accuracy}%`
-              )
-              .join(" | ")}
-`;
-          })
-          .join("\n");
 
-        studentContext = `
-REAL STUDENT DATA CONTEXT:
-${contextSummary}
+WEAK TOPICS (Topics with <70% accuracy):
+    ${weakTopicsText}
 
-Use this actual performance data to provide specific, data-driven insights and recommendations.
+RECENT MISTAKES PATTERN:
+    ${recentMistakesText}
+
+SUBJECT PERFORMANCE:
+  - Strong Subjects: ${
+    data.strongSubjects.length > 0
+      ? data.strongSubjects.join(", ")
+      : "None identified yet"
+  }
+  - Weak Subjects: ${
+    data.weakSubjects.length > 0
+      ? data.weakSubjects.join(", ")
+      : "None identified yet"
+  }
+
+WEEKLY PERFORMANCE:
+  - Questions Attempted: ${data.weeklyPerformance.questionsAnswered}
+  - Overall Accuracy: ${data.weeklyPerformance.accuracy}%
+  - Time Spent: ${data.weeklyPerformance.timeSpentMinutes} minutes
 `;
+          });
+
+        if (childSummaries.length === 0) {
+          studentContext = `
+STUDENT LEARNING ANALYSIS DATA:
+Children found but no learning data available yet. Students need to complete some practice sessions before performance analysis can be provided.
+`;
+        } else {
+          studentContext = `
+STUDENT LEARNING ANALYSIS DATA:
+${childSummaries.join("\n---\n")}
+
+Focus your recommendations on the specific weak topics and mistake patterns above.
+`;
+        }
       }
     } catch (error) {
-      console.error("Error fetching student context:", error);
-      // Continue without context if there's an error
+      studentContext = `
+STUDENT LEARNING ANALYSIS DATA:
+Error retrieving student performance data. Proceeding with general educational guidance.
+`;
     }
 
     const systemPrompt = `You are an AI educational planner for parents. You help analyze children's educational progress and create personalized learning plans based on REAL performance data.
+
+CRITICAL: You MUST respond in valid JSON format only. Never use markdown formatting, bold text, or any other text formatting.
 
 Your capabilities include:
 1. Analyzing weak topics and learning gaps using actual student performance data
@@ -146,74 +174,113 @@ Your capabilities include:
 4. Identifying trends in accuracy, time management, and subject performance
 5. Creating targeted improvement plans for struggling areas
 
-IMPORTANT: You will receive real student performance data including:
-- Current performance levels and accuracy rates by subject
-- Daily and weekly study patterns
-- Strong and weak subject areas
-- Time spent studying and question-answering patterns
-- Learning streaks and engagement metrics
+IMPORTANT: You will receive detailed learning analysis data including:
+- WEAK TOPICS: Specific topics with <70% accuracy, showing exact performance (e.g., "Algebra - Linear Equations: 45% accuracy (11/20 incorrect)")
+- RECENT MISTAKES: Actual questions the student got wrong with their answers vs correct answers
+- SUBJECT PERFORMANCE: Overall strong and weak subject areas
+- WEEKLY PERFORMANCE: Questions attempted, overall accuracy, and time spent
 
-Always reference this specific data in your responses and provide concrete, actionable advice based on the actual performance metrics.
+Focus your analysis on the specific weak topics and mistake patterns. Create targeted practice plans that address the exact topics where the student is struggling.
 
-CRITICAL: When creating roadmaps, generate daily plans with specific activities:
-- "Tomorrow: Practice 20 algebra problems focusing on [specific weak area]"
-- "Day 2: Review Chinese character writing for [specific characters they struggle with]"
-- "Day 3: Mixed practice combining both weak subjects"
-- "Weekend: Take a mock exam covering the week's topics"
+RESPONSE FORMAT: You must ALWAYS respond with valid JSON.
 
-Make it feel like a personal tutor giving day-by-day instructions, not generic advice! Speak naturally without using markdown formatting like **bold text** or numbered steps.
+When parents ask for roadmaps, plans, or schedules, you MUST provide BOTH:
+1. A conversational explanation in "content" 
+2. A structured roadmap/schedule that will display as beautiful cards
 
-When asked about creating schedules, roadmaps, or plans, you should provide structured data.
+CRITICAL: The "content" field should ONLY contain natural language explanation that will be shown as a chat message. NEVER put JSON or structured data in the content field.
 
-For roadmaps, respond with this JSON structure with SPECIFIC DAILY TASKS:
+For roadmaps/learning plans, respond with this EXACT JSON structure:
 {
-  "content": "Your explanation here",
+  "content": "Looking at your child's learning analysis, I can see they're struggling with specific topics that need targeted attention. Based on their weak topics showing low accuracy rates and recent mistake patterns, I've created a focused recovery plan that addresses these exact areas. The plan starts with their weakest topics and builds understanding systematically through targeted practice sessions.",
   "roadmap": [
     {
-      "id": "unique_id",
-      "title": "Tomorrow: [Specific Task]",
-      "description": "Exact activity to do tomorrow with specific practice questions/exercises",
-      "estimatedTime": "30-60 minutes",
-      "priority": "high|medium|low",
-      "category": "subject/topic",
-      "dueDate": "tomorrow's date"
+      "id": "foundation_day1",
+      "title": "Tomorrow: Basic Number Recognition & Simple Addition",
+      "description": "Start with single-digit addition problems (1+1, 2+3, etc.). Practice 10 very simple problems slowly, focusing on getting every single one correct rather than speed. Use visual aids like counting objects if needed.",
+      "estimatedTime": "20 minutes",
+      "priority": "high",
+      "category": "Mathematics - Foundation",
+      "dueDate": "2025-01-09"
     },
     {
-      "id": "unique_id2",
-      "title": "Day 2: [Next Specific Task]",
-      "description": "Exact activity for the day after tomorrow",
-      "estimatedTime": "30-60 minutes",
-      "priority": "high|medium|low",
-      "category": "subject/topic",
-      "dueDate": "day after tomorrow's date"
+      "id": "foundation_day2", 
+      "title": "Day 2: Review Addition + Simple Subtraction",
+      "description": "Review yesterday's addition problems first, then introduce basic subtraction (5-2, 8-3). Only 15 problems total, making sure to understand each step completely.",
+      "estimatedTime": "25 minutes",
+      "priority": "high",
+      "category": "Mathematics - Foundation",
+      "dueDate": "2025-01-10"
+    },
+    {
+      "id": "foundation_day3",
+      "title": "Day 3: Mixed Basic Operations Practice", 
+      "description": "Combine addition and subtraction in 20 mixed problems. If accuracy drops below 80%, go back to simpler problems. The goal is building confidence through success.",
+      "estimatedTime": "30 minutes",
+      "priority": "high",
+      "category": "Mathematics - Foundation",
+      "dueDate": "2025-01-11"
+    },
+    {
+      "id": "foundation_day4",
+      "title": "Day 4: Introduction to Multiplication Tables",
+      "description": "Focus only on 2 times table and 5 times table up to 10. Use repetition and visual patterns. Practice 15 problems maximum.",
+      "estimatedTime": "30 minutes",
+      "priority": "medium",
+      "category": "Mathematics - Foundation",
+      "dueDate": "2025-01-12"
+    },
+    {
+      "id": "foundation_day5",
+      "title": "Day 5: Review Week + Confidence Assessment",
+      "description": "Take a mini-quiz covering this week's topics: 10 addition, 10 subtraction, 10 basic multiplication. Aim for 70% accuracy minimum before moving to harder concepts.",
+      "estimatedTime": "35 minutes",
+      "priority": "high", 
+      "category": "Mathematics - Assessment",
+      "dueDate": "2025-01-13"
     }
   ]
 }
 
-IMPORTANT: Always create DAY-BY-DAY roadmaps starting from tomorrow with:
-- Specific daily tasks (not vague goals)
-- Concrete practice activities
-- Exact timing for each day
-- Build up to weekly assessments/mock exams
-- Reference the child's actual weak subjects from the data
-
-For schedules, respond with this JSON structure:
+For schedules, respond with this EXACT JSON structure:
 {
-  "content": "Your explanation here",
+  "content": "Your natural language explanation here - no markdown formatting, just plain text",
   "schedule": [
     {
       "id": "unique_id",
       "title": "Activity title",
-      "time": "HH:MM",
-      "duration": "duration",
-      "subject": "subject name",
-      "type": "study|practice|review|break",
+      "time": "09:00",
+      "duration": "30 minutes",
+      "subject": "Mathematics",
+      "type": "practice",
       "description": "activity description"
     }
   ]
 }
 
-Always provide helpful, educational advice focused on the child's learning improvement.`;
+For general advice without roadmaps/schedules:
+{
+  "content": "Your helpful advice here - no markdown formatting, just plain text"
+}
+
+REQUIREMENTS:
+- When parents ask for roadmaps, plans, or study schedules, ALWAYS provide both "content" AND "roadmap" fields
+- Create DAY-BY-DAY roadmaps starting from tomorrow (minimum 3-5 days)
+- Include specific daily tasks, not vague goals
+- Reference the child's actual weak subjects from the performance data
+- Use natural language in content without any formatting symbols
+- Always return valid JSON only
+
+CONTENT FIELD RULES:
+- The "content" field is displayed as a chat message to parents
+- Write natural conversational text explaining your analysis and the plan
+- Reference specific weak topics and accuracy rates (e.g., "Linear Equations at 45% accuracy")
+- Mention patterns from recent mistakes when relevant
+- Be encouraging but realistic about the challenges identified
+- Example GOOD content: "I can see your child is struggling with Linear Equations (45% accuracy) and Fractions (38% accuracy). Based on their recent mistakes, I've created a targeted plan..."
+- NEVER include raw JSON, markdown formatting, or duplicate the roadmap details
+
+The roadmap data will be displayed as beautiful cards below your message - don't repeat those details in content!`;
 
     const openai = getOpenRouterClient();
     const completion = await openai.chat.completions.create({
@@ -273,7 +340,6 @@ Always provide helpful, educational advice focused on the child's learning impro
 
     return NextResponse.json(parsedResponse);
   } catch (error) {
-    console.error("Error in AI planner API:", error);
     return NextResponse.json(
       { error: "Failed to generate AI response" },
       { status: 500 }

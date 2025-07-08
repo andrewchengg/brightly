@@ -34,6 +34,7 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaFlag,
+  FaCreditCard,
 } from "react-icons/fa";
 
 interface StudentInfo {
@@ -158,6 +159,13 @@ const menuItems = [
         visible: ["parent"],
       },
       {
+        icon: FaChartBar,
+        label: "Children's Results",
+        href: "/parent/results",
+        visible: ["parent"],
+      },
+
+      {
         icon: FaUserGraduate,
         label: "Students",
         href: "/admin/students",
@@ -174,13 +182,6 @@ const menuItems = [
         label: "Students List",
         href: "/list/students",
         visible: ["teacher"],
-      },
-
-      {
-        icon: FaChartBar,
-        label: "Children's Results",
-        href: "/parent/results",
-        visible: ["parent"],
       },
     ],
   },
@@ -339,15 +340,20 @@ const Menu = () => {
   const itemsToRender = userRole === "student" ? studentMenuItems : menuItems;
   const allItems = itemsToRender.flatMap((group) => group.items);
 
-  // Prioritize important items like "My Results" to always be visible
+  // Prioritize important items to always be visible
   const priorityItems = [
     "Home",
+    "Dashboard",
     "Practice",
     "Ask Ben",
     "Weekly Challenge",
     "Mock Exams",
     "My Results",
     "Review",
+    "Children's Results",
+    "Manage Homework",
+    "AI Planner",
+    "Child Review",
   ];
   const prioritizedItems = allItems.sort((a, b) => {
     const aIndex = priorityItems.indexOf(a.label);
@@ -358,9 +364,9 @@ const Menu = () => {
     return aIndex - bIndex;
   });
 
-  // Split items into main menu (first 7 prioritized) and more items
-  const mainItems = prioritizedItems.slice(0, 7);
-  const moreItems = prioritizedItems.slice(7);
+  // Split items into main menu (first 8 prioritized) and more items
+  const mainItems = prioritizedItems.slice(0, 8);
+  const moreItems = prioritizedItems.slice(8);
 
   const renderMenuItem = (item: any) => {
     if (item.visible.includes(userRole)) {
