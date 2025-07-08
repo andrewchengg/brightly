@@ -97,7 +97,7 @@ export async function POST(
 
   try {
     console.log(
-      `API: Fetching questions for subject: ${subjectNameParam}, paper: ${paper} (ProductionReady: false/null)`
+      `API: Fetching questions for subject: ${subjectNameParam}, paper: ${paper} (ProductionReady: true)`
     );
 
     let questions: any[] = [];
@@ -115,7 +115,7 @@ export async function POST(
               ? { in: questionType }
               : questionType,
             marks,
-            productionReady: false,
+            productionReady: true,
           },
           include: { topic: { select: { id: true, name: true } } },
         });
@@ -163,11 +163,11 @@ export async function POST(
 
         if (questions.length === 0 && expectedCountPaper1 > 0) {
           throw new Error(
-            `No questions found for Paper 1 with productionReady=false/null. Please check your database content.`
+            `No production-ready questions found for Paper 1. Please check your database content.`
           );
         } else if (questions.length < expectedCountPaper1) {
           console.warn(
-            `Warning: Not enough questions for Paper 1 (productionReady=false/null). Expected ${expectedCountPaper1}, found ${questions.length}.`
+            `Warning: Not enough production-ready questions for Paper 1. Expected ${expectedCountPaper1}, found ${questions.length}.`
           );
         }
       } else if (paper === "paper2" && isPaper2Requirements(requirements)) {

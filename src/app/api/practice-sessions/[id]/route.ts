@@ -194,16 +194,14 @@ export async function PATCH(
       await prisma.result.upsert({
         where: { practiceSessionId: updatedPracticeSession.id },
         update: {
-          totalMarksEarned: updatedPracticeSession.totalMarksEarned || 0,
-          totalPossibleMarks: updatedPracticeSession.totalPossibleMarks || 0,
-          submittedAt: updatedPracticeSession.endTime || new Date(),
+          score: updatedPracticeSession.totalMarksEarned || 0,
+          submittedAt: updatedPracticeSession.endTime || new Date()
         },
         create: {
           studentId: updatedPracticeSession.studentId,
           practiceSessionId: updatedPracticeSession.id,
-          totalMarksEarned: updatedPracticeSession.totalMarksEarned || 0,
-          totalPossibleMarks: updatedPracticeSession.totalPossibleMarks || 0,
-          submittedAt: updatedPracticeSession.endTime || new Date(),
+          score: updatedPracticeSession.totalMarksEarned || 0,
+          submittedAt: updatedPracticeSession.endTime || new Date()
         },
       });
       console.log(

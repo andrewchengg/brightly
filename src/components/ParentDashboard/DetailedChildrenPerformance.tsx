@@ -184,7 +184,7 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
         fill: "#e5e7eb",
       }];
     }
-    const colors = ["#6366f1", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#3b82f6"];
+    const colors = ["#7e22ce", "#9333ea", "#10b981", "#f59e0b", "#ef4444", "#3b82f6"];
     return child.subjectBreakdown.map((subject, index) => ({
       name: subject.subject,
       questions: subject.questions,
@@ -321,21 +321,49 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
     <div className="space-y-6">
       {/* Child Selector */}
       <div className="flex flex-wrap gap-2">
-        {childrenStats.map((child) => (
-          <Button
-            key={child.id}
-            variant={selectedChild === child.id || (!selectedChild && child.id === childrenStats[0].id) ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedChild(child.id)}
-            className="flex items-center gap-2"
-          >
-            <FaUser className="w-3 h-3" />
-            {child.name}
-            <Badge variant="secondary" className="ml-1">
-              {child.subjectBreakdown.length} subjects
-            </Badge>
-          </Button>
-        ))}
+        {childrenStats.map((child) => {
+          const activityStatus = getActivityStatus(child.lastActivityDate);
+          return (
+            <Button
+              key={child.id}
+              variant={selectedChild === child.id || (!selectedChild && child.id === childrenStats[0].id) ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedChild(child.id)}
+              className="flex items-center gap-2"
+            >
+              <FaUser className="w-3 h-3" />
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                      <FaUser className="text-purple-800" />
+                    </div>
+                    {child.name}
+                  </CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Level {child.level} • {child.xpPoints.toLocaleString()} XP
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center justify-end gap-1 mb-1">
+                    <span className="text-lg">
+                      {getStreakEmoji(child.currentStreak)}
+                    </span>
+                    <span className="text-sm font-bold text-purple-800">
+                      {child.currentStreak}
+                    </span>
+                  </div>
+                  <p className={`text-xs font-medium ${activityStatus.color}`}>
+                    {activityStatus.status}
+                  </p>
+                </div>
+              </div>
+              <Badge variant="secondary" className="ml-1">
+                {child.subjectBreakdown.length} subjects
+              </Badge>
+            </Button>
+          );
+        })}
       </div>
 
       {/* Main Performance Dashboard */}

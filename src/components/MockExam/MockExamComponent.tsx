@@ -14,9 +14,13 @@ import {
   FaArrowRight,
   FaFlagCheckered,
   FaSpinner,
+  FaExclamationTriangle,
+  FaTimes,
 } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { OptionTextFormatter } from "@/components/QuestionTextFormatter";
+import { ExitPracticeDialog } from "@/components/ExitPracticeDialog";
+import { InteractiveLoadingAnimation } from "@/components/ui/InteractiveLoadingAnimation";
 
 export const dynamic = "force-dynamic";
 
@@ -127,11 +131,15 @@ export default function MockExamComponent({
   >({});
   const [paper1Score, setPaper1Score] = useState(0);
   const [paper1QuestionCount, setPaper1QuestionCount] = useState(0);
+  const [paper1CorrectAnswers, setPaper1CorrectAnswers] = useState(0);
 
   const [textAnswer, setTextAnswer] = useState("");
   const [multiPartAnswers, setMultiPartAnswers] = useState<
     Record<string, string>
   >({});
+
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
 
   const router = useRouter();
 
@@ -155,17 +163,35 @@ export default function MockExamComponent({
     }));
   };
 
+  // Calculate XP based on performance
+  const calculateXP = (score: number, totalPossibleMarks: number) => {
+    const percentage = (score / totalPossibleMarks) * 100;
+    // Base XP is the score
+    let xp = score;
+    
+    // Bonus XP for good performance
+    if (percentage >= 90) xp += 20; // Excellence bonus
+    else if (percentage >= 80) xp += 15;
+    else if (percentage >= 70) xp += 10;
+    else if (percentage >= 60) xp += 5;
+    
+    return Math.round(xp);
+  };
+
   const handleSubmit = useCallback(async () => {
     if (examSubmitted || isSubmitting) return;
+    if (!currentPracticeSessionId) {
+      toast.error("Invalid session. Please restart the exam.");
+      return;
+    }
 
     const unansweredQuestionCount = questions.filter(
       (q) => answers[q.id] === null || answers[q.id] === undefined
     ).length;
+    
     if (unansweredQuestionCount > 0 && !isSubmitting) {
-      const confirmSubmit = window.confirm(
-        `You have ${unansweredQuestionCount} unanswered question(s). Are you sure you want to submit? Unanswered questions will be marked as incorrect.`
-      );
-      if (!confirmSubmit) return;
+      setShowSubmitDialog(true);
+      return;
     }
 
     setIsSubmitting(true);
@@ -174,102 +200,89 @@ export default function MockExamComponent({
     let currentPaperScore = 0;
     let correctAnswersForThisPaperCount = 0;
 
-    const studentAnswersPayload = questions
-      .map((q) => {
-        const submittedAnswerRaw = answers[q.id] ?? null;
-        let isCorrect = false;
-        let pointsEarnedThisQuestion = 0;
+    // First, save all student answers
+    const studentAnswersPayload = questions.map((q) => {
+      const submittedAnswerRaw = answers[q.id] ?? null;
+      let isCorrect = false;
+      let pointsEarnedThisQuestion = 0;
 
-        if (submittedAnswerRaw !== null) {
-          if (q.questionType === PrismaQuestionType.MULTIPLE_CHOICE) {
-            isCorrect =
-              String(q.correctAnswer).toLowerCase() ===
-              String(submittedAnswerRaw).toLowerCase();
-          } else if (
-            q.questionType === PrismaQuestionType.OPEN_ENDED ||
-            q.questionType === PrismaQuestionType.FILL_IN_THE_BLANK
-          ) {
-            const cAns = q.correctAnswer;
-            const cAnsArr = Array.isArray(cAns)
-              ? cAns.map((cv) =>
-                  String(cv ?? "")
-                    .trim()
-                    .toLowerCase()
-                )
-              : [
-                  String(cAns ?? "")
-                    .trim()
-                    .toLowerCase(),
-                ];
-            isCorrect = cAnsArr.includes(
-              String(submittedAnswerRaw).trim().toLowerCase()
-            );
-          } else if (
-            q.questionType === PrismaQuestionType.MULTI_PART &&
-            typeof q.correctAnswer === "object" &&
-            q.correctAnswer &&
-            !Array.isArray(q.correctAnswer)
-          ) {
-            try {
-              const userAnswersMap = JSON.parse(submittedAnswerRaw);
-              const correctAnswersMap = q.correctAnswer as Record<
-                string,
-                string
-              >;
-              isCorrect = true;
-              for (const part in correctAnswersMap) {
-                if (
-                  (userAnswersMap[part] || "").trim().toLowerCase() !==
-                  String(correctAnswersMap[part]).trim().toLowerCase()
-                ) {
-                  isCorrect = false;
-                  break;
-                }
+      if (submittedAnswerRaw !== null) {
+        if (q.questionType === PrismaQuestionType.MULTIPLE_CHOICE) {
+          isCorrect =
+            String(q.correctAnswer).toLowerCase() ===
+            String(submittedAnswerRaw).toLowerCase();
+        } else if (
+          q.questionType === PrismaQuestionType.OPEN_ENDED ||
+          q.questionType === PrismaQuestionType.FILL_IN_THE_BLANK
+        ) {
+          const cAns = q.correctAnswer;
+          const cAnsArr = Array.isArray(cAns)
+            ? cAns.map((cv) =>
+                String(cv ?? "")
+                  .trim()
+                  .toLowerCase()
+              )
+            : [
+                String(cAns ?? "")
+                  .trim()
+                  .toLowerCase(),
+              ];
+          isCorrect = cAnsArr.includes(
+            String(submittedAnswerRaw).trim().toLowerCase()
+          );
+        } else if (
+          q.questionType === PrismaQuestionType.MULTI_PART &&
+          typeof q.correctAnswer === "object" &&
+          q.correctAnswer &&
+          !Array.isArray(q.correctAnswer)
+        ) {
+          try {
+            const userAnswersMap = JSON.parse(submittedAnswerRaw);
+            const correctAnswersMap = q.correctAnswer as Record<string, string>;
+            isCorrect = true;
+            for (const part in correctAnswersMap) {
+              if (
+                (userAnswersMap[part] || "").trim().toLowerCase() !==
+                String(correctAnswersMap[part]).trim().toLowerCase()
+              ) {
+                isCorrect = false;
+                break;
               }
-            } catch (e) {
-              isCorrect = false;
             }
+          } catch (e) {
+            isCorrect = false;
           }
         }
-        if (isCorrect) {
-          pointsEarnedThisQuestion = q.marks;
-          currentPaperScore += q.marks;
-          correctAnswersForThisPaperCount++;
-        }
-
-        return {
-          practiceSessionId: currentPracticeSessionId,
-          questionId: q.id,
-          submittedAnswer: submittedAnswerRaw,
-          isCorrect,
-          pointsEarned: pointsEarnedThisQuestion,
-          attemptedAt: new Date().toISOString(),
-        };
-      })
-      .filter((ans) => ans.practiceSessionId !== null);
-
-    if (currentPracticeSessionId && studentAnswersPayload.length > 0) {
-      try {
-        await fetch("/api/student-answers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(studentAnswersPayload),
-        });
-      } catch (e) {
-        console.error("Error saving student answers:", e);
-        toast.error("Could not save all answers.");
       }
-    }
+
+      if (isCorrect) {
+        pointsEarnedThisQuestion = q.marks;
+        currentPaperScore += q.marks;
+        correctAnswersForThisPaperCount++;
+      }
+
+      return {
+        practiceSessionId: currentPracticeSessionId,
+        questionId: q.id,
+        submittedAnswer: submittedAnswerRaw,
+        isCorrect,
+        pointsEarned: pointsEarnedThisQuestion,
+        attemptedAt: new Date().toISOString(),
+      };
+    });
 
     if (isBothPapers && currentPaper === "paper1") {
       setPaper1Answers(answers);
       setPaper1Score(currentPaperScore);
       setPaper1QuestionCount(questions.length);
+      setPaper1CorrectAnswers(correctAnswersForThisPaperCount);
       console.log(
         "Paper 1 submitted. Score:",
         currentPaperScore,
         "Questions in P1:",
-        questions.length
+        questions.length,
+        "Correct in P1:",
+        correctAnswersForThisPaperCount
       );
 
       setShowPaperTransition(true);
@@ -291,92 +304,58 @@ export default function MockExamComponent({
       if (isBothPapers && currentPaper === "paper2") {
         finalScore += paper1Score;
         finalTotalQuestions += paper1QuestionCount;
-        // Note: finalCorrectAnswersCount for "both" would ideally sum P1 correct count too.
-        // This requires storing P1's correct count or re-evaluating paper1Answers if P1 questions are available.
-        // For Phase 1 simplicity, this might reflect P2 correct count if P1 correct count isn't explicitly added here.
+        finalCorrectAnswersCount += paper1CorrectAnswers;
         console.log(
           "Paper 2 submitted. P2 Score:",
           currentPaperScore,
           "Total Score for Both:",
           finalScore,
           "Total Questions for Both:",
-          finalTotalQuestions
+          finalTotalQuestions,
+          "Total Correct for Both:",
+          finalCorrectAnswersCount
         );
       } else {
         console.log(
           "Single paper submitted. Score:",
           finalScore,
           "Total Questions:",
-          finalTotalQuestions
+          finalTotalQuestions,
+          "Total Correct:",
+          finalCorrectAnswersCount
         );
       }
 
       if (currentPracticeSessionId) {
         try {
-          const totalMarksEarned = questions.reduce((acc, q) => {
-            const submittedAnswerRaw = answers[q.id] ?? null;
-            let isCorrect = false;
+          // Calculate total possible marks correctly
+          const totalPossibleMarks = isBothPapers && currentPaper === "paper2" 
+            ? questions.reduce((acc, q) => acc + (q.marks || 1), 0) + paper1QuestionCount // Add marks from both papers
+            : questions.reduce((acc, q) => acc + (q.marks || 1), 0);
 
-            if (submittedAnswerRaw !== null) {
-              if (q.questionType === PrismaQuestionType.MULTIPLE_CHOICE) {
-                isCorrect =
-                  String(q.correctAnswer).toLowerCase() ===
-                  String(submittedAnswerRaw).toLowerCase();
-              } else if (
-                q.questionType === PrismaQuestionType.OPEN_ENDED ||
-                q.questionType === PrismaQuestionType.FILL_IN_THE_BLANK
-              ) {
-                const cAns = q.correctAnswer;
-                const cAnsArr = Array.isArray(cAns)
-                  ? cAns.map((cv) =>
-                      String(cv ?? "")
-                        .trim()
-                        .toLowerCase()
-                    )
-                  : [
-                      String(cAns ?? "")
-                        .trim()
-                        .toLowerCase(),
-                    ];
-                isCorrect = cAnsArr.includes(
-                  String(submittedAnswerRaw).trim().toLowerCase()
-                );
-              } else if (
-                q.questionType === PrismaQuestionType.MULTI_PART &&
-                typeof q.correctAnswer === "object" &&
-                q.correctAnswer &&
-                !Array.isArray(q.correctAnswer)
-              ) {
-                try {
-                  const userAnswersMap = JSON.parse(submittedAnswerRaw);
-                  const correctAnswersMap = q.correctAnswer as Record<
-                    string,
-                    string
-                  >;
-                  isCorrect = true;
-                  for (const part in correctAnswersMap) {
-                    if (
-                      (userAnswersMap[part] || "").trim().toLowerCase() !==
-                      String(correctAnswersMap[part]).trim().toLowerCase()
-                    ) {
-                      isCorrect = false;
-                      break;
-                    }
-                  }
-                } catch (e) {
-                  isCorrect = false;
+          // Save student answers first
+          if (studentAnswersPayload.length > 0) {
+            try {
+              await fetch("/api/student-answers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(studentAnswersPayload),
+              }).then(async (res) => {
+                if (!res.ok) {
+                  const errorData = await res.json().catch(() => ({}));
+                  throw new Error(`Failed to save answers: ${errorData.error || res.statusText}`);
                 }
-              }
+                return res.json();
+              });
+            } catch (error) {
+              throw new Error(`Failed to save answers: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
-            return acc + (isCorrect ? (q.marks || 1) : 0);
-          }, 0);
+          }
 
-          const totalPossibleMarks = questions.reduce(
-            (acc, q) => acc + (q.marks || 1),
-            0
-          );
+          const earnedXP = calculateXP(finalScore, totalPossibleMarks);
 
-          await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          // Then update session status
+          const updateSessionResponse = await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -385,11 +364,16 @@ export default function MockExamComponent({
               score: finalScore,
               correctAnswers: finalCorrectAnswersCount,
               totalQuestions: finalTotalQuestions,
-              xpEarned: finalScore,
-              totalMarksEarned,
-              totalPossibleMarks
+              xpEarned: earnedXP,
+              totalMarksEarned: finalScore,
+              totalPossibleMarks: totalPossibleMarks
             }),
           });
+
+          if (!updateSessionResponse.ok) {
+            const errorData = await updateSessionResponse.json().catch(() => ({}));
+            throw new Error(`Failed to update session: ${errorData.error || updateSessionResponse.statusText}`);
+          }
 
           // Update streak after completing the exam
           try {
@@ -399,27 +383,25 @@ export default function MockExamComponent({
               body: JSON.stringify({ activityType: "mock_exam_completion" }),
             });
 
-            if (streakResponse.ok) {
-              console.log("Streak updated after mock exam completion");
+            if (!streakResponse.ok) {
+              console.warn("Could not update streak after mock exam completion");
             } else {
-              console.warn(
-                "Could not update streak after mock exam completion"
-              );
+              console.log("Streak updated after mock exam completion");
             }
           } catch (streakError) {
-            console.error(
-              "Error updating streak after mock exam:",
-              streakError
-            );
+            console.error("Error updating streak after mock exam:", streakError);
           }
-        } catch (e) {
-          console.error("Error finalizing session:", e);
-          toast.error("Could not finalize session details.");
+
+          setExamSubmitted(true);
+          toast.success(`Exam Submitted! Your Score: ${finalScore}`);
+          router.push(`/student/results/${currentPracticeSessionId}`);
+        } catch (error) {
+          console.error("Error submitting exam:", error);
+          toast.error(error instanceof Error ? error.message : "Could not submit exam. Please try again.");
+          setIsSubmitting(false);
+          return;
         }
       }
-      setExamSubmitted(true);
-      toast.success(`Exam Submitted! Your Score: ${finalScore}`);
-      router.push(`/student/results/${currentPracticeSessionId || "summary"}`);
     }
   }, [
     examSubmitted,
@@ -433,7 +415,150 @@ export default function MockExamComponent({
     paper1Score,
     subjectId,
     paper1QuestionCount,
+    paper1CorrectAnswers,
+    showSubmitDialog,
   ]);
+
+  const submitExam = async () => {
+    setIsSubmitting(true);
+    setShowSubmitDialog(false);
+
+    try {
+      let currentPaperScore = 0;
+      let correctAnswersForThisPaperCount = 0;
+
+      // Calculate scores and prepare answers payload
+      const studentAnswersPayload = questions.map((q) => {
+        const submittedAnswerRaw = answers[q.id] ?? null;
+        let isCorrect = false;
+        let pointsEarnedThisQuestion = 0;
+
+        if (submittedAnswerRaw !== null) {
+          if (q.questionType === PrismaQuestionType.MULTIPLE_CHOICE) {
+            isCorrect = String(q.correctAnswer).toLowerCase() === String(submittedAnswerRaw).toLowerCase();
+          } else if (q.questionType === PrismaQuestionType.OPEN_ENDED || q.questionType === PrismaQuestionType.FILL_IN_THE_BLANK) {
+            const cAns = q.correctAnswer;
+            const cAnsArr = Array.isArray(cAns)
+              ? cAns.map((cv) => String(cv ?? "").trim().toLowerCase())
+              : [String(cAns ?? "").trim().toLowerCase()];
+            isCorrect = cAnsArr.includes(String(submittedAnswerRaw).trim().toLowerCase());
+          } else if (q.questionType === PrismaQuestionType.MULTI_PART && typeof q.correctAnswer === "object" && q.correctAnswer && !Array.isArray(q.correctAnswer)) {
+            try {
+              const userAnswersMap = JSON.parse(submittedAnswerRaw);
+              const correctAnswersMap = q.correctAnswer as Record<string, string>;
+              isCorrect = true;
+              for (const part in correctAnswersMap) {
+                if ((userAnswersMap[part] || "").trim().toLowerCase() !== String(correctAnswersMap[part]).trim().toLowerCase()) {
+                  isCorrect = false;
+                  break;
+                }
+              }
+            } catch (e) {
+              isCorrect = false;
+            }
+          }
+        }
+
+        if (isCorrect) {
+          pointsEarnedThisQuestion = q.marks;
+          currentPaperScore += q.marks;
+          correctAnswersForThisPaperCount++;
+        }
+
+        return {
+          practiceSessionId: currentPracticeSessionId,
+          questionId: q.id,
+          submittedAnswer: submittedAnswerRaw,
+          isCorrect,
+          pointsEarned: pointsEarnedThisQuestion,
+          attemptedAt: new Date().toISOString(),
+        };
+      });
+
+      // First, save all student answers
+      if (studentAnswersPayload.length > 0) {
+        try {
+          await fetch("/api/student-answers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(studentAnswersPayload),
+          }).then(async (res) => {
+            if (!res.ok) {
+              const errorData = await res.json().catch(() => ({}));
+              throw new Error(`Failed to save answers: ${errorData.error || res.statusText}`);
+            }
+            return res.json();
+          });
+        } catch (error) {
+          throw new Error(`Failed to save answers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      // Calculate final scores
+      let finalScore = currentPaperScore;
+      let finalCorrectAnswersCount = correctAnswersForThisPaperCount;
+      let finalTotalQuestions = questions.length;
+
+      if (isBothPapers && currentPaper === "paper2") {
+        finalScore += paper1Score;
+        finalTotalQuestions += paper1QuestionCount;
+        finalCorrectAnswersCount += paper1CorrectAnswers;
+      }
+
+      // Calculate total possible marks correctly
+      const totalPossibleMarks = isBothPapers && currentPaper === "paper2" 
+        ? questions.reduce((acc, q) => acc + (q.marks || 1), 0) + paper1QuestionCount // Add marks from both papers
+        : questions.reduce((acc, q) => acc + (q.marks || 1), 0);
+
+      const earnedXP = calculateXP(finalScore, totalPossibleMarks);
+
+      // Then update session status
+      const updateSessionResponse = await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: PracticeSessionStatus.COMPLETED,
+          endTime: new Date().toISOString(),
+          score: finalScore,
+          correctAnswers: finalCorrectAnswersCount,
+          totalQuestions: finalTotalQuestions,
+          xpEarned: earnedXP,
+          totalMarksEarned: finalScore,
+          totalPossibleMarks: totalPossibleMarks
+        }),
+      });
+
+      if (!updateSessionResponse.ok) {
+        const errorData = await updateSessionResponse.json().catch(() => ({}));
+        throw new Error(`Failed to update session: ${errorData.error || updateSessionResponse.statusText}`);
+      }
+
+      // Update streak after completing the exam
+      try {
+        const streakResponse = await fetch("/api/user/update-streak", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ activityType: "mock_exam_completion" }),
+        });
+
+        if (!streakResponse.ok) {
+          console.warn("Could not update streak after mock exam completion");
+        } else {
+          console.log("Streak updated after mock exam completion");
+        }
+      } catch (streakError) {
+        console.error("Error updating streak after mock exam:", streakError);
+      }
+
+      setExamSubmitted(true);
+      toast.success(`Exam Submitted! Your Score: ${finalScore}`);
+      router.push(`/student/results/${currentPracticeSessionId}`);
+    } catch (error) {
+      console.error("Error submitting exam:", error);
+      toast.error(error instanceof Error ? error.message : "Could not submit exam. Please try again.");
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (!examStarted || timeRemaining <= 0 || examSubmitted) {
@@ -589,6 +714,7 @@ export default function MockExamComponent({
           status: PracticeSessionStatus.IN_PROGRESS,
           examDurationMinutes: examDurationMinutes,
           totalQuestions: 0,
+          questions: []
         }),
       });
 
@@ -687,27 +813,37 @@ export default function MockExamComponent({
   };
 
   const handleCancel = async () => {
-    const confirmExit = window.confirm(
-      "Are you sure you want to cancel this exam? Your progress will be paused but not submitted."
-    );
-    if (!confirmExit) return;
+    setShowExitDialog(true);
+  };
 
-    if (currentPracticeSessionId) {
-      try {
-        await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: PracticeSessionStatus.PAUSED,
-            endTime: new Date().toISOString(),
-          }),
-        });
-        toast.info("Exam paused.");
-      } catch (e) {
-        toast.error("Could not pause session.");
-      }
+  const handleExitWithoutSaving = async () => {
+    if (!currentPracticeSessionId) {
+      // If there's no session ID, just redirect
+      window.location.href = '/student/mock-exam';
+      return;
     }
-    router.push("/student/mock-exam");
+    
+    try {
+      // Delete the practice session
+      const response = await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        // If the session is not found, that's fine - just redirect
+        if (response.status === 404) {
+          window.location.href = '/student/mock-exam';
+          return;
+        }
+        throw new Error('Failed to delete practice session');
+      }
+
+      // Redirect to the mock exam landing page
+      window.location.href = '/student/mock-exam';
+    } catch (error) {
+      console.error('Error exiting exam:', error);
+      toast.error('Failed to exit exam. Please try again.');
+    }
   };
 
   const formatTime = (seconds: number): string => {
@@ -722,17 +858,19 @@ export default function MockExamComponent({
   // Render logic
   if (isLoading && !examStarted)
     return (
-      <div className="flex justify-center items-center h-screen">
-        <FaSpinner className="animate-spin text-4xl text-indigo-600" />
-        <p className="ml-3">Preparing mock exam...</p>
-      </div>
+      <InteractiveLoadingAnimation 
+        title="Preparing Your Mock Exam"
+        subtitle="Setting up your exam environment..."
+        theme="study"
+      />
     );
   if (isLoading && examStarted && questions.length === 0 && !error)
     return (
-      <div className="flex justify-center items-center h-screen">
-        <FaSpinner className="animate-spin text-4xl text-indigo-600" />
-        <p className="ml-3">Loading questions...</p>
-      </div>
+      <InteractiveLoadingAnimation 
+        title="Loading Your Questions"
+        subtitle="Almost ready to begin your exam..."
+        theme="study"
+      />
     );
   if (error)
     return (
@@ -768,91 +906,143 @@ export default function MockExamComponent({
     | undefined;
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col p-4">
-      <div className="max-w-4xl mx-auto w-full bg-white shadow-xl rounded-lg p-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b pb-4">
-          <div className="mb-3 sm:mb-0">
-            <h1 className="text-xl md:text-2xl font-bold text-indigo-700">
-              {subjectId.charAt(0).toUpperCase() + subjectId.slice(1)} Mock Exam
-              - {currentPaper === "paper1" ? "Paper 1" : "Paper 2"}
-            </h1>
-            <p className="text-xs md:text-sm text-gray-500">
-              Question {currentQuestionIndex + 1} of {questions.length} | Marks:{" "}
-              {currentQuestionData.marks}
-            </p>
-          </div>
-          <div
-            className={`text-lg md:text-xl font-mono font-semibold px-3 py-1 rounded-md ${
-              timeRemaining <= 60 && timeRemaining > 0
-                ? "text-red-600 bg-red-100 animate-pulse"
-                : timeRemaining <= 0
-                ? "text-red-700 bg-red-200"
-                : "text-gray-700 bg-gray-100"
-            }`}
-          >
-            {formatTime(timeRemaining)}
-          </div>
-        </div>
-
-        {/* Question Navigation Bubbles */}
-        <div className="mb-6 flex flex-wrap gap-1.5 justify-center max-w-full overflow-x-auto pb-2">
-          {questions.map((q, index) => (
-            <button
-              key={q.id}
-              onClick={() => handleNavigateToQuestion(index)}
-              className={`w-7 h-7 md:w-8 md:h-8 rounded-full text-xs font-medium flex items-center justify-center border-2 transition-all shrink-0
-                        ${
-                          index === currentQuestionIndex
-                            ? "bg-indigo-600 text-white border-indigo-700 scale-110 ring-2 ring-indigo-300"
-                            : answers[q.id] !== null &&
-                              answers[q.id] !== undefined
-                            ? "bg-green-500 text-white border-green-600"
-                            : "bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300"
-                        }`}
-              title={`Go to Question ${index + 1}`}
+    <div className="flex h-screen w-full">
+      {showExitDialog && (
+        <ExitPracticeDialog
+          isOpen={showExitDialog}
+          onClose={() => setShowExitDialog(false)}
+          onExit={handleExitWithoutSaving}
+          currentProgress={{
+            currentQuestion: currentQuestionIndex + 1,
+            totalQuestions: questions.length,
+            score: 0,
+            correctAnswers: Object.values(answers).filter(answer => answer !== null).length,
+            totalMarksEarned: 0,
+            totalPossibleMarks: questions.reduce((acc, q) => acc + q.marks, 0),
+            xpEarned: 0
+          }}
+        />
+      )}
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col relative bg-gray-50">
+        {/* Timer and Progress Bar */}
+        <div className="sticky top-0 bg-white shadow-md z-10 p-4">
+          <div className="flex justify-between items-center">
+            <Button
+              variant="outline"
+              onClick={handleCancel}
+              className="text-gray-600 hover:text-gray-800"
             >
-              {index + 1}
-            </button>
-          ))}
-        </div>
-
-        {/* Current Question Display */}
-        <div className="mb-8 p-4 border rounded-md bg-indigo-50 min-h-[150px]">
-          <h3 className="text-md md:text-lg font-semibold text-gray-800 mb-3 leading-relaxed whitespace-pre-wrap">
-            {currentQuestionData.text}
-          </h3>
-          {currentQuestionData.imageUrl && (
-            <img
-              src={currentQuestionData.imageUrl}
-              alt="Question Visual"
-              className="my-3 rounded-md border max-h-60 mx-auto object-contain"
+              <FaArrowLeft className="mr-2" /> Exit Exam
+            </Button>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-indigo-600">
+                {formatTime(timeRemaining)}
+              </div>
+              <div className="text-sm text-gray-600">
+                Question {currentQuestionIndex + 1} of {questions.length}
+              </div>
+            </div>
+            <Button
+              variant="destructive"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {isSubmitting ? (
+                <FaSpinner className="animate-spin mr-2" />
+              ) : (
+                <FaFlagCheckered className="mr-2" />
+              )}
+              Submit Exam
+            </Button>
+          </div>
+          {/* Progress bar */}
+          <div className="h-1 w-full bg-gray-200 mt-4">
+            <div
+              className="h-full bg-indigo-600 transition-all duration-300"
+              style={{
+                width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`,
+              }}
             />
-          )}
-          <p className="text-xs text-gray-600 mt-1">
-            Topic: {currentQuestionData.topicName}
-          </p>
+          </div>
         </div>
 
-        {/* Answer Input Area */}
-        <div className="min-h-[150px] mb-6">
-          {questionType === PrismaQuestionType.MULTIPLE_CHOICE &&
-            currentQuestionData.options && (
-              <div className="space-y-2">
-                {currentQuestionData.options.map((option, index) => {
-                  const optionId = option.id;
-                  const optionText = option.text;
-                  const optionLetter = String.fromCharCode(65 + index);
-                  const isSelected =
-                    answers[currentQuestionData.id] === optionId;
-                  return (
-                    <button
-                      key={option.id || index}
-                      onClick={() =>
-                        handleOptionSelect(currentQuestionData.id, optionId)
-                      }
-                      disabled={timeRemaining <= 0 || examSubmitted}
-                      className={`w-full text-left p-3 rounded-md transition-all duration-150 text-sm border
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b pb-4">
+              <div className="mb-3 sm:mb-0">
+                <h1 className="text-xl md:text-2xl font-bold text-indigo-700">
+                  {subjectId.charAt(0).toUpperCase() + subjectId.slice(1)} Mock Exam
+                  - {currentPaper === "paper1" ? "Paper 1" : "Paper 2"}
+                </h1>
+                <p className="text-xs md:text-sm text-gray-500">
+                  Question {currentQuestionIndex + 1} of {questions.length} | Marks:{" "}
+                  {currentQuestionData.marks}
+                </p>
+              </div>
+            </div>
+
+            {/* Question Navigation Bubbles */}
+            <div className="mb-6 flex flex-wrap gap-1.5 justify-center max-w-full overflow-x-auto pb-2">
+              {questions.map((q, index) => (
+                <button
+                  key={q.id}
+                  onClick={() => handleNavigateToQuestion(index)}
+                  className={`w-7 h-7 md:w-8 md:h-8 rounded-full text-xs font-medium flex items-center justify-center border-2 transition-all shrink-0
+                            ${
+                              index === currentQuestionIndex
+                                ? "bg-indigo-600 text-white border-indigo-700 scale-110 ring-2 ring-indigo-300"
+                                : answers[q.id] !== null &&
+                                  answers[q.id] !== undefined
+                                ? "bg-green-500 text-white border-green-600"
+                                : "bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300"
+                            }`}
+                  title={`Go to Question ${index + 1}`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+
+            {/* Current Question Display */}
+            <div className="mb-8 p-4 border rounded-md bg-indigo-50 min-h-[150px]">
+              <h3 className="text-md md:text-lg font-semibold text-gray-800 mb-3 leading-relaxed whitespace-pre-wrap">
+                {currentQuestionData.text}
+              </h3>
+              {currentQuestionData.imageUrl && (
+                <img
+                  src={currentQuestionData.imageUrl}
+                  alt="Question Visual"
+                  className="my-3 rounded-md border max-h-60 mx-auto object-contain"
+                />
+              )}
+              <p className="text-xs text-gray-600 mt-1">
+                Topic: {currentQuestionData.topicName}
+              </p>
+            </div>
+
+            {/* Answer Input Area */}
+            <div className="min-h-[150px] mb-20">
+              {questionType === PrismaQuestionType.MULTIPLE_CHOICE &&
+                currentQuestionData.options && (
+                  <div className="space-y-2">
+                    {currentQuestionData.options.map((option, index) => {
+                      const optionId = option.id;
+                      const optionText = option.text;
+                      const optionLetter = String.fromCharCode(65 + index);
+                      const isSelected =
+                        answers[currentQuestionData.id] === optionId;
+                      return (
+                        <button
+                          key={option.id || index}
+                          onClick={() =>
+                            handleOptionSelect(currentQuestionData.id, optionId)
+                          }
+                          disabled={timeRemaining <= 0 || examSubmitted}
+                          className={`w-full text-left p-3 rounded-md transition-all duration-150 text-sm border
                                     ${
                                       isSelected
                                         ? "bg-indigo-100 border-indigo-500 ring-2 ring-indigo-500"
@@ -863,140 +1053,153 @@ export default function MockExamComponent({
                                         ? "opacity-60 cursor-not-allowed"
                                         : ""
                                     }`}
-                    >
-                      <span className="font-semibold mr-2">
-                        {optionLetter}.
-                      </span>{" "}
-                      <OptionTextFormatter text={optionText} />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-          {(questionType === PrismaQuestionType.OPEN_ENDED ||
-            questionType === PrismaQuestionType.FILL_IN_THE_BLANK) && (
-            <div className="mt-2">
-              <label
-                htmlFor={`text-answer-${currentQuestionData.id}`}
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Your Answer:
-              </label>
-              <textarea
-                id={`text-answer-${currentQuestionData.id}`}
-                value={textAnswer}
-                onChange={(e) => handleTextAnswerInput(e.target.value)}
-                placeholder="Type your answer here..."
-                disabled={timeRemaining <= 0 || examSubmitted}
-                rows={questionType === PrismaQuestionType.OPEN_ENDED ? 5 : 3}
-                className={`w-full p-3 text-sm rounded-md border ${
-                  timeRemaining <= 0 || examSubmitted
-                    ? "border-gray-300 bg-gray-100"
-                    : "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                }`}
-              />
-            </div>
-          )}
-
-          {questionType === PrismaQuestionType.MULTI_PART &&
-            typeof currentQuestionData.correctAnswer === "object" &&
-            currentQuestionData.correctAnswer &&
-            !Array.isArray(currentQuestionData.correctAnswer) && (
-              <div className="mt-2 space-y-3">
-                {Object.keys(currentQuestionData.correctAnswer).map(
-                  (partKey) => (
-                    <div key={partKey}>
-                      <label
-                        htmlFor={`mp-${currentQuestionData.id}-${partKey}`}
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Part {partKey.toUpperCase()}:
-                      </label>
-                      <input
-                        type="text"
-                        id={`mp-${currentQuestionData.id}-${partKey}`}
-                        value={multiPartAnswers[partKey] || ""}
-                        onChange={(e) =>
-                          handleMultiPartAnswerInput(partKey, e.target.value)
-                        }
-                        placeholder={`Answer for part ${partKey.toUpperCase()}`}
-                        disabled={timeRemaining <= 0 || examSubmitted}
-                        className={`w-full p-3 text-sm rounded-md border ${
-                          timeRemaining <= 0 || examSubmitted
-                            ? "border-gray-300 bg-gray-100"
-                            : "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                        }`}
-                      />
-                    </div>
-                  )
+                        >
+                          <span className="font-semibold mr-2">
+                            {optionLetter}.
+                          </span>{" "}
+                          <OptionTextFormatter text={optionText} />
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-              </div>
-            )}
+
+              {(questionType === PrismaQuestionType.OPEN_ENDED ||
+                questionType === PrismaQuestionType.FILL_IN_THE_BLANK) && (
+                <div className="mt-2">
+                  <label
+                    htmlFor={`text-answer-${currentQuestionData.id}`}
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Your Answer:
+                  </label>
+                  <textarea
+                    id={`text-answer-${currentQuestionData.id}`}
+                    value={textAnswer}
+                    onChange={(e) => handleTextAnswerInput(e.target.value)}
+                    placeholder="Type your answer here..."
+                    disabled={timeRemaining <= 0 || examSubmitted}
+                    rows={questionType === PrismaQuestionType.OPEN_ENDED ? 5 : 3}
+                    className={`w-full p-3 text-sm rounded-md border ${
+                      timeRemaining <= 0 || examSubmitted
+                        ? "border-gray-300 bg-gray-100"
+                        : "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    }`}
+                  />
+                </div>
+              )}
+
+              {questionType === PrismaQuestionType.MULTI_PART &&
+                typeof currentQuestionData.correctAnswer === "object" &&
+                currentQuestionData.correctAnswer &&
+                !Array.isArray(currentQuestionData.correctAnswer) && (
+                  <div className="mt-2 space-y-3">
+                    {Object.keys(currentQuestionData.correctAnswer).map(
+                      (partKey) => (
+                        <div key={partKey}>
+                          <label
+                            htmlFor={`mp-${currentQuestionData.id}-${partKey}`}
+                            className="block text-sm font-medium text-gray-700 mb-1"
+                          >
+                            Part {partKey.toUpperCase()}:
+                          </label>
+                          <input
+                            type="text"
+                            id={`mp-${currentQuestionData.id}-${partKey}`}
+                            value={multiPartAnswers[partKey] || ""}
+                            onChange={(e) =>
+                              handleMultiPartAnswerInput(partKey, e.target.value)
+                            }
+                            placeholder={`Answer for part ${partKey.toUpperCase()}`}
+                            disabled={timeRemaining <= 0 || examSubmitted}
+                            className={`w-full p-3 text-sm rounded-md border ${
+                              timeRemaining <= 0 || examSubmitted
+                                ? "border-gray-300 bg-gray-100"
+                                : "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                            }`}
+                          />
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+            </div>
+          </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center">
-          <Button
-            onClick={handlePrevious}
-            disabled={isFirstQuestion || examSubmitted || isSubmitting}
-            variant="outline"
-            className="w-full sm:w-auto"
-          >
-            <FaArrowLeft className="mr-2" /> Previous
-          </Button>
-
-          <Button
-            onClick={handleCancel}
-            disabled={examSubmitted || isSubmitting}
-            variant="destructive"
-            className="w-full sm:w-auto"
-          >
-            Cancel Exam
-          </Button>
-
-          {isLastQuestion ? (
+        {/* Navigation buttons - now inside the main content area */}
+        <div className="sticky bottom-0 bg-white shadow-lg p-4 border-t">
+          <div className="max-w-4xl mx-auto flex justify-between">
             <Button
-              onClick={handleSubmit}
-              disabled={
-                examSubmitted ||
-                isSubmitting ||
-                (timeRemaining <= 0 && !isSubmitting)
-              }
-              className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={isFirstQuestion}
+              className="w-32"
             >
-              {isSubmitting ? (
-                <FaSpinner className="animate-spin mr-2" />
-              ) : null}
-              {isBothPapers && currentPaper === "paper1" ? (
-                "Submit Paper 1 & Start Paper 2"
-              ) : (
-                <>
-                  Submit Exam <FaFlagCheckered className="ml-2" />
-                </>
-              )}
+              <FaArrowLeft className="mr-2" /> Previous
             </Button>
-          ) : (
             <Button
               onClick={handleNext}
-              disabled={examSubmitted || isSubmitting}
-              className="w-full sm:w-auto"
+              disabled={isLastQuestion}
+              className="w-32 bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               Next <FaArrowRight className="ml-2" />
             </Button>
-          )}
+          </div>
         </div>
-
-        {examSubmitted && (
-          <div className="mt-4 text-center text-green-600">
-            Exam submitted successfully! Redirecting to results...
-          </div>
-        )}
-        {timeRemaining <= 0 && !examSubmitted && !isSubmitting && (
-          <div className="mt-4 text-center text-red-600">
-            Time's up! Your exam is being submitted...
-          </div>
-        )}
       </div>
+
+      {/* Exit Dialog */}
+      {/* This dialog is now handled by the showExitDialog state */}
+
+      {/* Submit Dialog */}
+      {showSubmitDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md mx-4 animate-in fade-in zoom-in duration-200">
+            <div className="relative p-6 border-b border-gray-100">
+              <button
+                onClick={() => setShowSubmitDialog(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1"
+              >
+                <FaTimes size={16} />
+              </button>
+
+              <div className="flex items-center">
+                <div className="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mr-4">
+                  <FaExclamationTriangle className="text-amber-600 text-xl" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    Submit Exam with Unanswered Questions?
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    You have {questions.filter(q => !answers[q.id]).length} unanswered questions. These will be marked as incorrect.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowSubmitDialog(false)}
+                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Review Questions
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowSubmitDialog(false);
+                  submitExam();
+                }}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Submit Anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
