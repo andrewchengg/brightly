@@ -611,6 +611,15 @@ export default function QuestionGroupPracticePage() {
     try {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
+      const totalMarksEarned = questionResults.reduce((acc, result) => {
+        const question = questions.find(q => q.id === result.id);
+        return acc + (result.correct ? (question?.marks || 1) : 0);
+      }, 0);
+      const totalPossibleMarks = questions.reduce(
+        (acc, q) => acc + (q.marks || 1),
+        0
+      );
+
       const response = await fetch(`/api/practice-session/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -619,12 +628,18 @@ export default function QuestionGroupPracticePage() {
           score: calculatedScore,
           correctAnswers: correctCount,
           xpEarned: calculatedScore,
+          totalMarksEarned,
+          totalPossibleMarks
         }),
       });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || "Failed to finalize session");
       }
+
+      const data = await response.json();
+      const { session } = data;
+
       setSessionFinalized(true);
 
       // Trigger confetti for session completion
@@ -643,6 +658,7 @@ export default function QuestionGroupPracticePage() {
       triggerQuestRefresh();
     } catch (err: any) {
       toast.error(`Session finalization error: ${err.message}`);
+      console.error("Session finalization error:", err);
     } finally {
       setLoading(false);
     }
@@ -651,6 +667,7 @@ export default function QuestionGroupPracticePage() {
     userId,
     score,
     questionResults,
+    questions,
     awardXPAndStreak,
     sessionFinalized,
     localStorageKey,
@@ -1336,53 +1353,53 @@ export default function QuestionGroupPracticePage() {
         <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
           <div className="p-6 text-center">
             <h2 className="text-3xl font-bold mb-2">
-              {percentageCorrect}%
+                {percentageCorrect}%
             </h2>
             <p className="text-gray-600 mb-4">
               Your Marks: {totalMarksEarned} / {totalPossibleMarks}
-            </p>
+              </p>
             <p className="text-gray-600 mb-4">
               XP Earned: +{totalMarksEarned}
             </p>
             <p className="text-gray-600">
               Total Questions: {totalQuestions}
-            </p>
+                </p>
             <p className="text-gray-600">
               Correct Answers: {correctAnswers} / {totalQuestions}
-            </p>
-          </div>
+                </p>
+              </div>
           <div className="border-t border-gray-200 p-6">
             <h3 className="text-lg font-semibold mb-4">Review Your Answers:</h3>
-            {questionResults.map((result, index) => (
-              <div
-                key={result.id}
+                {questionResults.map((result, index) => (
+                  <div
+                    key={result.id}
                 className={`mb-4 p-4 rounded-lg ${
-                  result.correct
+                      result.correct
                     ? "bg-green-50 text-green-700"
                     : "bg-red-50 text-red-700"
-                }`}
-              >
+                    }`}
+                  >
                 <div className="flex items-center justify-between">
                   <span>Question {index + 1}</span>
                   <span>
-                    {result.correct ? (
+                        {result.correct ? (
                       <FaCheck className="w-5 h-5" />
-                    ) : (
+                        ) : (
                       <FaTimes className="w-5 h-5" />
                     )}
-                  </span>
-                </div>
+                        </span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
           <div className="border-t border-gray-200 p-6 flex justify-center">
-            <Button
+              <Button
               onClick={() => {
                 router.push("/student/practice");
               }}
             >
               Continue Practice
-            </Button>
+              </Button>
           </div>
         </div>
       </div>
@@ -1432,13 +1449,22 @@ export default function QuestionGroupPracticePage() {
         isOpen={showExitDialog}
         onClose={() => setShowExitDialog(false)}
         onExit={handleExitConfirm}
-        title="Exit Question Group Practice?"
-        subtitle="You're working on a passage with questions"
+        title="Exit Practice Session?"
+        subtitle="You're practicing a question group"
         currentProgress={{
-          currentQuestion: questions.length > 0 ? currentQuestionIndex + 1 : 1,
+          currentQuestion: currentQuestionIndex + 1,
           totalQuestions: questions.length,
           score: score,
           correctAnswers: questionResults.filter((r) => r.correct).length,
+          totalMarksEarned: questionResults.reduce((acc, result) => {
+            const question = questions.find(q => q.id === result.id);
+            return acc + (result.correct ? (question?.marks || 1) : 0);
+          }, 0),
+          totalPossibleMarks: questions.reduce(
+            (acc, q) => acc + (q.marks || 1),
+            0
+          ),
+          xpEarned: score
         }}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">

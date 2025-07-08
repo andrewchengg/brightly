@@ -831,6 +831,14 @@ export default function TopicalPracticePage() {
     try {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
+      const totalMarksEarned = questionResults.reduce((acc, result) => {
+        const question = questions.find(q => q.id === result.id);
+        return acc + (result.correct ? (question?.marks || 1) : 0);
+      }, 0);
+      const totalPossibleMarks = questions.reduce(
+        (acc, q) => acc + (q.marks || 1),
+        0
+      );
 
       const response = await fetch(`/api/practice-session/complete`, {
         method: "POST",
@@ -840,12 +848,17 @@ export default function TopicalPracticePage() {
           score: calculatedScore,
           correctAnswers: correctCount,
           xpEarned: calculatedScore,
+          totalMarksEarned,
+          totalPossibleMarks
         }),
       });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || "Failed to finalize session");
       }
+
+      const data = await response.json();
+      const { session } = data;
 
       setSessionFinalized(true);
 
@@ -874,6 +887,7 @@ export default function TopicalPracticePage() {
     userId,
     score,
     questionResults,
+    questions,
     awardXPAndStreak,
     sessionFinalized,
     localStorageKey,
@@ -1449,24 +1463,18 @@ export default function TopicalPracticePage() {
                 className={`mt-3 p-3 rounded-md text-sm ${
                   isAnswerCorrect
                     ? "bg-green-50 border-l-4 border-green-400 text-green-800"
-                    : "bg-red-50 border-l-4 border-red-400 text-red-800"
+                    : "bg-blue-50 border-l-4 border-blue-400"
                 }`}
               >
-                <p className="font-medium mb-2">
-                  {aiMessage ||
-                    (isAnswerCorrect
-                      ? "All parts correct!"
-                      : "Some parts incorrect.")}
-                </p>
-                {currentQuestion.explanation && (
-                  <div className="border-t pt-2">
-                    <p className="font-semibold mb-2">Explanation:</p>
-                    <ExplanationFormatter
-                      explanation={currentQuestion.explanation}
-                      className="text-gray-700"
-                    />
-                  </div>
-                )}
+                <div>
+                  <p className="font-semibold text-gray-700 mb-3">
+                    Explanation:
+                  </p>
+                  <ExplanationFormatter
+                    explanation={currentQuestion.explanation}
+                    className="text-gray-700"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -1545,13 +1553,17 @@ export default function TopicalPracticePage() {
   // Summary View
   if (showSummary) {
     /* Same as RandomPractice, but "Start New Practice" button logic changes */
-    const totalPossibleScore = questions.reduce(
-      (acc, q) => acc + (q.marks || q.pointsAwarded || 1),
+    const totalMarksEarned = questionResults.reduce((acc, result) => {
+      const question = questions.find(q => q.id === result.id);
+      return acc + (result.correct ? (question?.marks || 1) : 0);
+    }, 0);
+    const totalPossibleMarks = questions.reduce(
+      (acc, q) => acc + (q.marks || 1),
       0
     );
     const percentageCorrect =
-      totalPossibleScore > 0
-        ? Math.round((score / totalPossibleScore) * 100)
+      totalPossibleMarks > 0
+        ? Math.round((totalMarksEarned / totalPossibleMarks) * 100)
         : 0;
     const correctCount = questionResults.filter((r) => r.correct).length;
     return (
@@ -1582,7 +1594,7 @@ export default function TopicalPracticePage() {
                 {percentageCorrect}%
               </p>
               <p className="text-gray-600 mt-1">
-                Your Score: {score} / {totalPossibleScore}
+                Your Score: {totalMarksEarned} / {totalPossibleMarks}
               </p>
               <p className="text-amber-500 font-semibold mt-1">
                 XP Earned: +{score}
@@ -1778,6 +1790,15 @@ export default function TopicalPracticePage() {
           totalQuestions: questions.length,
           score: score,
           correctAnswers: questionResults.filter((r) => r.correct).length,
+          totalMarksEarned: questionResults.reduce((acc, result) => {
+            const question = questions.find(q => q.id === result.id);
+            return acc + (result.correct ? (question?.marks || 1) : 0);
+          }, 0),
+          totalPossibleMarks: questions.reduce(
+            (acc, q) => acc + (q.marks || 1),
+            0
+          ),
+          xpEarned: score
         }}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">

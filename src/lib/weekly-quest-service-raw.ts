@@ -664,12 +664,12 @@ const getSubjectsWithMinAccuracy = async (
         "subjectId",
         SUM("totalMarksEarned") as total_marks_earned,
         SUM("totalPossibleMarks") as total_possible_marks
-      FROM "PracticeSession"
+    FROM "PracticeSession"
       WHERE
         "studentId" = ${studentId}
         AND "startTime" >= ${weekStart}
         AND "startTime" < ${new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000)}
-        AND "status" = 'COMPLETED'
+    AND "status" = 'COMPLETED'
       GROUP BY "subjectId"
     )
     SELECT COUNT(DISTINCT "subjectId") as count
