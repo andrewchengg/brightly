@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress";
@@ -25,10 +26,11 @@ import {
   FaBullseye,
   FaBookOpen,
   FaPlay,
-  FaLaptop, // Kept from update-subjects-page
+  FaLaptop,
 } from "react-icons/fa";
 import { LuCalculator } from "react-icons/lu";
 import { useQuestData } from "@/contexts/QuestContext";
+import { useSupabaseUser } from "@/lib/hooks/auth";
 
 // Import quest interface from context
 interface WeeklyQuest {
@@ -108,6 +110,7 @@ const subjects = [
 
 export default function PracticePage() {
   const router = useRouter();
+  const { user } = useSupabaseUser();
   const {
     quests: weeklyQuests,
     locked: questsLocked,
@@ -130,7 +133,10 @@ export default function PracticePage() {
     }
   };
 
-  const handleSubjectPractice = (subjectId: number) => {
+  // Check for in-progress sessions before navigating
+  const handleSubjectPractice = async (subjectId: number) => {
+    console.log("🎯 DEBUG: Subject practice clicked for:", subjectId);
+    console.log("🔄 DEBUG: Navigating to subject page:", subjectId);
     router.push(`/student/practice/subject/${subjectId}`);
   };
 

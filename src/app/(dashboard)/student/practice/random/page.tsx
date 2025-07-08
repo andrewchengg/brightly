@@ -26,7 +26,6 @@ import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
 import dynamic from "next/dynamic";
-import WhiteboardButton from "@/components/ui/WhiteboardButton";
 import MobileFloatingButtons from "@/components/MobileFloatingButtons";
 import {
   FaLightbulb,
@@ -44,16 +43,8 @@ import {
   FaArrowRight,
   FaRocket,
   FaFlag,
+  FaBookOpen,
 } from "react-icons/fa";
-
-// Dynamically import WhiteboardModal to prevent SSR issues
-const WhiteboardModal = dynamic(
-  () => import("@/components/ui/WhiteboardModal"),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
 
 // Interfaces
 interface OptionClient {
@@ -327,16 +318,13 @@ export default function RandomPractice() {
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  // Whiteboard state
-  const [showWhiteboard, setShowWhiteboard] = useState(false);
-  
   // Mobile detection state
   const [isMobile, setIsMobile] = useState(false);
 
   // Check if mobile screen size
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
+      setIsMobile(window.innerWidth < 768);
     };
 
     checkMobile();
@@ -346,6 +334,7 @@ export default function RandomPractice() {
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const initializationAttempted = useRef(false);
 
   const currentQuestion: QuestionClient | null =
     questions.length > 0 && currentQuestionIndex < questions.length
@@ -362,6 +351,52 @@ export default function RandomPractice() {
       }
     }
   }, [authUser, authUserIsLoaded, router]);
+
+  // Delete session when user closes window or navigates away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (currentPracticeSessionId) {
+        console.log(
+          "🗑️ DEBUG: Window closing - deleting session:",
+          currentPracticeSessionId
+        );
+        // Use sendBeacon for reliable cleanup during page unload
+        navigator.sendBeacon(
+          `/api/practice-sessions/${currentPracticeSessionId}`,
+          JSON.stringify({ method: "DELETE" })
+        );
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
+        console.log(
+          "🗑️ DEBUG: Page hidden - deleting session:",
+          currentPracticeSessionId
+        );
+        // User switched tabs or minimized - clean up session
+        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          method: "DELETE",
+        }).catch((err) => {
+          console.warn("Failed to delete session on visibility change:", err);
+        });
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Final cleanup on component unmount
+      if (currentPracticeSessionId && !sessionFinalized) {
+        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+    };
+  }, [currentPracticeSessionId, sessionFinalized]);
 
   // Load existing session from database
   const loadExistingSession = useCallback(
@@ -424,8 +459,27 @@ export default function RandomPractice() {
         > = {};
         const results: typeof questionResults = [];
 
-        questions.forEach((question) => {
-          if (question.submittedAnswer) {
+        console.log(
+          "🔍 DEBUG: Loading session with questions:",
+          questions.map((q) => ({
+            id: q.id,
+            text: q.text?.substring(0, 50) + "...",
+            submittedAnswer: q.submittedAnswer,
+            isCorrect: q.isCorrect,
+          }))
+        );
+
+        questions.forEach((question, index) => {
+          if (
+            question.submittedAnswer !== null &&
+            question.submittedAnswer !== undefined
+          ) {
+            console.log(
+              `✅ DEBUG: Question ${index + 1} (ID: ${
+                question.id
+              }) has answer:`,
+              question.submittedAnswer
+            );
             answeredQuestionsMap[question.id] = question.submittedAnswer;
             results.push({
               id: question.id,
@@ -434,6 +488,12 @@ export default function RandomPractice() {
               userAnswer: question.submittedAnswer,
               correctAnswer: question.correctAnswer,
             });
+          } else {
+            console.log(
+              `❌ DEBUG: Question ${index + 1} (ID: ${
+                question.id
+              }) has NO answer`
+            );
           }
         });
 
@@ -445,18 +505,32 @@ export default function RandomPractice() {
           (q) => !answeredQuestionsMap.hasOwnProperty(q.id)
         );
 
+        let actualCurrentIndex;
         if (firstUnansweredIndex === -1) {
           // All questions answered, show summary
+          actualCurrentIndex = questions.length;
           setCurrentQuestionIndex(questions.length);
           setShowSummary(true);
           setSessionFinalized(true);
         } else {
+          actualCurrentIndex = firstUnansweredIndex;
           setCurrentQuestionIndex(firstUnansweredIndex);
         }
 
-        // Update progress state
+        console.log(
+          `🎯 DEBUG: Resuming at question ${actualCurrentIndex + 1} of ${
+            questions.length
+          } (index: ${actualCurrentIndex})`
+        );
+        console.log(
+          `📊 DEBUG: Answered questions: ${
+            Object.keys(answeredQuestionsMap).length
+          }/${questions.length}`
+        );
+
+        // Update progress state using the calculated index
         setProgress({
-          currentQuestion: currentQuestionIndex + 1,
+          currentQuestion: actualCurrentIndex + 1,
           totalQuestions: questions.length,
           score: sessionData.totalMarksEarned || 0,
           correctAnswers: sessionData.correctAnswers || 0,
@@ -534,93 +608,92 @@ export default function RandomPractice() {
 
   // Find or create session and load questions
   const initializePracticeSession = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      console.log("❌ DEBUG: No userId available for session initialization");
+      return;
+    }
+
+    console.log("🚀 DEBUG: Starting practice session initialization");
+    console.log("🔍 DEBUG: User ID:", userId);
+    console.log("🔍 DEBUG: Current subject ID:", currentSubjectId);
+    console.log("🔍 DEBUG: Current topic ID:", currentTopicId);
+    console.log("🔍 DEBUG: Existing session ID from URL:", existingSessionId);
 
     setLoading(true);
     setError(null);
 
     try {
-      let sessionId: string | null = null;
-
-      // If there's an existing session ID from URL, use that
+      // If there's an existing session ID from URL, load that
       if (existingSessionId) {
+        console.log(
+          "🔄 DEBUG: Attempting to load existing session:",
+          existingSessionId
+        );
         const success = await loadExistingSession(existingSessionId);
         if (success) {
-          setLoading(false);
-          return;
+          console.log("✅ DEBUG: Successfully loaded existing session");
+        } else {
+          console.log("❌ DEBUG: Failed to load existing session");
+          setError(
+            "Could not load the specified practice session. It may have expired or been completed."
+          );
         }
-      }
-
-      // Look for existing IN_PROGRESS session for this user and subject
-      if (currentSubjectId) {
-        const existingSessionResponse = await fetch(
-          `/api/student/${userId}/practice-sessions?status=IN_PROGRESS&subjectId=${currentSubjectId}&limit=1`
-        );
-
-        if (existingSessionResponse.ok) {
-          const sessions = await existingSessionResponse.json();
-          if (sessions.length > 0) {
-            const success = await loadExistingSession(sessions[0].id);
-            if (success) {
-              setLoading(false);
-              return;
-            }
-          }
-        }
-      }
-
-      // Create new session
-      sessionId = await createNewPracticeSession();
-      if (!sessionId) {
-        setError("Failed to create practice session");
         setLoading(false);
         return;
       }
 
-      // Fetch questions
-      let questionsUrl = "/api/questions/random?limit=10";
-      if (currentSubjectId) {
-        questionsUrl += `&subjectId=${currentSubjectId}`;
+      // No existing session ID - check if we should create a new session
+      if (!currentSubjectId) {
+        console.log("❌ DEBUG: No subject ID - showing error");
+        setError(
+          "No practice session to continue. Please start a new practice session."
+        );
+        setLoading(false);
+        return;
       }
 
-      const questionsResponse = await fetch(questionsUrl);
-      if (!questionsResponse.ok) {
-        throw new Error("Failed to load questions");
+      // Create new session
+      console.log(
+        "➕ DEBUG: Creating new practice session for subject:",
+        currentSubjectId
+      );
+      const sessionId = await createNewPracticeSession();
+      if (!sessionId) {
+        console.log("❌ DEBUG: Failed to create new session");
+        setError("Failed to create practice session");
+        setLoading(false);
+        return;
       }
+      console.log("✅ DEBUG: Successfully created new session:", sessionId);
 
-      const fetchedQuestions: QuestionClient[] = await questionsResponse.json();
-      if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
-        throw new Error("No questions were returned from the API.");
-      }
+      setCurrentPracticeSessionId(sessionId);
 
-      setQuestions(fetchedQuestions);
-
-      // Update session with actual question count
-      await fetch(`/api/practice-sessions/${sessionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          totalQuestions: fetchedQuestions.length,
-        }),
+      // Update progress state for new session
+      setProgress({
+        currentQuestion: 1,
+        totalQuestions: questions.length,
+        score: 0,
+        correctAnswers: 0,
+        totalMarksEarned: 0,
+        totalPossibleMarks: 0,
+        xpEarned: 0,
       });
 
-      // Reset state for new session
-      setCurrentQuestionIndex(0);
-      setScore(0);
-      setAnsweredQuestions({});
-      setQuestionResults([]);
-      setSessionFinalized(false);
-    } catch (error: any) {
-      setError(error.message || "Failed to initialize practice session.");
+      console.log("✅ DEBUG: Session initialization completed successfully");
+    } catch (err: any) {
+      console.error("❌ DEBUG: Error during session initialization:", err);
+      setError(`Failed to initialize practice session: ${err.message}`);
     } finally {
       setLoading(false);
     }
   }, [
     userId,
     currentSubjectId,
+    currentTopicId,
     existingSessionId,
     loadExistingSession,
     createNewPracticeSession,
+    questions.length,
   ]);
 
   // Save student answer to database immediately
@@ -662,6 +735,15 @@ export default function RandomPractice() {
       setLoading(true);
       return;
     }
+
+    // Prevent double initialization
+    if (initializationAttempted.current) {
+      console.log("🔄 DEBUG: Initialization already attempted, skipping");
+      return;
+    }
+
+    console.log("🚀 DEBUG: Starting first-time initialization");
+    initializationAttempted.current = true;
     initializePracticeSession();
   }, [userId, initializePracticeSession]);
 
@@ -1055,23 +1137,32 @@ export default function RandomPractice() {
     // Starting new session - no need to clear localStorage as we're using database
     setShowSummary(false);
     setShowLevelUp(false); // Reset level up notification state
+    // Reset initialization flag to allow new session creation
+    initializationAttempted.current = false;
     await initializePracticeSession();
   }, [initializePracticeSession]);
 
   const handleExitConfirm = useCallback(() => {
-    // Exit immediately without waiting for API call
-    router.push("/student/practice");
+    console.log(
+      "🚪 DEBUG: User confirmed exit - deleting session and navigating"
+    );
 
-    // Delete session in background (fire and forget)
+    // Delete session immediately
     if (currentPracticeSessionId) {
       fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
         method: "DELETE",
       }).catch((err) => {
         console.warn("Failed to delete practice session:", err);
-        // Don't show toast error since user has already left the page
       });
     }
-  }, [currentPracticeSessionId, router]);
+
+    // Navigate away
+    if (currentSubjectId) {
+      router.push(`/student/practice/subject/${currentSubjectId}`);
+    } else {
+      router.push("/student/practice");
+    }
+  }, [currentPracticeSessionId, currentSubjectId, router]);
 
   const clearProgressAndExit = useCallback(() => {
     setShowExitDialog(true);
@@ -1252,11 +1343,6 @@ export default function RandomPractice() {
                           : currentQuestion.correctAnswer
                       }".`}
                 </p>
-                {!isAnswerCorrect && currentQuestion.explanation && (
-                  <p className="mt-1">
-                    Explanation: {currentQuestion.explanation}
-                  </p>
-                )}
               </div>
             )}
           </div>
@@ -1359,15 +1445,6 @@ export default function RandomPractice() {
                     ? "All parts correct!"
                     : "Some parts incorrect."}
                 </p>
-                {currentQuestion.explanation && (
-                  <div className="border-t pt-2">
-                    <p className="font-semibold mb-2">Explanation:</p>
-                    <ExplanationFormatter
-                      explanation={currentQuestion.explanation}
-                      className="text-gray-700"
-                    />
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -1410,30 +1487,51 @@ export default function RandomPractice() {
   }
 
   if (error) {
+    const isNoSessionError = error.includes("No practice session");
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
         <div className="bg-white p-8 rounded-2xl shadow-lg text-center w-full max-w-md">
-          <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-full bg-red-100">
-            <FaExclamationTriangle className="text-red-600 text-3xl" />
+          <div
+            className={`w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-full ${
+              isNoSessionError ? "bg-blue-100" : "bg-red-100"
+            }`}
+          >
+            {isNoSessionError ? (
+              <FaBookOpen className="text-blue-600 text-3xl" />
+            ) : (
+              <FaExclamationTriangle className="text-red-600 text-3xl" />
+            )}
           </div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">
-            Oops! Something went wrong
+            {isNoSessionError
+              ? "Ready to Practice?"
+              : "Oops! Something went wrong"}
           </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <p className="text-gray-600 mb-6">
+            {isNoSessionError
+              ? "Choose a subject below to start practicing, or continue an existing session."
+              : error}
+          </p>
           <div className="flex flex-col gap-3">
             <Button
               className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm w-full"
-              onClick={initializePracticeSession}
-            >
-              <FaRedo className="mr-2" /> Try Again
-            </Button>
-            <Button
-              variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 w-full"
               onClick={() => router.push("/student/practice")}
             >
-              <FaArrowLeft className="mr-2" /> Back to Subjects
+              <FaBookOpen className="mr-2" /> Choose Practice Subject
             </Button>
+            {!isNoSessionError && (
+              <Button
+                variant="outline"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50 w-full"
+                onClick={() => {
+                  // Reset initialization flag to allow retry
+                  initializationAttempted.current = false;
+                  initializePracticeSession();
+                }}
+              >
+                <FaRedo className="mr-2" /> Try Again
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -1663,7 +1761,9 @@ export default function RandomPractice() {
           score: score,
           correctAnswers: questionResults.filter((r) => r.correct).length,
           totalMarksEarned: score,
-          totalPossibleMarks: questions.length * (currentQuestion?.marks || currentQuestion?.pointsAwarded || 1),
+          totalPossibleMarks:
+            questions.length *
+            (currentQuestion?.marks || currentQuestion?.pointsAwarded || 1),
           xpEarned: score,
         }}
       />
@@ -1690,10 +1790,12 @@ export default function RandomPractice() {
         />
       </div>
 
-      <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : ''}`}>
+      <div
+        className={`flex flex-1 overflow-hidden ${isMobile ? "flex-col" : ""}`}
+      >
         <div
           className={`overflow-auto bg-white custom-scrollbar ${
-            isMobile ? 'w-full' : ''
+            isMobile ? "w-full" : ""
           }`}
           style={isMobile ? {} : { width: `${splitPosition}%` }}
         >
@@ -1704,36 +1806,30 @@ export default function RandomPractice() {
               <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-full">
                 Topic: {currentQuestion?.topic?.name || "General"}
               </span>
-              <span
-                className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                  currentQuestion?.difficulty === "HARD" ||
-                  currentQuestion?.difficulty === "VERY_HARD"
-                    ? "bg-red-100 text-red-700"
-                    : currentQuestion?.difficulty === "MEDIUM"
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {currentQuestion?.difficulty || "MEDIUM"}
-              </span>
-              {/* Whiteboard Button - Only show on desktop */}
-              {!isMobile && (
-                <WhiteboardButton
-                  onClick={() => setShowWhiteboard(true)}
-                  className="ml-2"
-                  size="sm"
-                />
-              )}
-              {/* Report Button */}
-              <button
-                className="ml-2 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowReportModal(true);
-                }}
-              >
-                <FaFlag className="mr-1" /> Report
-              </button>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                    currentQuestion?.difficulty === "HARD" ||
+                    currentQuestion?.difficulty === "VERY_HARD"
+                      ? "bg-red-100 text-red-700"
+                      : currentQuestion?.difficulty === "MEDIUM"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {currentQuestion?.difficulty || "MEDIUM"}
+                </span>
+                {/* Report Button */}
+                <button
+                  className="flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowReportModal(true);
+                  }}
+                >
+                  <FaFlag className="mr-1" /> Report
+                </button>
+              </div>
             </div>
             <h1 className="text-xl md:text-2xl lg:text-xl font-semibold text-gray-800 mb-4 leading-snug">
               <QuestionTextFormatter text={currentQuestion?.text} />
@@ -1749,27 +1845,25 @@ export default function RandomPractice() {
             )}
             {renderQuestionContent()}
             {/* Feedback and Explanation Area */}
-            {selectedAnswer !== null &&
-              currentQuestion.explanation &&
-              currentQuestion.questionType !== "MULTI_PART" && (
-                <div
-                  className={`mt-4 p-4 lg:p-3 rounded-md text-base lg:text-sm ${
-                    isAnswerCorrect
-                      ? "bg-green-50 border-l-4 border-green-400"
-                      : "bg-blue-50 border-l-4 border-blue-400"
-                  }`}
-                >
-                  <div>
-                    <p className="font-semibold text-gray-700 mb-3 text-lg lg:text-base">
-                      Explanation:
-                    </p>
-                    <ExplanationFormatter
-                      explanation={currentQuestion.explanation}
-                      className="text-gray-700 leading-relaxed"
-                    />
-                  </div>
+            {selectedAnswer !== null && currentQuestion.explanation && (
+              <div
+                className={`mt-4 p-4 lg:p-3 rounded-md text-base lg:text-sm ${
+                  isAnswerCorrect
+                    ? "bg-green-50 border-l-4 border-green-400"
+                    : "bg-blue-50 border-l-4 border-blue-400"
+                }`}
+              >
+                <div>
+                  <p className="font-semibold text-gray-700 mb-3 text-lg lg:text-base">
+                    Explanation:
+                  </p>
+                  <ExplanationFormatter
+                    explanation={currentQuestion.explanation}
+                    className="text-gray-700 leading-relaxed"
+                  />
                 </div>
-              )}
+              </div>
+            )}
             {/* Desktop buttons - normal flow */}
             <div className="hidden lg:flex mt-6 border-t border-gray-200 pt-5 flex-row justify-between items-center">
               <Button
@@ -1802,7 +1896,6 @@ export default function RandomPractice() {
                   : "🏁 Show Results"}
               </Button>
             </div>
-
             {/* Mobile spacing to prevent content from being hidden behind fixed buttons */}
             <div className="lg:hidden h-24"></div>
             {showHint && currentQuestion?.hint && (
@@ -1838,37 +1931,37 @@ export default function RandomPractice() {
             style={{ width: `${100 - splitPosition - 0.5}%` }}
           >
             <AIAssistant
-            questionContext={
-              currentQuestion
-                ? createQuestionContext(
-                    currentQuestion.id,
-                    currentQuestion.text,
-                    currentQuestion.questionType || "MULTIPLE_CHOICE",
-                    currentQuestion.options,
-                    currentQuestion.correctAnswer || undefined,
-                    currentQuestion.explanation || undefined,
-                    currentQuestion.hint,
-                    selectedAnswer || undefined,
-                    selectedAnswer !== null
-                      ? isAnswerCorrect || false
-                      : undefined
-                  )
-                : undefined
-            }
-            sessionContext={createSessionContext(
-              "random_practice",
-              questions.length,
-              currentQuestionIndex + (selectedAnswer ? 1 : 0),
-              questionResults.filter((r) => r.correct).length,
-              sessionFinalized,
-              currentPracticeSessionId || undefined,
-              "Primary School",
-              currentQuestion?.topic?.subjectId,
-              undefined // Subject name will be determined from subjectId in the helper function
-            )}
-            disabled={false}
-            className="h-full"
-          />
+              questionContext={
+                currentQuestion
+                  ? createQuestionContext(
+                      currentQuestion.id,
+                      currentQuestion.text,
+                      currentQuestion.questionType || "MULTIPLE_CHOICE",
+                      currentQuestion.options,
+                      currentQuestion.correctAnswer || undefined,
+                      currentQuestion.explanation || undefined,
+                      currentQuestion.hint,
+                      selectedAnswer || undefined,
+                      selectedAnswer !== null
+                        ? isAnswerCorrect || false
+                        : undefined
+                    )
+                  : undefined
+              }
+              sessionContext={createSessionContext(
+                "random_practice",
+                questions.length,
+                currentQuestionIndex + (selectedAnswer ? 1 : 0),
+                questionResults.filter((r) => r.correct).length,
+                sessionFinalized,
+                currentPracticeSessionId || undefined,
+                "Primary School",
+                currentQuestion?.topic?.subjectId,
+                undefined // Subject name will be determined from subjectId in the helper function
+              )}
+              disabled={false}
+              className="h-full"
+            />
           </div>
         )}
       </div>
@@ -1921,9 +2014,7 @@ export default function RandomPractice() {
                 currentQuestion.explanation || undefined,
                 currentQuestion.hint,
                 selectedAnswer || undefined,
-                selectedAnswer !== null
-                  ? isAnswerCorrect || false
-                  : undefined
+                selectedAnswer !== null ? isAnswerCorrect || false : undefined
               )
             : undefined,
           sessionContext: createSessionContext(
@@ -1945,18 +2036,6 @@ export default function RandomPractice() {
         questionId={currentQuestion?.id}
         studentId={userId}
       />
-      {/* Desktop Whiteboard Modal - Mobile uses floating buttons */}
-      {!isMobile && (
-        <WhiteboardModal
-          isOpen={showWhiteboard}
-          onClose={() => setShowWhiteboard(false)}
-          onSave={(imageDataURL) => {
-            // Optional: Save whiteboard content to session or local storage
-            console.log("Whiteboard saved:", imageDataURL);
-            setShowWhiteboard(false);
-          }}
-        />
-      )}
     </div>
   );
 }

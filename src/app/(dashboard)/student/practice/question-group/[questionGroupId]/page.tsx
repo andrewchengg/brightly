@@ -54,6 +54,7 @@ import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import ClozeQuestionOptions from "@/components/Practice/ClozeQuestionOptions";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
 import { DifficultyLevel } from "@/generated/prisma";
+import { cleanupPracticeSession } from "@/lib/session-management";
 
 // Interfaces (similar to TopicalPracticePage)
 interface OptionClient {
@@ -172,7 +173,7 @@ export default function QuestionGroupPracticePage() {
   const [newLevel, setNewLevel] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
-  
+
   // Mobile detection state
   const [isMobile, setIsMobile] = useState(false);
 
@@ -207,13 +208,55 @@ export default function QuestionGroupPracticePage() {
 
   useEffect(() => {
     if (authUserIsLoaded) {
-      if (authUser) setUserId(authUser.id);
-      else {
-        toast.error("User session not found.");
-        router.push("/sign-in");
-      }
+      setUserId(authUser?.id || null);
     }
-  }, [authUser, authUserIsLoaded, router]);
+  }, [authUser, authUserIsLoaded]);
+
+  // Delete session when user closes window or navigates away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (currentPracticeSessionId && !sessionFinalized) {
+        console.log(
+          "🗑️ DEBUG: Window closing - deleting session:",
+          currentPracticeSessionId
+        );
+        // Use sendBeacon for reliable cleanup during page unload
+        navigator.sendBeacon(
+          `/api/practice-sessions/${currentPracticeSessionId}`,
+          JSON.stringify({ method: "DELETE" })
+        );
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
+        console.log(
+          "🗑️ DEBUG: Page hidden - deleting session:",
+          currentPracticeSessionId
+        );
+        // User switched tabs or minimized - clean up session
+        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          method: "DELETE",
+        }).catch((err) => {
+          console.warn("Failed to delete session on visibility change:", err);
+        });
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Final cleanup on component unmount
+      if (currentPracticeSessionId && !sessionFinalized) {
+        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+    };
+  }, [currentPracticeSessionId, sessionFinalized]);
 
   const createNewQuestionGroupPracticeSession = useCallback(
     async (fetchedQuestions: QuestionClient[], groupData: QuestionGroup) => {
@@ -627,8 +670,8 @@ export default function QuestionGroupPracticePage() {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
       const totalMarksEarned = questionResults.reduce((acc, result) => {
-        const question = questions.find(q => q.id === result.id);
-        return acc + (result.correct ? (question?.marks || 1) : 0);
+        const question = questions.find((q) => q.id === result.id);
+        return acc + (result.correct ? question?.marks || 1 : 0);
       }, 0);
       const totalPossibleMarks = questions.reduce(
         (acc, q) => acc + (q.marks || 1),
@@ -644,7 +687,7 @@ export default function QuestionGroupPracticePage() {
           correctAnswers: correctCount,
           xpEarned: calculatedScore,
           totalMarksEarned,
-          totalPossibleMarks
+          totalPossibleMarks,
         }),
       });
       if (!response.ok) {
@@ -698,7 +741,9 @@ export default function QuestionGroupPracticePage() {
         [currentQuestion.id]: userAns,
       }));
       setIsAnswerCorrect(isCorr);
-      const points = isCorr ? (currentQuestion.marks || currentQuestion.pointsAwarded || 1) : 0;
+      const points = isCorr
+        ? currentQuestion.marks || currentQuestion.pointsAwarded || 1
+        : 0;
       setQuestionResults((prevResults) => {
         const newResult = {
           id: currentQuestion.id,
@@ -876,18 +921,31 @@ export default function QuestionGroupPracticePage() {
   }, [localStorageKey, fetchQuestionGroupAndStartSession]);
 
   const handleExitConfirm = useCallback(() => {
-    // Exit immediately without waiting for API call
+    console.log(
+      "🚪 DEBUG: User confirmed exit - deleting session and navigating"
+    );
+
+    // Delete session immediately
+    if (currentPracticeSessionId) {
+      fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+        method: "DELETE",
+      }).catch((err) => {
+        console.warn("Failed to delete practice session:", err);
+      });
+    }
+
+    // Clear localStorage
+    if (localStorageKey) {
+      safeStorage.removeItem(localStorageKey, "local");
+    }
+
+    // Navigate away
     if (currentSubjectId) {
       router.push(`/student/practice/subject/${currentSubjectId}`);
     } else {
       router.push("/student/practice");
     }
-
-    // Clean up session in background if needed
-    if (localStorageKey) {
-      safeStorage.removeItem(localStorageKey, "local");
-    }
-  }, [currentSubjectId, router, localStorageKey]);
+  }, [currentSubjectId, router, currentPracticeSessionId, localStorageKey]);
 
   const exitToSubjectPractice = useCallback(() => {
     setShowExitDialog(true);
@@ -1367,54 +1425,48 @@ export default function QuestionGroupPracticePage() {
         />
         <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
           <div className="p-6 text-center">
-            <h2 className="text-3xl font-bold mb-2">
-                {percentageCorrect}%
-            </h2>
+            <h2 className="text-3xl font-bold mb-2">{percentageCorrect}%</h2>
             <p className="text-gray-600 mb-4">
               Your Marks: {totalMarksEarned} / {totalPossibleMarks}
-              </p>
-            <p className="text-gray-600 mb-4">
-              XP Earned: +{totalMarksEarned}
             </p>
-            <p className="text-gray-600">
-              Total Questions: {totalQuestions}
-                </p>
+            <p className="text-gray-600 mb-4">XP Earned: +{totalMarksEarned}</p>
+            <p className="text-gray-600">Total Questions: {totalQuestions}</p>
             <p className="text-gray-600">
               Correct Answers: {correctAnswers} / {totalQuestions}
-                </p>
-              </div>
+            </p>
+          </div>
           <div className="border-t border-gray-200 p-6">
             <h3 className="text-lg font-semibold mb-4">Review Your Answers:</h3>
-                {questionResults.map((result, index) => (
-                  <div
-                    key={result.id}
+            {questionResults.map((result, index) => (
+              <div
+                key={result.id}
                 className={`mb-4 p-4 rounded-lg ${
-                      result.correct
+                  result.correct
                     ? "bg-green-50 text-green-700"
                     : "bg-red-50 text-red-700"
-                    }`}
-                  >
+                }`}
+              >
                 <div className="flex items-center justify-between">
                   <span>Question {index + 1}</span>
                   <span>
-                        {result.correct ? (
+                    {result.correct ? (
                       <FaCheck className="w-5 h-5" />
-                        ) : (
+                    ) : (
                       <FaTimes className="w-5 h-5" />
                     )}
-                        </span>
-                    </div>
-                  </div>
-                ))}
+                  </span>
+                </div>
               </div>
+            ))}
+          </div>
           <div className="border-t border-gray-200 p-6 flex justify-center">
-              <Button
+            <Button
               onClick={() => {
                 router.push("/student/practice");
               }}
             >
               Continue Practice
-              </Button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1472,14 +1524,14 @@ export default function QuestionGroupPracticePage() {
           score: score,
           correctAnswers: questionResults.filter((r) => r.correct).length,
           totalMarksEarned: questionResults.reduce((acc, result) => {
-            const question = questions.find(q => q.id === result.id);
-            return acc + (result.correct ? (question?.marks || 1) : 0);
+            const question = questions.find((q) => q.id === result.id);
+            return acc + (result.correct ? question?.marks || 1 : 0);
           }, 0),
           totalPossibleMarks: questions.reduce(
             (acc, q) => acc + (q.marks || 1),
             0
           ),
-          xpEarned: score
+          xpEarned: score,
         }}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
@@ -1511,10 +1563,12 @@ export default function QuestionGroupPracticePage() {
         </div>
       )}
 
-      <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : ''}`}>
+      <div
+        className={`flex flex-1 overflow-hidden ${isMobile ? "flex-col" : ""}`}
+      >
         <div
           className={`overflow-auto bg-white custom-scrollbar ${
-            isMobile ? 'w-full' : ''
+            isMobile ? "w-full" : ""
           }`}
           style={isMobile ? {} : { width: `${splitPosition}%` }}
         >
@@ -1549,23 +1603,23 @@ export default function QuestionGroupPracticePage() {
                 {selectedAnswer !== null &&
                   currentQuestion?.explanation &&
                   currentQuestion?.questionType !== "MULTI_PART" && (
-                                    <div
-                  className={`mt-4 p-4 lg:p-3 rounded-md text-base lg:text-sm ${
-                    isAnswerCorrect
-                      ? "bg-green-50 border-l-4 border-green-400"
-                      : "bg-blue-50 border-l-4 border-blue-400"
-                  }`}
-                >
-                  <div>
-                    <p className="font-semibold text-gray-700 mb-3 text-lg lg:text-base">
-                      Explanation:
-                    </p>
-                    <ExplanationFormatter
-                      explanation={currentQuestion.explanation}
-                      className="text-gray-700 leading-relaxed"
-                    />
-                  </div>
-                </div>
+                    <div
+                      className={`mt-4 p-4 lg:p-3 rounded-md text-base lg:text-sm ${
+                        isAnswerCorrect
+                          ? "bg-green-50 border-l-4 border-green-400"
+                          : "bg-blue-50 border-l-4 border-blue-400"
+                      }`}
+                    >
+                      <div>
+                        <p className="font-semibold text-gray-700 mb-3 text-lg lg:text-base">
+                          Explanation:
+                        </p>
+                        <ExplanationFormatter
+                          explanation={currentQuestion.explanation}
+                          className="text-gray-700 leading-relaxed"
+                        />
+                      </div>
+                    </div>
                   )}
                 {/* Desktop buttons - normal flow */}
                 <div className="hidden lg:flex mt-5 border-t border-gray-200 pt-4 flex-row justify-between items-center">
@@ -1645,7 +1699,7 @@ export default function QuestionGroupPracticePage() {
             <div className="h-8 w-0.5 bg-gray-400 rounded-full group-hover:bg-indigo-500 transition-colors duration-150"></div>
           </div>
         )}
-        
+
         {/* AI Assistant Panel - Only show on desktop */}
         {!isMobile && (
           <div
@@ -1653,42 +1707,42 @@ export default function QuestionGroupPracticePage() {
             style={{ width: `${100 - splitPosition - 0.5}%` }}
           >
             <AIAssistant
-            passageContext={
-              passageContent
-                ? createPassageContext(passageContent, passageTitle)
-                : undefined
-            }
-            questionContext={
-              currentQuestion
-                ? createQuestionContext(
-                    currentQuestion.id,
-                    currentQuestion.text,
-                    currentQuestion.questionType || "MULTIPLE_CHOICE",
-                    currentQuestion.options,
-                    currentQuestion.correctAnswer || undefined,
-                    currentQuestion.explanation || undefined,
-                    currentQuestion.hint,
-                    selectedAnswer || undefined,
-                    selectedAnswer !== null
-                      ? isAnswerCorrect || false
-                      : undefined
-                  )
-                : undefined
-            }
-            sessionContext={createSessionContext(
-              "question_group",
-              questions.length,
-              currentQuestionIndex + (selectedAnswer ? 1 : 0),
-              questionResults.filter((r) => r.correct).length,
-              sessionFinalized,
-              currentPracticeSessionId || undefined,
-              "Primary School",
-              currentSubjectId || undefined,
-              undefined // Subject name will be determined from subjectId in the helper function
-            )}
-            disabled={false}
-            className="h-full"
-          />
+              passageContext={
+                passageContent
+                  ? createPassageContext(passageContent, passageTitle)
+                  : undefined
+              }
+              questionContext={
+                currentQuestion
+                  ? createQuestionContext(
+                      currentQuestion.id,
+                      currentQuestion.text,
+                      currentQuestion.questionType || "MULTIPLE_CHOICE",
+                      currentQuestion.options,
+                      currentQuestion.correctAnswer || undefined,
+                      currentQuestion.explanation || undefined,
+                      currentQuestion.hint,
+                      selectedAnswer || undefined,
+                      selectedAnswer !== null
+                        ? isAnswerCorrect || false
+                        : undefined
+                    )
+                  : undefined
+              }
+              sessionContext={createSessionContext(
+                "question_group",
+                questions.length,
+                currentQuestionIndex + (selectedAnswer ? 1 : 0),
+                questionResults.filter((r) => r.correct).length,
+                sessionFinalized,
+                currentPracticeSessionId || undefined,
+                "Primary School",
+                currentSubjectId || undefined,
+                undefined // Subject name will be determined from subjectId in the helper function
+              )}
+              disabled={false}
+              className="h-full"
+            />
           </div>
         )}
       </div>
@@ -1700,9 +1754,7 @@ export default function QuestionGroupPracticePage() {
             <Button
               onClick={() => setShowHint(true)}
               disabled={
-                selectedAnswer !== null ||
-                showHint ||
-                !currentQuestion?.hint
+                selectedAnswer !== null || showHint || !currentQuestion?.hint
               }
               variant="outline"
               className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 w-full text-base py-3 min-h-[48px]"
@@ -1735,7 +1787,7 @@ export default function QuestionGroupPracticePage() {
       {/* Mobile Floating Buttons */}
       <MobileFloatingButtons
         aiAssistantProps={{
-          passageContext: passageContent 
+          passageContext: passageContent
             ? createPassageContext(
                 questionGroupIdParam,
                 passageTitle,
@@ -1753,9 +1805,7 @@ export default function QuestionGroupPracticePage() {
                 currentQuestion.explanation || undefined,
                 currentQuestion.hint,
                 selectedAnswer || undefined,
-                selectedAnswer !== null
-                  ? isAnswerCorrect || false
-                  : undefined
+                selectedAnswer !== null ? isAnswerCorrect || false : undefined
               )
             : undefined,
           sessionContext: createSessionContext(

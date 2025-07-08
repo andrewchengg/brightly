@@ -46,6 +46,7 @@ import {
   AIAssistantRef,
 } from "@/components/AILearningAssistant";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
+import { cleanupPracticeSession } from "@/lib/session-management";
 
 export interface OptionClient {
   id: string;
@@ -182,13 +183,55 @@ export default function ClozePassagePracticePage() {
 
   useEffect(() => {
     if (authUserIsLoaded) {
-      if (authUser) setUserId(authUser.id);
-      else {
-        toast.error("User session not found.");
-        router.push("/sign-in");
-      }
+      setUserId(authUser?.id || null);
     }
-  }, [authUser, authUserIsLoaded, router]);
+  }, [authUser, authUserIsLoaded]);
+
+  // Delete session when user closes window or navigates away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (currentPracticeSessionId && !sessionFinalized) {
+        console.log(
+          "🗑️ DEBUG: Window closing - deleting session:",
+          currentPracticeSessionId
+        );
+        // Use sendBeacon for reliable cleanup during page unload
+        navigator.sendBeacon(
+          `/api/practice-sessions/${currentPracticeSessionId}`,
+          JSON.stringify({ method: "DELETE" })
+        );
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
+        console.log(
+          "🗑️ DEBUG: Page hidden - deleting session:",
+          currentPracticeSessionId
+        );
+        // User switched tabs or minimized - clean up session
+        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          method: "DELETE",
+        }).catch((err) => {
+          console.warn("Failed to delete session on visibility change:", err);
+        });
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Final cleanup on component unmount
+      if (currentPracticeSessionId && !sessionFinalized) {
+        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+    };
+  }, [currentPracticeSessionId, sessionFinalized]);
 
   const createNewSession = useCallback(
     async (fetchedQuestions: QuestionClient[], groupData: QuestionGroup) => {
@@ -591,16 +634,31 @@ export default function ClozePassagePracticePage() {
     localStorageKey /* fetchContentAndStart is implicitly re-run due to initialLoadComplete change */,
   ]);
   const handleExitConfirm = useCallback(() => {
-    // Exit immediately without waiting for API call
-    if (currentSubjectId)
-      router.push(`/student/practice/subject/${currentSubjectId}`);
-    else router.push("/student/practice/subject/4");
+    console.log(
+      "🚪 DEBUG: User confirmed exit - deleting session and navigating"
+    );
 
-    // Clean up session in background if needed
+    // Delete session immediately
+    if (currentPracticeSessionId) {
+      fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
+        method: "DELETE",
+      }).catch((err) => {
+        console.warn("Failed to delete practice session:", err);
+      });
+    }
+
+    // Clear localStorage
     if (localStorageKey) {
       safeStorage.removeItem(localStorageKey, "local");
     }
-  }, [currentSubjectId, router, localStorageKey]);
+
+    // Navigate away
+    if (currentSubjectId) {
+      router.push(`/student/practice/subject/${currentSubjectId}`);
+    } else {
+      router.push("/student/practice/subject/4");
+    }
+  }, [currentSubjectId, router, currentPracticeSessionId, localStorageKey]);
 
   const exitToSubjectPractice = useCallback(() => {
     setShowExitDialog(true);

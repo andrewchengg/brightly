@@ -36,6 +36,34 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
   currentProgress,
   showSaveOption = false,
 }) => {
+  // Debug logging when dialog opens
+  React.useEffect(() => {
+    if (isOpen) {
+      console.log("🚪 DEBUG: Exit dialog opened");
+      console.log("📊 DEBUG: Current progress:", currentProgress);
+      console.log("💾 DEBUG: Save option available:", showSaveOption);
+    }
+  }, [isOpen, currentProgress, showSaveOption]);
+
+  const handleStayAndContinue = () => {
+    console.log("✅ DEBUG: User chose to STAY and continue practice");
+    onClose();
+  };
+
+  const handleSaveAndExit = () => {
+    console.log("💾 DEBUG: User chose to SAVE AND EXIT");
+    console.log("📊 DEBUG: Progress being saved:", currentProgress);
+    if (onSaveAndExit) {
+      onSaveAndExit();
+    }
+  };
+
+  const handleExitWithoutSaving = () => {
+    console.log("❌ DEBUG: User chose to EXIT WITHOUT SAVING");
+    console.log("🗑️ DEBUG: Progress will be lost:", currentProgress);
+    onExit();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -80,7 +108,8 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
               <div className="flex justify-between">
                 <span className="text-gray-600">Score:</span>
                 <span className="font-medium text-amber-600">
-                  {currentProgress.totalMarksEarned} / {currentProgress.totalPossibleMarks} marks
+                  {currentProgress.totalMarksEarned} /{" "}
+                  {currentProgress.totalPossibleMarks} marks
                 </span>
               </div>
               <div className="flex justify-between">
@@ -104,7 +133,8 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
             <div className="text-center mb-4">
               <p className="text-gray-600">Current Progress:</p>
               <p className="text-lg font-semibold">
-                {currentProgress.totalMarksEarned} / {currentProgress.totalPossibleMarks} marks
+                {currentProgress.totalMarksEarned} /{" "}
+                {currentProgress.totalPossibleMarks} marks
               </p>
               <p className="text-sm text-gray-500">
                 {currentProgress.xpEarned} XP earned
@@ -115,11 +145,20 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
 
         {/* Warning Message */}
         <div className="px-6 py-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-sm text-red-800">
-              <strong>⚠️ Warning:</strong> If you exit without saving, your
-              progress for this session will be lost.
-            </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <FaExclamationTriangle className="text-amber-600 text-lg mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h4 className="font-semibold text-amber-800 mb-1">
+                  Warning: Progress Will Be Lost
+                </h4>
+                <p className="text-amber-700 text-sm">
+                  If you exit now, your practice session and all progress will
+                  be permanently deleted. You'll need to start over from the
+                  beginning next time.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -127,7 +166,7 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
         <div className="flex gap-3 p-6 pt-0">
           <Button
             variant="outline"
-            onClick={onClose}
+            onClick={handleStayAndContinue}
             className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
           >
             Stay & Continue
@@ -135,7 +174,7 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
 
           {showSaveOption && onSaveAndExit && (
             <Button
-              onClick={onSaveAndExit}
+              onClick={handleSaveAndExit}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
             >
               <FaSave className="mr-2" size={14} />
@@ -144,12 +183,12 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
           )}
 
           <Button
-            onClick={onExit}
+            onClick={handleExitWithoutSaving}
             variant="outline"
             className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
           >
             <FaArrowLeft className="mr-2" size={14} />
-            Exit Without Saving
+            Exit & Delete Progress
           </Button>
         </div>
       </div>

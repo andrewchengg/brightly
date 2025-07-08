@@ -43,6 +43,7 @@ import {
 } from "react-icons/fa";
 import { Topic, Subject as PrismaSubject } from "@/generated/prisma";
 import { toast } from "react-toastify";
+import { useSupabaseUser } from "@/lib/hooks/auth";
 
 // Configuration for subject-specific display (can be expanded)
 const subjectDisplayConfig = {
@@ -266,6 +267,7 @@ function SubjectPracticeContent({
   numericSubjectId: number;
 }) {
   const router = useRouter();
+  const { user } = useSupabaseUser();
 
   const [topicsWithMastery, setTopicsWithMastery] = useState<
     TopicWithMastery[]
@@ -397,6 +399,32 @@ function SubjectPracticeContent({
   };
 
   const handleStartRandomPractice = async () => {
+    // Check for existing in-progress sessions for this subject
+    if (user?.id) {
+      try {
+        const response = await fetch(
+          `/api/student/practice-sessions/in-progress?studentId=${user.id}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const subjectSession = data.sessions?.find(
+            (session: any) => session.subjectId === numericSubjectId
+          );
+
+          if (subjectSession) {
+            // Redirect to existing session
+            router.push(
+              `/student/practice/random?sessionId=${subjectSession.id}`
+            );
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error checking for existing sessions:", error);
+      }
+    }
+
+    // No existing session found, start new practice
     router.push(`/student/practice/random?subjectId=${numericSubjectId}`);
   };
 
