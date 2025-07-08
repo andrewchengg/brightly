@@ -52,13 +52,13 @@ const subjects = [
     subtitle: "AQA GCSE",
     icon: LuCalculator,
     topicsCount: 12,
-    bgColor: "bg-gradient-to-br from-purple-100 via-purple-50 to-indigo-100",
+    bgColor: "bg-gradient-to-br from-purple-100 to-purple-100",
     textColor: "text-gray-800",
-    iconColor: "text-purple-600",
+    iconColor: "text-purple-800",
     lockIcon: true,
     disabled: false,
     asset: "📐", // Triangular ruler emoji for math
-    assetColor: "text-purple-600",
+    assetColor: "text-purple-800",
   },
   {
     id: 4,
@@ -143,7 +143,7 @@ export default function PracticePage() {
       <div className="max-w-7xl mx-auto p-4 md:p-6">
         {/* Header - Containerized with darker colors like the image */}
         <div className="mb-8">
-          <div className="bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 rounded-3xl p-8 md:p-10 text-white relative overflow-hidden shadow-xl">
+          <div className="bg-purple-800 rounded-3xl p-8 md:p-10 text-white relative overflow-hidden shadow-xl">
             {/* Decorative elements */}
             <div className="absolute top-4 right-4 opacity-20">
               <div className="w-16 h-16 border-2 border-white rounded-lg rotate-12"></div>
@@ -384,9 +384,9 @@ function WeeklyQuestCard({ quest }: { quest: WeeklyQuest }) {
       progress: "bg-orange-500",
     },
     purple: {
-      bg: "bg-purple-50",
-      icon: "text-purple-600",
-      progress: "bg-purple-500",
+      bg: "bg-purple-100",
+      icon: "text-purple-800",
+      progress: "bg-purple-800",
     },
     blue: { bg: "bg-blue-50", icon: "text-blue-600", progress: "bg-blue-500" },
     indigo: {

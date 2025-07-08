@@ -496,12 +496,12 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                         </p>
                         <p className="text-sm text-blue-600">Questions</p>
                       </div>
-                      <div className="text-center p-4 bg-purple-50 rounded-lg">
-                        <FaChartLine className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-purple-700">
+                      <div className="text-center p-4 bg-purple-100 rounded-lg">
+                        <FaChartLine className="w-6 h-6 text-purple-800 mx-auto mb-2" />
+                        <p className="text-2xl font-bold text-purple-800">
                           {selectedChildData.today.accuracy}%
                         </p>
-                        <p className="text-sm text-purple-600">Accuracy</p>
+                        <p className="text-sm text-purple-800">Accuracy</p>
                       </div>
                       <div className="text-center p-4 bg-amber-50 rounded-lg">
                         <FaTrophy className="w-6 h-6 text-amber-600 mx-auto mb-2" />
@@ -595,7 +595,7 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <FaBrain className="text-purple-600" />
+                      <FaBrain className="text-purple-800" />
                       Subject Performance
                     </CardTitle>
                   </CardHeader>
@@ -781,11 +781,11 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                         <p className="text-sm text-blue-600">This Week</p>
                       </div>
                       <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg">
-                        <FaChartLine className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-purple-700">
+                        <FaChartLine className="w-8 h-8 text-purple-800 mx-auto mb-2" />
+                        <p className="text-2xl font-bold text-purple-800">
                           {selectedChildData.week.accuracy}%
                         </p>
-                        <p className="text-sm text-purple-600">Avg Accuracy</p>
+                        <p className="text-sm text-purple-800">Avg Accuracy</p>
                       </div>
                     </div>
                   </CardContent>

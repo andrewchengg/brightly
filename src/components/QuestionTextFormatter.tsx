@@ -11,10 +11,10 @@ const StackedFraction: React.FC<{
   key?: string | number;
 }> = ({ numerator, denominator }) => (
   <span className="inline-block align-middle text-center mx-1">
-    <span className="block border-b border-current leading-tight px-1">
+    <span className="block border-b border-current leading-tight px-1 text-lg lg:text-base">
       {numerator}
     </span>
-    <span className="block leading-tight px-1">{denominator}</span>
+    <span className="block leading-tight px-1 text-lg lg:text-base">{denominator}</span>
   </span>
 );
 
@@ -28,7 +28,7 @@ const MixedFraction: React.FC<{
   key?: string | number;
 }> = ({ whole, numerator, denominator }) => (
   <span className="inline-flex items-center mx-1 align-middle">
-    <span className="mr-1">{whole}</span>
+    <span className="mr-1 text-lg lg:text-base">{whole}</span>
     <StackedFraction numerator={numerator} denominator={denominator} />
   </span>
 );
@@ -101,14 +101,14 @@ const formatMathematicalText = (inputText: string): React.ReactNode[] => {
       );
     } else if (angle || percent) {
       nodes.push(
-        <span key={key} className="font-semibold">
+        <span key={key} className="font-semibold text-lg lg:text-base">
           {fullMatch}
         </span>
       );
     } else if (comparison || operator) {
       const symbol = fullMatch.replace("*", "×");
       nodes.push(
-        <span key={key} className="mx-2">
+        <span key={key} className="mx-2 text-lg lg:text-base">
           {symbol.trim()}
         </span>
       );

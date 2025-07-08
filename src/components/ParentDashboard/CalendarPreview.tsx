@@ -132,14 +132,14 @@ const CalendarPreview: React.FC<CalendarPreviewProps> = ({ limit = 5 }) => {
     if (event.type === "lesson") {
       return <FaGraduationCap className="text-blue-600" />;
     }
-    return <FaUser className="text-purple-600" />;
+    return <FaUser className="text-purple-800" />;
   };
 
   const getEventColor = (event: Event) => {
     if (event.type === "lesson") {
       return "border-l-blue-500 bg-blue-50";
     }
-    return "border-l-purple-500 bg-purple-50";
+    return "border-l-purple-800 bg-purple-100";
   };
 
   if (loading) {

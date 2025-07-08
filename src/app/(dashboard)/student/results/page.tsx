@@ -173,7 +173,7 @@ export default function StudentResultsPage() {
         </div>
         <Button
           onClick={() => router.push("/student/practice")}
-          className="bg-purple-700 hover:bg-purple-800 text-white"
+          className="bg-purple-800 hover:bg-purple-900 text-white"
         >
           Go to Practice
         </Button>
@@ -186,7 +186,7 @@ export default function StudentResultsPage() {
       <div className="max-w-7xl mx-auto p-4 md:p-6">
         {/* Header Section - Matching practice page style */}
         <div className="mb-8">
-          <div className="bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 rounded-3xl p-8 md:p-10 text-white relative overflow-hidden shadow-xl">
+          <div className="bg-purple-800 rounded-3xl p-8 md:p-10 text-white relative overflow-hidden shadow-xl">
             {/* Decorative elements */}
             <div className="absolute top-4 right-4 opacity-20">
               <div className="w-16 h-16 border-2 border-white rounded-lg rotate-12"></div>
@@ -222,7 +222,7 @@ export default function StudentResultsPage() {
         {completedSessions.length === 0 ? (
           <div className="text-center py-16 bg-white border-0 rounded-2xl shadow-lg">
             <div className="bg-gradient-to-br from-purple-100 via-purple-50 to-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FaChartBar className="h-10 w-10 text-purple-600" />
+              <FaChartBar className="h-10 w-10 text-purple-800" />
             </div>
             <h2 className="mt-2 text-2xl font-semibold text-gray-800">
               No Completed Sessions
@@ -363,10 +363,10 @@ export default function StudentResultsPage() {
                         </div>
                       </div>
                       <div className="bg-gradient-to-br from-purple-50 to-indigo-100 border border-purple-200 p-4 rounded-xl text-center shadow-sm">
-                        <p className="text-xs text-purple-600 uppercase tracking-wider font-medium mb-1">
+                        <p className="text-xs text-purple-800 uppercase tracking-wider font-medium mb-1">
                           Session Type
                         </p>
-                        <p className="text-sm font-semibold text-purple-700 capitalize">
+                        <p className="text-sm font-semibold text-purple-800 capitalize">
                           {session.type?.replace(/_/g, " ").toLowerCase() ||
                             "Practice"}
                         </p>

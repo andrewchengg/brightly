@@ -139,14 +139,14 @@ const ModularParentDashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 text-white shadow-xl">
+      <div className="bg-purple-800 rounded-2xl p-8 text-white shadow-xl">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold mb-2">Parent Dashboard</h1>
-            <p className="text-indigo-100 text-lg">
+            <p className="text-purple-100 text-lg">
               Monitor your children's learning progress and achievements
             </p>
-            <div className="flex items-center gap-6 mt-4 text-indigo-200">
+            <div className="flex items-center gap-6 mt-4 text-purple-200">
               <div className="flex items-center">
                 <FaUsers className="mr-2" />
                 <span>{stats.overallStats.totalChildren} Children</span>
@@ -165,7 +165,7 @@ const ModularParentDashboard: React.FC = () => {
             </div>
           </div>
           <div className="hidden lg:block">
-            <FaGraduationCap className="w-24 h-24 text-indigo-300 opacity-50" />
+            <FaGraduationCap className="w-24 h-24 text-purple-300 opacity-50" />
           </div>
         </div>
       </div>

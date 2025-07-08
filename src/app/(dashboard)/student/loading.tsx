@@ -6,7 +6,7 @@ export default function StudentDashboardLoading() {
   return (
     <div className="flex flex-col gap-6 p-6 min-h-screen">
       {/* Welcome header skeleton */}
-      <div className="bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-700 text-white p-6 md:p-8 rounded-2xl shadow-xl w-full">
+      <div className="bg-purple-800 text-white p-6 md:p-8 rounded-2xl shadow-xl w-full">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
             <FaSpinner className="animate-spin text-2xl md:text-3xl opacity-50" />

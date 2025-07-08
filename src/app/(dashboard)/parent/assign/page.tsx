@@ -529,8 +529,8 @@ export default function HomeworkPage() {
                       </p>
                       <p className="text-xs text-gray-500">across all completed assignments</p>
                     </div>
-                    <div className="p-2 rounded-xl bg-purple-50 group-hover:scale-110 transition-transform duration-300">
-                      <FaTrophy className="w-5 h-5 text-purple-600" />
+                    <div className="p-2 rounded-xl bg-purple-100 group-hover:scale-110 transition-transform duration-300">
+                      <FaTrophy className="w-5 h-5 text-purple-800" />
                     </div>
                   </div>
                 </CardContent>
@@ -557,11 +557,11 @@ export default function HomeworkPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-0 shadow-md">
+              <Card className="bg-gradient-to-r from-purple-100 to-pink-50 border-0 shadow-md">
                 <CardContent className="p-4 text-center">
-                  <FaTrophy className="w-6 h-6 text-purple-600 mx-auto mb-2" />
+                  <FaTrophy className="w-6 h-6 text-purple-800 mx-auto mb-2" />
                   <h3 className="font-semibold text-gray-800 mb-1">Total XP</h3>
-                  <p className="text-xl font-bold text-purple-600">{overviewStats.totalXpEarned}</p>
+                  <p className="text-xl font-bold text-purple-800">{overviewStats.totalXpEarned}</p>
                   <p className="text-xs text-gray-600">experience points earned</p>
                 </CardContent>
               </Card>

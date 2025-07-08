@@ -108,7 +108,7 @@ const MistakesReviewPreview: React.FC<MistakesReviewPreviewProps> = ({
       Chinese: "bg-red-100 text-red-600",
       Mathematics: "bg-blue-100 text-blue-600",
       Science: "bg-green-100 text-green-600",
-      English: "bg-purple-100 text-purple-600",
+      English: "bg-purple-100 text-purple-800",
       History: "bg-amber-100 text-amber-600",
       Geography: "bg-teal-100 text-teal-600",
     };

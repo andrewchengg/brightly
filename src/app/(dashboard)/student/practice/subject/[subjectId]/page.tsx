@@ -58,7 +58,7 @@ const subjectDisplayConfig = {
   },
   "3": {
     name: "English",
-    gradient: "from-purple-500 to-pink-600",
+    gradient: "from-purple-800 to-purple-900",
     icon: FaLanguage,
   },
   "4": {
@@ -400,7 +400,7 @@ export default function SubjectPracticePage({
                 <h1 className="text-2xl md:text-3xl font-bold mb-2">
                   Random Practice
                 </h1>
-                <p className="text-purple-100 text-lg mb-4">
+                <p className="text-white text-lg mb-4">
                   Get a randomized mix of {pageTitle} questions across all
                   topics.
                 </p>

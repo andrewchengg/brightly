@@ -263,7 +263,7 @@ const ReadingComprehensionPassage: React.FC<
             {passageTitle || "Reading Passage"}
           </h2>
           <div className="flex items-center text-sm text-gray-600">
-            <FaLanguage className="mr-1 text-purple-500" />
+            <FaLanguage className="mr-1 text-purple-800" />
             <span>Highlight Chinese text for help</span>
           </div>
         </div>
@@ -318,7 +318,7 @@ const ReadingComprehensionPassage: React.FC<
             <button
               onClick={handleShowPinyin}
               disabled={showPinyin && wordInfo?.loading}
-              className="flex items-center gap-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 bg-purple-100 text-purple-800 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
             >
               <FaLanguage />
               <span>Pinyin</span>
@@ -379,11 +379,11 @@ const ReadingComprehensionPassage: React.FC<
 
           {/* Results */}
           {showPinyin && wordInfo?.pinyin && (
-            <div className="mb-3 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-400">
+            <div className="mb-3 p-3 bg-purple-100 rounded-lg border-l-4 border-purple-200">
               <div className="text-sm font-semibold text-purple-800 mb-1">
                 Pinyin:
               </div>
-              <div className="text-base text-purple-700 font-mono">
+              <div className="text-base text-purple-800 font-mono">
                 {wordInfo.pinyin}
               </div>
             </div>

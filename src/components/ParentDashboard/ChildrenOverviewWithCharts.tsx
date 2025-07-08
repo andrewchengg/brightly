@@ -396,8 +396,8 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
                     {child.today.questionsAnswered}
                   </p>
                 </div>
-                <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <FaChartLine className="w-4 h-4 text-purple-600 mx-auto mb-1" />
+                <div className="text-center p-3 bg-purple-100 rounded-lg">
+                  <FaChartLine className="w-4 h-4 text-purple-800 mx-auto mb-1" />
                   <p className="text-xs text-gray-600">Accuracy</p>
                   <p className={`text-sm font-bold ${accuracyColor}`}>
                     {child.today.accuracy}%

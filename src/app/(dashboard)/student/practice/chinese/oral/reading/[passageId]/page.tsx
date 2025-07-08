@@ -291,8 +291,8 @@ export default function PassagePracticePage() {
 
         <CardContent className="p-6 space-y-6">
           {viewState === 'instructions' && (
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-md">
-              <h2 className="text-xl font-semibold text-blue-700 mb-4 flex items-center">
+            <div className="bg-purple-100 border-l-4 border-purple-800 p-6 rounded-md">
+              <h2 className="text-xl font-semibold text-purple-800 mb-4 flex items-center">
                 <FaInfoCircle className="mr-2" /> 考试指示 (Instructions)
               </h2>
               <ul className="list-disc list-inside space-y-2 text-gray-700">
@@ -377,7 +377,7 @@ export default function PassagePracticePage() {
 
               {analysisFeedback && (
                  <div className="space-y-4">
-                    <h3 className="text-xl font-bold text-purple-700 border-b pb-2">反馈报告 (Feedback Report)</h3>
+                    <h3 className="text-xl font-bold text-purple-800 border-b pb-2">反馈报告 (Feedback Report)</h3>
                     {analysisFeedback.comprehensionAndResponse && (
                         <FeedbackSection title="朗读准确性 (Reading Accuracy)" content={analysisFeedback.comprehensionAndResponse} />
                     )}
@@ -406,7 +406,7 @@ interface FeedbackSectionProps {
 }
 
 const FeedbackSection: React.FC<FeedbackSectionProps> = ({ title, content }) => (
-  <div className="p-4 bg-purple-50 border border-purple-200 rounded-md">
+  <div className="p-4 bg-purple-100 border border-purple-200 rounded-md">
       <h4 className="font-semibold text-md mb-1 text-purple-800">{title}:</h4>
       <div className="text-sm text-gray-700 whitespace-pre-wrap space-y-1">
           {content.split('\n').map((line, index) => {

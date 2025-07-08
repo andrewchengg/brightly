@@ -9,10 +9,10 @@ const StackedFraction: React.FC<{
   key?: string | number;
 }> = ({ numerator, denominator }) => (
   <span className="inline-block align-middle text-center mx-1">
-    <span className="block border-b border-current leading-tight px-1">
+    <span className="block border-b border-current leading-tight px-1 text-sm lg:text-xs">
       {numerator}
     </span>
-    <span className="block leading-tight px-1">{denominator}</span>
+    <span className="block leading-tight px-1 text-sm lg:text-xs">{denominator}</span>
   </span>
 );
 
@@ -26,7 +26,7 @@ const MixedFraction: React.FC<{
   key?: string | number;
 }> = ({ whole, numerator, denominator }) => (
   <span className="inline-flex items-center mx-1 align-middle">
-    <span className="mr-1">{whole}</span>
+    <span className="mr-1 text-base lg:text-sm">{whole}</span>
     <StackedFraction numerator={numerator} denominator={denominator} />
   </span>
 );
@@ -114,7 +114,7 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
         nodes.push(
           <span
             key={key}
-            className="mx-1"
+            className="mx-1 text-base lg:text-sm"
           >{`${num.trim()} ÷ ${den.trim()}`}</span>
         );
       } else if (simpleFraction) {
@@ -125,7 +125,7 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
       } else if (comparison || operator) {
         const symbol = fullMatch.replace("*", "×");
         nodes.push(
-          <span key={key} className="mx-1">
+          <span key={key} className="mx-1 text-base lg:text-sm">
             {symbol}
           </span>
         );
@@ -297,7 +297,7 @@ const ExplanationFormatter: React.FC<ExplanationFormatterProps> = ({
   };
 
   return (
-    <div className={`space-y-1 ${className}`}>
+    <div className={`text-base lg:text-sm leading-relaxed lg:leading-normal ${className}`}>
       {formatExplanation(explanation)}
     </div>
   );

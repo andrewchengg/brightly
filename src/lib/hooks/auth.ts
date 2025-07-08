@@ -1,4 +1,4 @@
-// src/lib/hooks/auth.ts
+  // src/lib/hooks/auth.ts
 "use client"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation" // Import if useSignOut needs it

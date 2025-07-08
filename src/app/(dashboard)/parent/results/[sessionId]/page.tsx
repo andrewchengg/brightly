@@ -267,7 +267,7 @@ export default function ParentSessionDetailsPage() {
           <Card>
             <CardContent className="p-6 text-center">
               <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <FaClock className="text-purple-600 text-xl" />
+                <FaClock className="text-purple-800 text-xl" />
               </div>
               <div className="text-2xl font-bold text-gray-800">
                 {formatDuration(sessionDetails.durationSeconds)}

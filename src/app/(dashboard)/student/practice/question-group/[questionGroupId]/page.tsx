@@ -23,6 +23,7 @@ import {
   createQuestionContext,
   createPassageContext,
 } from "@/components/AILearningAssistant";
+import MobileFloatingButtons from "@/components/MobileFloatingButtons";
 import {
   validateUserInput,
   sanitizeUserInput,
@@ -171,6 +172,20 @@ export default function QuestionGroupPracticePage() {
   const [newLevel, setNewLevel] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
+  
+  // Mobile detection state
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1496,10 +1511,12 @@ export default function QuestionGroupPracticePage() {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : ''}`}>
         <div
-          className="overflow-auto bg-white custom-scrollbar"
-          style={{ width: `${splitPosition}%` }}
+          className={`overflow-auto bg-white custom-scrollbar ${
+            isMobile ? 'w-full' : ''
+          }`}
+          style={isMobile ? {} : { width: `${splitPosition}%` }}
         >
           <div className="p-4 md:p-6">
             {passageContent !== null && passageContent.trim() !== "" && (
@@ -1532,25 +1549,26 @@ export default function QuestionGroupPracticePage() {
                 {selectedAnswer !== null &&
                   currentQuestion?.explanation &&
                   currentQuestion?.questionType !== "MULTI_PART" && (
-                    <div
-                      className={`mt-4 p-3 rounded-md text-sm ${
-                        isAnswerCorrect
-                          ? "bg-green-50 border-l-4 border-green-400"
-                          : "bg-blue-50 border-l-4 border-blue-400"
-                      }`}
-                    >
-                      <div>
-                        <p className="font-semibold text-gray-700 mb-3">
-                          Explanation:
-                        </p>
-                        <ExplanationFormatter
-                          explanation={currentQuestion.explanation}
-                          className="text-gray-700"
-                        />
-                      </div>
-                    </div>
+                                    <div
+                  className={`mt-4 p-4 lg:p-3 rounded-md text-base lg:text-sm ${
+                    isAnswerCorrect
+                      ? "bg-green-50 border-l-4 border-green-400"
+                      : "bg-blue-50 border-l-4 border-blue-400"
+                  }`}
+                >
+                  <div>
+                    <p className="font-semibold text-gray-700 mb-3 text-lg lg:text-base">
+                      Explanation:
+                    </p>
+                    <ExplanationFormatter
+                      explanation={currentQuestion.explanation}
+                      className="text-gray-700 leading-relaxed"
+                    />
+                  </div>
+                </div>
                   )}
-                <div className="mt-5 border-t border-gray-200 pt-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+                {/* Desktop buttons - normal flow */}
+                <div className="hidden lg:flex mt-5 border-t border-gray-200 pt-4 flex-row justify-between items-center">
                   <Button
                     onClick={() => setShowHint(true)}
                     disabled={
@@ -1559,7 +1577,7 @@ export default function QuestionGroupPracticePage() {
                       !currentQuestion?.hint
                     }
                     variant="outline"
-                    className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 w-full sm:w-auto text-xs py-1.5 px-3"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 w-auto text-xs py-1.5 px-3"
                   >
                     <FaLightbulb className="mr-1.5" /> Hint
                   </Button>
@@ -1569,7 +1587,7 @@ export default function QuestionGroupPracticePage() {
                       selectedAnswer === null ||
                       (typeof loading === "string" && loading === "submitting")
                     }
-                    className={`px-5 py-2 text-xs w-full sm:w-auto font-semibold rounded-lg shadow-sm hover:shadow-md transition-all ${
+                    className={`px-5 py-2 text-xs w-auto font-semibold rounded-lg shadow-sm hover:shadow-md transition-all ${
                       selectedAnswer !== null
                         ? "bg-indigo-600 hover:bg-indigo-700 text-white"
                         : "bg-gray-300 text-gray-500 cursor-not-allowed"
@@ -1584,6 +1602,9 @@ export default function QuestionGroupPracticePage() {
                       : "🏁 Show Results"}{" "}
                   </Button>
                 </div>
+
+                {/* Mobile spacing to prevent content from being hidden behind fixed buttons */}
+                <div className="lg:hidden h-24"></div>
                 {showHint && currentQuestion?.hint && (
                   <div className="mt-3 p-2 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-md text-yellow-800 shadow text-xs">
                     <div className="flex items-start">
@@ -1615,17 +1636,23 @@ export default function QuestionGroupPracticePage() {
           </div>
         </div>
 
-        <div
-          className="w-1.5 bg-gray-200 hover:bg-indigo-400 cursor-col-resize flex flex-col items-center justify-center group transition-colors duration-150"
-          onMouseDown={handleMouseDown}
-        >
-          <div className="h-8 w-0.5 bg-gray-400 rounded-full group-hover:bg-indigo-500 transition-colors duration-150"></div>
-        </div>
-        <div
-          className="bg-indigo-50 flex flex-col overflow-hidden custom-scrollbar"
-          style={{ width: `${100 - splitPosition - 0.5}%` }}
-        >
-          <AIAssistant
+        {/* Resize divider - Only show on desktop */}
+        {!isMobile && (
+          <div
+            className="w-1.5 bg-gray-200 hover:bg-indigo-400 cursor-col-resize flex flex-col items-center justify-center group transition-colors duration-150"
+            onMouseDown={handleMouseDown}
+          >
+            <div className="h-8 w-0.5 bg-gray-400 rounded-full group-hover:bg-indigo-500 transition-colors duration-150"></div>
+          </div>
+        )}
+        
+        {/* AI Assistant Panel - Only show on desktop */}
+        {!isMobile && (
+          <div
+            className="bg-indigo-50 flex flex-col overflow-hidden custom-scrollbar"
+            style={{ width: `${100 - splitPosition - 0.5}%` }}
+          >
+            <AIAssistant
             passageContext={
               passageContent
                 ? createPassageContext(passageContent, passageTitle)
@@ -1662,8 +1689,88 @@ export default function QuestionGroupPracticePage() {
             disabled={false}
             className="h-full"
           />
-        </div>
+          </div>
+        )}
       </div>
+
+      {/* Mobile fixed bottom buttons */}
+      {currentQuestion && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-30">
+          <div className="flex flex-col space-y-3">
+            <Button
+              onClick={() => setShowHint(true)}
+              disabled={
+                selectedAnswer !== null ||
+                showHint ||
+                !currentQuestion?.hint
+              }
+              variant="outline"
+              className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 w-full text-base py-3 min-h-[48px]"
+            >
+              <FaLightbulb className="mr-2" /> Get Hint
+            </Button>
+            <Button
+              onClick={handleNextQuestion}
+              disabled={
+                selectedAnswer === null ||
+                (typeof loading === "string" && loading === "submitting")
+              }
+              className={`px-6 py-3 text-base w-full font-semibold rounded-lg shadow-sm hover:shadow-md transition-all min-h-[48px] ${
+                selectedAnswer !== null
+                  ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              {typeof loading === "string" && loading === "submitting" ? (
+                <FaSpinner className="animate-spin mr-2" />
+              ) : null}
+              {currentQuestionIndex < questions.length - 1
+                ? "Next Question →"
+                : "🏁 Show Results"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Floating Buttons */}
+      <MobileFloatingButtons
+        aiAssistantProps={{
+          passageContext: passageContent 
+            ? createPassageContext(
+                questionGroupIdParam,
+                passageTitle,
+                passageContent,
+                passageAudioUrl || undefined
+              )
+            : undefined,
+          questionContext: currentQuestion
+            ? createQuestionContext(
+                currentQuestion.id,
+                currentQuestion.text,
+                currentQuestion.questionType || "MULTIPLE_CHOICE",
+                currentQuestion.options,
+                currentQuestion.correctAnswer || undefined,
+                currentQuestion.explanation || undefined,
+                currentQuestion.hint,
+                selectedAnswer || undefined,
+                selectedAnswer !== null
+                  ? isAnswerCorrect || false
+                  : undefined
+              )
+            : undefined,
+          sessionContext: createSessionContext(
+            "question_group",
+            questions.length,
+            currentQuestionIndex + (selectedAnswer ? 1 : 0),
+            questionResults.filter((r) => r.correct).length,
+            sessionFinalized,
+            currentPracticeSessionId || undefined,
+            "Primary School",
+            currentSubjectId || undefined
+          ),
+          disabled: false,
+        }}
+      />
     </div>
   );
 }

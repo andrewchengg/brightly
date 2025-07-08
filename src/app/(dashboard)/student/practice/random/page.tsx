@@ -27,6 +27,7 @@ import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
 import dynamic from "next/dynamic";
 import WhiteboardButton from "@/components/ui/WhiteboardButton";
+import MobileFloatingButtons from "@/components/MobileFloatingButtons";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -328,6 +329,20 @@ export default function RandomPractice() {
 
   // Whiteboard state
   const [showWhiteboard, setShowWhiteboard] = useState(false);
+  
+  // Mobile detection state
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1647,6 +1662,9 @@ export default function RandomPractice() {
           totalQuestions: questions.length,
           score: score,
           correctAnswers: questionResults.filter((r) => r.correct).length,
+          totalMarksEarned: score,
+          totalPossibleMarks: questions.length * (currentQuestion?.marks || currentQuestion?.pointsAwarded || 1),
+          xpEarned: score,
         }}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
@@ -1672,10 +1690,12 @@ export default function RandomPractice() {
         />
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : ''}`}>
         <div
-          className="overflow-auto bg-white custom-scrollbar"
-          style={{ width: `${splitPosition}%` }}
+          className={`overflow-auto bg-white custom-scrollbar ${
+            isMobile ? 'w-full' : ''
+          }`}
+          style={isMobile ? {} : { width: `${splitPosition}%` }}
         >
           <div className="p-4 md:p-8">
             {" "}
@@ -1696,12 +1716,14 @@ export default function RandomPractice() {
               >
                 {currentQuestion?.difficulty || "MEDIUM"}
               </span>
-              {/* Whiteboard Button */}
-              <WhiteboardButton
-                onClick={() => setShowWhiteboard(true)}
-                className="ml-2"
-                size="sm"
-              />
+              {/* Whiteboard Button - Only show on desktop */}
+              {!isMobile && (
+                <WhiteboardButton
+                  onClick={() => setShowWhiteboard(true)}
+                  className="ml-2"
+                  size="sm"
+                />
+              )}
               {/* Report Button */}
               <button
                 className="ml-2 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
@@ -1713,7 +1735,7 @@ export default function RandomPractice() {
                 <FaFlag className="mr-1" /> Report
               </button>
             </div>
-            <h1 className="text-lg md:text-xl font-semibold text-gray-800 mb-4 leading-snug">
+            <h1 className="text-xl md:text-2xl lg:text-xl font-semibold text-gray-800 mb-4 leading-snug">
               <QuestionTextFormatter text={currentQuestion?.text} />
             </h1>
             {currentQuestion?.imageUrl && (
@@ -1731,31 +1753,32 @@ export default function RandomPractice() {
               currentQuestion.explanation &&
               currentQuestion.questionType !== "MULTI_PART" && (
                 <div
-                  className={`mt-4 p-3 rounded-md text-sm ${
+                  className={`mt-4 p-4 lg:p-3 rounded-md text-base lg:text-sm ${
                     isAnswerCorrect
                       ? "bg-green-50 border-l-4 border-green-400"
                       : "bg-blue-50 border-l-4 border-blue-400"
                   }`}
                 >
                   <div>
-                    <p className="font-semibold text-gray-700 mb-3">
+                    <p className="font-semibold text-gray-700 mb-3 text-lg lg:text-base">
                       Explanation:
                     </p>
                     <ExplanationFormatter
                       explanation={currentQuestion.explanation}
-                      className="text-gray-700"
+                      className="text-gray-700 leading-relaxed"
                     />
                   </div>
                 </div>
               )}
-            <div className="mt-6 border-t border-gray-200 pt-5 flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+            {/* Desktop buttons - normal flow */}
+            <div className="hidden lg:flex mt-6 border-t border-gray-200 pt-5 flex-row justify-between items-center">
               <Button
                 onClick={() => setShowHint(true)}
                 disabled={
                   selectedAnswer !== null || showHint || !currentQuestion?.hint
                 }
                 variant="outline"
-                className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 w-full sm:w-auto text-sm py-2"
+                className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 w-auto text-sm py-2"
               >
                 <FaLightbulb className="mr-1.5" /> Get Hint
               </Button>
@@ -1765,7 +1788,7 @@ export default function RandomPractice() {
                   selectedAnswer === null ||
                   (typeof loading === "string" && loading === "submitting")
                 }
-                className={`px-6 py-2.5 text-sm w-full sm:w-auto font-semibold rounded-lg shadow-sm hover:shadow-md transition-all ${
+                className={`px-6 py-2.5 text-sm w-auto font-semibold rounded-lg shadow-sm hover:shadow-md transition-all ${
                   selectedAnswer !== null
                     ? "bg-indigo-600 hover:bg-indigo-700 text-white"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
@@ -1779,6 +1802,9 @@ export default function RandomPractice() {
                   : "🏁 Show Results"}
               </Button>
             </div>
+
+            {/* Mobile spacing to prevent content from being hidden behind fixed buttons */}
+            <div className="lg:hidden h-24"></div>
             {showHint && currentQuestion?.hint && (
               <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-md text-yellow-800 shadow text-sm">
                 <div className="flex items-start">
@@ -1795,18 +1821,23 @@ export default function RandomPractice() {
           </div>
         </div>
 
-        <div
-          className="w-1.5 bg-gray-200 hover:bg-indigo-400 cursor-col-resize flex flex-col items-center justify-center group transition-colors duration-150"
-          onMouseDown={handleMouseDown}
-        >
-          <div className="h-8 w-0.5 bg-gray-400 rounded-full group-hover:bg-indigo-500 transition-colors duration-150"></div>
-        </div>
+        {/* Resize divider - Only show on desktop */}
+        {!isMobile && (
+          <div
+            className="w-1.5 bg-gray-200 hover:bg-indigo-400 cursor-col-resize flex flex-col items-center justify-center group transition-colors duration-150"
+            onMouseDown={handleMouseDown}
+          >
+            <div className="h-8 w-0.5 bg-gray-400 rounded-full group-hover:bg-indigo-500 transition-colors duration-150"></div>
+          </div>
+        )}
 
-        <div
-          className="bg-indigo-50 flex flex-col overflow-hidden custom-scrollbar"
-          style={{ width: `${100 - splitPosition - 0.5}%` }}
-        >
-          <AIAssistant
+        {/* AI Assistant Panel - Only show on desktop */}
+        {!isMobile && (
+          <div
+            className="bg-indigo-50 flex flex-col overflow-hidden custom-scrollbar"
+            style={{ width: `${100 - splitPosition - 0.5}%` }}
+          >
+            <AIAssistant
             questionContext={
               currentQuestion
                 ? createQuestionContext(
@@ -1838,23 +1869,94 @@ export default function RandomPractice() {
             disabled={false}
             className="h-full"
           />
+          </div>
+        )}
+      </div>
+
+      {/* Mobile fixed bottom buttons */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-30">
+        <div className="flex flex-col space-y-3">
+          <Button
+            onClick={() => setShowHint(true)}
+            disabled={
+              selectedAnswer !== null || showHint || !currentQuestion?.hint
+            }
+            variant="outline"
+            className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 w-full text-base py-3 min-h-[48px]"
+          >
+            <FaLightbulb className="mr-2" /> Get Hint
+          </Button>
+          <Button
+            onClick={handleNextQuestion}
+            disabled={
+              selectedAnswer === null ||
+              (typeof loading === "string" && loading === "submitting")
+            }
+            className={`px-6 py-3 text-base w-full font-semibold rounded-lg shadow-sm hover:shadow-md transition-all min-h-[48px] ${
+              selectedAnswer !== null
+                ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
+          >
+            {typeof loading === "string" && loading === "submitting" ? (
+              <FaSpinner className="animate-spin mr-2" />
+            ) : null}
+            {currentQuestionIndex < questions.length - 1
+              ? "Next Question →"
+              : "🏁 Show Results"}
+          </Button>
         </div>
       </div>
+
+      {/* Mobile Floating Buttons */}
+      <MobileFloatingButtons
+        aiAssistantProps={{
+          questionContext: currentQuestion
+            ? createQuestionContext(
+                currentQuestion.id,
+                currentQuestion.text,
+                currentQuestion.questionType || "MULTIPLE_CHOICE",
+                currentQuestion.options,
+                currentQuestion.correctAnswer || undefined,
+                currentQuestion.explanation || undefined,
+                currentQuestion.hint,
+                selectedAnswer || undefined,
+                selectedAnswer !== null
+                  ? isAnswerCorrect || false
+                  : undefined
+              )
+            : undefined,
+          sessionContext: createSessionContext(
+            "random_practice",
+            questions.length,
+            currentQuestionIndex + (selectedAnswer ? 1 : 0),
+            questionResults.filter((r) => r.correct).length,
+            sessionFinalized,
+            currentPracticeSessionId || undefined,
+            "Primary School"
+          ),
+          disabled: false,
+        }}
+      />
+
       <ReportQuestionModal
         open={showReportModal}
         onClose={() => setShowReportModal(false)}
         questionId={currentQuestion?.id}
         studentId={userId}
       />
-      <WhiteboardModal
-        isOpen={showWhiteboard}
-        onClose={() => setShowWhiteboard(false)}
-        onSave={(imageDataURL) => {
-          // Optional: Save whiteboard content to session or local storage
-          console.log("Whiteboard saved:", imageDataURL);
-          setShowWhiteboard(false);
-        }}
-      />
+      {/* Desktop Whiteboard Modal - Mobile uses floating buttons */}
+      {!isMobile && (
+        <WhiteboardModal
+          isOpen={showWhiteboard}
+          onClose={() => setShowWhiteboard(false)}
+          onSave={(imageDataURL) => {
+            // Optional: Save whiteboard content to session or local storage
+            console.log("Whiteboard saved:", imageDataURL);
+            setShowWhiteboard(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -368,7 +368,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h2 className="text-3xl font-bold text-purple-800">
             Your Schedule
           </h2>
           <p className="text-gray-600 mt-1">
@@ -387,7 +387,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             });
             setShowAddModal(true);
           }}
-          className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+          className="flex items-center gap-2 bg-purple-800 hover:bg-purple-900 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
         >
           <FaCalendarPlus size={16} />
           <span>Add Event</span>
@@ -395,14 +395,14 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
       </div>
 
       {/* Navigation Controls */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl shadow-sm border border-slate-200">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4 p-4 bg-gray-50 rounded-xl shadow-sm border border-gray-200">
         {/* Left side - Navigation buttons */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <Button
             onClick={navigateToPrev}
             variant="outline"
             size="sm"
-            className="flex items-center gap-2 border-slate-300 hover:bg-slate-100 hover:border-slate-400 transition-all duration-200"
+            className="flex items-center gap-2 border-gray-300 hover:bg-gray-100 hover:border-gray-400 transition-all duration-200"
           >
             <FaChevronLeft size={14} />
             <span className="hidden md:inline">Previous</span>
@@ -412,7 +412,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={navigateToToday}
             variant="outline"
             size="sm"
-            className="flex items-center gap-2 px-4 border-indigo-300 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all duration-200"
+            className="flex items-center gap-2 px-4 border-purple-300 text-purple-800 hover:bg-purple-50 hover:border-purple-400 transition-all duration-200"
           >
             <FaCalendarDay size={14} />
             <span>Today</span>
@@ -422,7 +422,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             onClick={navigateToNext}
             variant="outline"
             size="sm"
-            className="flex items-center gap-2 border-slate-300 hover:bg-slate-100 hover:border-slate-400 transition-all duration-200"
+            className="flex items-center gap-2 border-gray-300 hover:bg-gray-100 hover:border-gray-400 transition-all duration-200"
           >
             <span className="hidden md:inline">Next</span>
             <FaChevronRight size={14} />
@@ -431,7 +431,7 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
 
         {/* Center - Current view title */}
         <div className="flex items-center gap-3 lg:flex-1 justify-center min-w-0">
-          <h3 className="text-lg font-semibold text-slate-800 truncate max-w-[200px] lg:max-w-none">
+          <h3 className="text-lg font-semibold text-gray-800 truncate max-w-[200px] lg:max-w-none">
             {getViewTitle()}
           </h3>
 
@@ -441,21 +441,21 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
               type="date"
               value={moment(date).format("YYYY-MM-DD")}
               onChange={(e) => handleDateJump(e.target.value)}
-              className="w-auto text-sm border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+              className="w-auto text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500"
             />
           </div>
         </div>
 
         {/* Right side - View selector (horizontal stack) */}
-        <div className="flex gap-1 bg-white rounded-lg border border-slate-200 shadow-sm p-1 w-[160px] flex-shrink-0">
+        <div className="flex gap-1 bg-white rounded-lg border border-gray-200 shadow-sm p-1 w-[160px] flex-shrink-0">
           <Button
             onClick={() => setView(Views.MONTH)}
             variant={view === Views.MONTH ? "default" : "ghost"}
             size="sm"
             className={`rounded-md text-xs px-2 py-1 transition-all duration-200 flex-1 ${
               view === Views.MONTH
-                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
-                : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+                ? "bg-purple-800 text-white shadow-md"
+                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
             }`}
           >
             Month
@@ -466,8 +466,8 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             size="sm"
             className={`rounded-md text-xs px-2 py-1 transition-all duration-200 flex-1 ${
               view === Views.WEEK
-                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
-                : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+                ? "bg-purple-800 text-white shadow-md"
+                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
             }`}
           >
             Week
@@ -478,8 +478,8 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             size="sm"
             className={`rounded-md text-xs px-2 py-1 transition-all duration-200 flex-1 ${
               view === Views.DAY
-                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
-                : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+                ? "bg-purple-800 text-white shadow-md"
+                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
             }`}
           >
             Day

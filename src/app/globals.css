@@ -233,3 +233,17 @@
   transform: translateZ(-2px) scale(3);
   z-index: -2;
 }
+
+/* Mobile floating button animations */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}

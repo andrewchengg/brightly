@@ -75,7 +75,7 @@ export default function ResultsAnalysis({ sessions }: ResultsAnalysisProps) {
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-2">Total XP</h3>
-          <p className="text-3xl font-bold text-purple-600">{totalXP}</p>
+          <p className="text-3xl font-bold text-purple-800">{totalXP}</p>
           <p className="text-sm text-gray-500">experience points</p>
         </div>
       </div>

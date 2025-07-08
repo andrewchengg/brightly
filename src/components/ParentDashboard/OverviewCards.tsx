@@ -104,7 +104,7 @@ const OverviewCards: React.FC<OverviewCardsProps> = ({
       icon: FaQuestionCircle,
       color: "from-purple-500 to-purple-600",
       iconColor: "#8b5cf6",
-      bgColor: "bg-purple-50",
+      bgColor: "bg-purple-100",
       description: "Questions completed today",
     },
     {

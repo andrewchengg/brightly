@@ -160,7 +160,7 @@ export default function WeeklyQuestsPreview() {
   return (
     <div className="space-y-3">
       {/* Progress Summary */}
-      <div className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
+      <div className="flex items-center justify-between p-3 bg-purple-100 rounded-lg border border-purple-200">
         <div>
           <p className="text-sm font-semibold text-gray-700">
             Progress This Week
@@ -170,7 +170,7 @@ export default function WeeklyQuestsPreview() {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-lg font-bold text-indigo-600">
+          <div className="text-lg font-bold text-purple-800">
             {totalCount > 0
               ? Math.round((completedCount / totalCount) * 100)
               : 0}
@@ -178,7 +178,7 @@ export default function WeeklyQuestsPreview() {
           </div>
           <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
+              className="h-full bg-purple-800 transition-all duration-300"
               style={{
                 width: `${
                   totalCount > 0 ? (completedCount / totalCount) * 100 : 0
@@ -235,7 +235,7 @@ export default function WeeklyQuestsPreview() {
                       className={`h-full transition-all duration-300 ${
                         quest.isCompleted
                           ? "bg-green-500"
-                          : "bg-gradient-to-r from-indigo-400 to-purple-400"
+                          : "bg-purple-800"
                       }`}
                       style={{ width: `${progressPercent}%` }}
                     />

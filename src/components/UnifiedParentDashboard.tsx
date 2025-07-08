@@ -569,7 +569,7 @@ const UnifiedParentDashboard = () => {
             {/* Subject Distribution Chart */}
             <Card className="p-6">
               <div className="flex items-center gap-2 mb-4">
-                <FaChartPie className="text-purple-600" />
+                <FaChartPie className="text-purple-800" />
                 <h3 className="text-lg font-semibold text-gray-800">
                   Subject Distribution
                 </h3>

@@ -142,7 +142,7 @@ export default async function StudentPage() {
   return (
     <div className="flex flex-col gap-6 p-6 min-h-screen max-w-7xl mx-auto">
       {/* Full-width welcome header */}
-      <div className="bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-700 text-white p-6 md:p-8 rounded-2xl shadow-xl w-full">
+      <div className="bg-purple-800 text-white p-6 md:p-8 rounded-2xl shadow-xl w-full">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-2xl md:text-3xl font-bold">
             {student?.name?.[0]?.toUpperCase() || "U"}
@@ -212,7 +212,7 @@ export default async function StudentPage() {
           {/* Weekly Quests Preview */}
           <div className="bg-white rounded-2xl shadow-xl p-6 h-fit">
             <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <FaTasks className="text-purple-500" />
+              <FaTasks className="text-purple-800" />
               Weekly Quests
             </h2>
             <WeeklyQuestsPreview />

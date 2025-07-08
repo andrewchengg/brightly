@@ -73,7 +73,7 @@ export const InteractiveLoadingAnimation: React.FC<
 
   return (
     <div
-      className={`flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 ${className}`}
+      className={`flex flex-col items-center justify-center min-h-screen bg-gray-50 ${className}`}
     >
       <div className="relative bg-white/80 backdrop-blur-lg p-8 rounded-3xl shadow-2xl text-center w-full max-w-lg mx-4 border border-white/20">
         {/* Animated Book */}
@@ -82,7 +82,7 @@ export const InteractiveLoadingAnimation: React.FC<
           <div className="absolute inset-0 transform perspective-1000">
             {/* Left Cover */}
             <div
-              className={`absolute left-0 w-1/2 h-full bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-l-lg border-2 border-indigo-800 transition-transform duration-1000 ease-out transform-origin-right ${
+              className={`absolute left-0 w-1/2 h-full bg-purple-800 rounded-l-lg border-2 border-purple-900 transition-transform duration-1000 ease-out transform-origin-right ${
                 bookOpen ? "-rotate-y-30" : ""
               }`}
               style={{
@@ -90,13 +90,13 @@ export const InteractiveLoadingAnimation: React.FC<
                 transformStyle: "preserve-3d",
               }}
             >
-              <div className="absolute inset-2 bg-indigo-200 rounded opacity-30"></div>
+              <div className="absolute inset-2 bg-purple-200 rounded opacity-30"></div>
               <FaBook className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-xl" />
             </div>
 
             {/* Right Cover */}
             <div
-              className={`absolute right-0 w-1/2 h-full bg-gradient-to-l from-indigo-600 to-indigo-700 rounded-r-lg border-2 border-indigo-800 transition-transform duration-1000 ease-out transform-origin-left ${
+              className={`absolute right-0 w-1/2 h-full bg-purple-800 rounded-r-lg border-2 border-purple-900 transition-transform duration-1000 ease-out transform-origin-left ${
                 bookOpen ? "rotate-y-30" : ""
               }`}
               style={{
@@ -104,17 +104,17 @@ export const InteractiveLoadingAnimation: React.FC<
                 transformStyle: "preserve-3d",
               }}
             >
-              <div className="absolute inset-2 bg-indigo-200 rounded opacity-30"></div>
+              <div className="absolute inset-2 bg-purple-200 rounded opacity-30"></div>
             </div>
 
             {/* Pages */}
             {bookOpen && (
               <div className="absolute inset-2 bg-white rounded-sm border border-gray-200 flex items-center justify-center animate-fadeIn">
                 <div className="text-center">
-                  <CurrentIcon className="text-indigo-600 text-2xl mb-2 animate-bounce" />
-                  <div className="w-12 h-0.5 bg-indigo-300 mx-auto mb-1"></div>
-                  <div className="w-8 h-0.5 bg-indigo-200 mx-auto mb-1"></div>
-                  <div className="w-10 h-0.5 bg-indigo-200 mx-auto"></div>
+                  <CurrentIcon className="text-purple-800 text-2xl mb-2 animate-bounce" />
+                  <div className="w-12 h-0.5 bg-purple-300 mx-auto mb-1"></div>
+                  <div className="w-8 h-0.5 bg-purple-200 mx-auto mb-1"></div>
+                  <div className="w-10 h-0.5 bg-purple-200 mx-auto"></div>
                 </div>
               </div>
             )}
@@ -131,7 +131,7 @@ export const InteractiveLoadingAnimation: React.FC<
           className="flex items-center justify-center mb-4 animate-slideUp"
           style={{ animationDelay: "0.2s" }}
         >
-          <CurrentIcon className="text-indigo-600 text-lg mr-2 animate-pulse" />
+          <CurrentIcon className="text-purple-800 text-lg mr-2 animate-pulse" />
           <p className="text-gray-600 font-medium">
             {phases[currentPhase]?.text || subtitle}
           </p>
@@ -143,7 +143,7 @@ export const InteractiveLoadingAnimation: React.FC<
           style={{ animationDelay: "0.4s" }}
         >
           <div
-            className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full transition-all duration-300 ease-out relative overflow-hidden"
+            className="bg-purple-800 h-full rounded-full transition-all duration-300 ease-out relative overflow-hidden"
             style={{ width: `${progress}%` }}
           >
             {/* Shimmer effect */}
@@ -178,7 +178,7 @@ export const InteractiveLoadingAnimation: React.FC<
             {
               icon: FaMagic,
               label: "Personal\nProgress",
-              color: "text-purple-500",
+              color: "text-purple-800",
             },
           ].map((feature, index) => (
             <div

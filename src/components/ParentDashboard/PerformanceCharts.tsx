@@ -316,7 +316,7 @@ const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <FaChartBar className="mr-2 text-purple-600" />
+            <FaChartBar className="mr-2 text-purple-800" />
             Children Performance Comparison
           </CardTitle>
         </CardHeader>

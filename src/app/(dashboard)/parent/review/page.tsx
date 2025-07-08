@@ -100,9 +100,9 @@ const subjectConfig = {
   },
   English: {
     icon: FaGlobe,
-    color: "from-purple-500 to-purple-600",
-    bgColor: "bg-purple-50",
-    textColor: "text-purple-700",
+    color: "from-purple-800 to-purple-900",
+    bgColor: "bg-purple-100",
+    textColor: "text-purple-800",
   },
   Chinese: {
     icon: FaLanguage,

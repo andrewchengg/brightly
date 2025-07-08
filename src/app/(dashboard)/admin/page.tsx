@@ -242,11 +242,11 @@ export default function AdminPage() {
               </div>
               <div className="text-xs text-gray-500 mt-1">Added this month</div>
             </div>
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="text-3xl font-bold text-purple-600 mb-2">
+            <div className="text-center p-4 bg-purple-100 rounded-lg">
+              <div className="text-3xl font-bold text-purple-800 mb-2">
                 {stats.recentActivity.practiceSessions}
               </div>
-              <div className="text-sm text-purple-700 font-medium">
+              <div className="text-sm text-purple-800 font-medium">
                 Practice Sessions
               </div>
               <div className="text-xs text-gray-500 mt-1">

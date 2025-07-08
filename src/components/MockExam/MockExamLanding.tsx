@@ -188,9 +188,9 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
         bg: isSelected
           ? "bg-gradient-to-r from-purple-500 to-violet-600"
           : "bg-gradient-to-r from-purple-50 to-violet-50",
-        border: isSelected ? "border-purple-500" : "border-purple-200",
-        text: isSelected ? "text-white" : "text-purple-700",
-        hover: "hover:border-purple-400 hover:shadow-lg",
+        border: isSelected ? "border-purple-800" : "border-purple-200",
+        text: isSelected ? "text-white" : "text-purple-800",
+        hover: "hover:border-purple-200 hover:shadow-lg",
       },
       orange: {
         bg: isSelected

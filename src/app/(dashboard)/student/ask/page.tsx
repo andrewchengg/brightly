@@ -430,7 +430,7 @@ const AskAITutor = () => {
         onDrop={handleDrop}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 shadow-lg">
+        <div className="bg-purple-800 text-white px-6 py-4 shadow-lg">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowHistory(true)}
