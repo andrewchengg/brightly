@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId, correctAnswers, xpEarned } = await request.json();
+    const { sessionId, correctAnswers, xpEarned, totalMarksEarned, totalPossibleMarks } = await request.json();
 
     if (!sessionId) {
       return NextResponse.json(
@@ -58,33 +58,6 @@ export async function POST(request: NextRequest) {
       (endTime.getTime() - existingSession.startTime.getTime()) / 1000
     );
 
-    // Calculate marks earned and total possible marks from student answers
-    const studentAnswers = await prisma.studentAnswer.findMany({
-      where: {
-        practiceSessionId: sessionId,
-      },
-      include: {
-        question: {
-          select: {
-            marks: true,
-          },
-        },
-      },
-    });
-
-    const totalMarksEarned = studentAnswers
-      .filter((answer) => answer.isCorrect)
-      .reduce((sum, answer) => sum + (answer.question.marks || 0), 0);
-
-    const totalPossibleMarks = studentAnswers.reduce(
-      (sum, answer) => sum + (answer.question.marks || 0),
-      0
-    );
-
-    console.log(
-      `📊 Marks calculation for session ${sessionId}: ${totalMarksEarned}/${totalPossibleMarks} marks`
-    );
-
     // Update the practice session as completed
     const updatedSession = await prisma.practiceSession.update({
       where: {
@@ -96,8 +69,8 @@ export async function POST(request: NextRequest) {
         endTime: endTime,
         durationSeconds: durationSeconds,
         correctAnswers: correctAnswers || 0,
-        totalMarksEarned: totalMarksEarned,
-        totalPossibleMarks: totalPossibleMarks,
+        totalMarksEarned: totalMarksEarned || 0,
+        totalPossibleMarks: totalPossibleMarks || 0,
         xpEarned: xpEarned || 0,
       },
       include: {
@@ -126,6 +99,7 @@ export async function POST(request: NextRequest) {
           data: {
             xpPoints: newXP,
             level: newLevel,
+            lastActivityDate: new Date(),
             updatedAt: new Date(),
           },
         });

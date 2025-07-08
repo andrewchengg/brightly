@@ -311,7 +311,7 @@ export async function updateQuestProgress(
         if (practiceSession.totalMarksEarned && practiceSession.totalPossibleMarks) {
           const accuracy = practiceSession.totalMarksEarned / practiceSession.totalPossibleMarks;
           if (accuracy >= 1) { // 100%
-            progressToAdd = 1;
+          progressToAdd = 1;
           }
         }
         break;

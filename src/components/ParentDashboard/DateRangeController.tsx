@@ -35,11 +35,9 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
     
     switch (period) {
       case "7d":
-        // For 7d period, display the actual 7-day range by showing the day before endDate
-        const displayEndDate = new Date(endDate);
-        displayEndDate.setDate(displayEndDate.getDate() - 1);
+        // For 7d period, display the actual 7-day range including today
         return {
-          main: `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${displayEndDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+          main: `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
           subtitle: "7-day period"
         };
       case "30d":

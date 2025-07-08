@@ -167,15 +167,13 @@ export async function POST(req: NextRequest) {
         data: {
           currentStreak: currentStreak,
           longestStreak: longestStreak,
-          lastActivityDate: newLastActivityDate || new Date(todayDateString),
+          lastActivityDate: new Date(),
           updatedAt: new Date(),
         },
       });
 
       console.log(
-        `DB Streak updated for user ${userId}: Current: ${currentStreak}, Longest: ${longestStreak}, Last Activity: ${
-          newLastActivityDate || new Date(todayDateString)
-        }`
+        `DB Streak updated for user ${userId}: Current: ${currentStreak}, Longest: ${longestStreak}, Last Activity: ${new Date().toISOString()}`
       );
     }
 

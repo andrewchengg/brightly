@@ -313,6 +313,69 @@ export default function MockExamComponent({
 
       if (currentPracticeSessionId) {
         try {
+          const totalMarksEarned = questions.reduce((acc, q) => {
+            const submittedAnswerRaw = answers[q.id] ?? null;
+            let isCorrect = false;
+
+            if (submittedAnswerRaw !== null) {
+              if (q.questionType === PrismaQuestionType.MULTIPLE_CHOICE) {
+                isCorrect =
+                  String(q.correctAnswer).toLowerCase() ===
+                  String(submittedAnswerRaw).toLowerCase();
+              } else if (
+                q.questionType === PrismaQuestionType.OPEN_ENDED ||
+                q.questionType === PrismaQuestionType.FILL_IN_THE_BLANK
+              ) {
+                const cAns = q.correctAnswer;
+                const cAnsArr = Array.isArray(cAns)
+                  ? cAns.map((cv) =>
+                      String(cv ?? "")
+                        .trim()
+                        .toLowerCase()
+                    )
+                  : [
+                      String(cAns ?? "")
+                        .trim()
+                        .toLowerCase(),
+                    ];
+                isCorrect = cAnsArr.includes(
+                  String(submittedAnswerRaw).trim().toLowerCase()
+                );
+              } else if (
+                q.questionType === PrismaQuestionType.MULTI_PART &&
+                typeof q.correctAnswer === "object" &&
+                q.correctAnswer &&
+                !Array.isArray(q.correctAnswer)
+              ) {
+                try {
+                  const userAnswersMap = JSON.parse(submittedAnswerRaw);
+                  const correctAnswersMap = q.correctAnswer as Record<
+                    string,
+                    string
+                  >;
+                  isCorrect = true;
+                  for (const part in correctAnswersMap) {
+                    if (
+                      (userAnswersMap[part] || "").trim().toLowerCase() !==
+                      String(correctAnswersMap[part]).trim().toLowerCase()
+                    ) {
+                      isCorrect = false;
+                      break;
+                    }
+                  }
+                } catch (e) {
+                  isCorrect = false;
+                }
+              }
+            }
+            return acc + (isCorrect ? (q.marks || 1) : 0);
+          }, 0);
+
+          const totalPossibleMarks = questions.reduce(
+            (acc, q) => acc + (q.marks || 1),
+            0
+          );
+
           await fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -323,6 +386,8 @@ export default function MockExamComponent({
               correctAnswers: finalCorrectAnswersCount,
               totalQuestions: finalTotalQuestions,
               xpEarned: finalScore,
+              totalMarksEarned,
+              totalPossibleMarks
             }),
           });
 
