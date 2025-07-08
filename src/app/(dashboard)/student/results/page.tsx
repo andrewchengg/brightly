@@ -18,26 +18,25 @@ import {
   FaClock,
 } from "react-icons/fa";
 
-interface CompletedSession {
+interface SessionSummary {
   id: string;
   title?: string | null;
   type: keyof typeof PracticeSessionType;
-  endTime?: Date | string | null;
-  score?: number | null;
+  endTime?: string | null;
+  totalMarksEarned?: number | null;
+  totalPossibleMarks?: number | null;
   totalQuestions?: number | null;
   correctAnswers?: number | null;
   xpEarned: number;
-  totalPossibleMarks?: number;
   subjectName?: string | null;
   topicName?: string | null;
   questionGroupName?: string | null;
-  totalMarksEarned?: number | null;
 }
 
 export default function StudentResultsPage() {
-  const [completedSessions, setCompletedSessions] = useState<
-    CompletedSession[]
-  >([]);
+  const [completedSessions, setCompletedSessions] = useState<SessionSummary[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -68,7 +67,7 @@ export default function StudentResultsPage() {
             errData.error?.message || errData.error || "Failed to fetch results"
           );
         }
-        const data: CompletedSession[] = await response.json();
+        const data: SessionSummary[] = await response.json();
         setCompletedSessions(data);
       } catch (err: any) {
         console.error("Error fetching completed sessions:", err);
@@ -86,10 +85,11 @@ export default function StudentResultsPage() {
   };
 
   // Function to get performance level and styling
-  const getPerformanceDetails = (session: CompletedSession) => {
+  const getPerformanceDetails = (session: SessionSummary) => {
     const totalPossible =
       (session.totalQuestions || 1) * (session.type === "MOCK_EXAM" ? 1 : 10);
-    const scorePercentage = ((session.totalMarksEarned || 0) / totalPossible) * 100;
+    const scorePercentage =
+      ((session.totalMarksEarned || 0) / totalPossible) * 100;
 
     if (scorePercentage >= 80) {
       return {
@@ -245,9 +245,10 @@ export default function StudentResultsPage() {
             {completedSessions.map((session) => {
               const performanceDetails = getPerformanceDetails(session);
               const totalPossible = session.totalPossibleMarks || 0;
-              const scorePercentage = totalPossible > 0 
-                ? ((session.totalMarksEarned || 0) / totalPossible) * 100
-                : 0;
+              const scorePercentage =
+                totalPossible > 0
+                  ? ((session.totalMarksEarned || 0) / totalPossible) * 100
+                  : 0;
               const PerformanceIcon = performanceDetails.icon;
 
               return (

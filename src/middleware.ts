@@ -5,16 +5,10 @@ import { routeAccessMap } from "./lib/settings";
 import { getFallbackUserRole } from "./lib/secure-auth-fallback";
 
 export async function middleware(req: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: req.headers,
-    },
-  });
+  const res = NextResponse.next();
 
-  const supabaseUrl =
-    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey =
-    process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -22,22 +16,10 @@ export async function middleware(req: NextRequest) {
         return req.cookies.get(name)?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
-        req.cookies.set({ name, value, ...options });
-        response = NextResponse.next({
-          request: {
-            headers: req.headers,
-          },
-        });
-        response.cookies.set({ name, value, ...options });
+        res.cookies.set({ name, value, ...options });
       },
       remove(name: string, options: CookieOptions) {
-        req.cookies.set({ name, value: "", ...options });
-        response = NextResponse.next({
-          request: {
-            headers: req.headers,
-          },
-        });
-        response.cookies.set({ name, value: "", ...options });
+        res.cookies.set({ name, value: "", ...options });
       },
     },
   });
@@ -77,7 +59,7 @@ export async function middleware(req: NextRequest) {
 
     if (!user || authError) {
       if (isPublicPath || isSetupPath) {
-        return response;
+        return res;
       }
       const redirectUrl = new URL("/sign-in", req.url);
       return NextResponse.redirect(redirectUrl);
@@ -89,7 +71,7 @@ export async function middleware(req: NextRequest) {
       "student";
 
     if (isSetupPath) {
-      return response;
+      return res;
     }
 
     if (
@@ -107,18 +89,14 @@ export async function middleware(req: NextRequest) {
           const redirectUrl = new URL(`/${userRole}`, req.url);
           return NextResponse.redirect(redirectUrl);
         }
-        return response;
+        return res;
       }
     }
 
-    return response;
+    return res;
   } catch (error) {
     console.error("Middleware error:", error);
-    return NextResponse.next({
-      request: {
-        headers: req.headers,
-      },
-    });
+    return res;
   }
 }
 

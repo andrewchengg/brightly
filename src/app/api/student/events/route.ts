@@ -1,19 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import prisma from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
 
     // Build the where clause
     const whereClause: any = {
@@ -31,15 +35,15 @@ export async function GET(request: NextRequest) {
     const events = await prisma.event.findMany({
       where: whereClause,
       orderBy: {
-        startTime: 'asc',
+        startTime: "asc",
       },
     });
 
     return NextResponse.json(events);
   } catch (error) {
-    console.error('Error fetching student events:', error);
+    console.error("Error fetching student events:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch events' },
+      { error: "Failed to fetch events" },
       { status: 500 }
     );
   }
@@ -48,10 +52,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!title || !startTime || !endTime) {
       return NextResponse.json(
-        { error: 'Title, start time, and end time are required' },
+        { error: "Title, start time, and end time are required" },
         { status: 400 }
       );
     }
@@ -68,7 +74,7 @@ export async function POST(request: NextRequest) {
     // Validate that end time is after start time
     if (new Date(endTime) <= new Date(startTime)) {
       return NextResponse.json(
-        { error: 'End time must be after start time' },
+        { error: "End time must be after start time" },
         { status: 400 }
       );
     }
@@ -76,7 +82,7 @@ export async function POST(request: NextRequest) {
     const event = await prisma.event.create({
       data: {
         title,
-        description: description || '',
+        description: description || "",
         startTime: new Date(startTime),
         endTime: new Date(endTime),
         studentId: user.id,
@@ -85,10 +91,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(event, { status: 201 });
   } catch (error) {
-    console.error('Error creating student event:', error);
+    console.error("Error creating student event:", error);
     return NextResponse.json(
-      { error: 'Failed to create event' },
+      { error: "Failed to create event" },
       { status: 500 }
     );
   }
-} 
+}

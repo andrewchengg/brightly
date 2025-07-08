@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { withAdminAuth } from "@/lib/api-protection";
 
+export const dynamic = "force-dynamic";
+
 const topicCreateSchema = z.object({
   name: z.string().min(1, "Topic name is required"),
   description: z.string().optional().nullable(),

@@ -1,7 +1,7 @@
 // src/app/sign-in/page.tsx
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client"; // For Google OAuth & direct email login
 import Link from "next/link";
 import { CuteLoader, StudyLoader } from "@/components/ui/CuteLoader";
@@ -9,7 +9,7 @@ import TransitionLoader, {
   useTransitionLoader,
 } from "@/components/TransitionLoader";
 
-export default function SignInPage() {
+function SignInContent() {
   const router = useRouter();
   const supabase = createClient(); // Keep for Google OAuth & direct email login
   const [identifier, setIdentifier] = useState("");
@@ -17,6 +17,20 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { isTransitioning, startTransition } = useTransitionLoader();
+  const searchParams = useSearchParams();
+
+  // Remove any sensitive data from URL if present
+  useEffect(() => {
+    const identifier = searchParams.get("identifier");
+    const password = searchParams.get("password");
+    if (identifier || password) {
+      // Remove sensitive parameters from URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("identifier");
+      url.searchParams.delete("password");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,10 +44,7 @@ export default function SignInPage() {
 
       if (typedIdentifier.includes("@")) {
         // Email login
-        console.log(
-          "[CLIENT_SIGN_IN] Attempting direct email login:",
-          typedIdentifier
-        );
+        console.log("[CLIENT_SIGN_IN] Attempting direct email login");
         const { data, error: signInError } =
           await supabase.auth.signInWithPassword({
             email: typedIdentifier,
@@ -44,7 +55,6 @@ export default function SignInPage() {
           setError(signInError.message || "Invalid email or password.");
         } else if (data?.user) {
           authSuccessful = true;
-          // Fetch role from user_metadata after successful direct email login
           const {
             data: { user: authenticatedUser },
           } = await supabase.auth.getUser();
@@ -58,10 +68,7 @@ export default function SignInPage() {
         }
       } else {
         // Username login - call our API
-        console.log(
-          "[CLIENT_SIGN_IN] Attempting username login via API for:",
-          typedIdentifier
-        );
+        console.log("[CLIENT_SIGN_IN] Attempting username login via API");
         const response = await fetch("/api/auth/sign-in-with-username", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -72,71 +79,27 @@ export default function SignInPage() {
 
         if (response.ok && result.user) {
           authSuccessful = true;
-          userRole = result.role || "student"; // Use role from API response
+          userRole = result.role || "student";
           console.log(
             "[CLIENT_SIGN_IN] API username login successful. Role:",
             userRole
           );
-          // The API route should have set the auth cookies.
-          // We might need to refresh Supabase client's session state.
-          await supabase.auth.refreshSession(); // Or getSession() to update client state
+          await supabase.auth.refreshSession();
         } else {
           setError(result.error || "Invalid username or password.");
         }
       }
 
       if (authSuccessful) {
-        console.log(
-          `[REDIRECT] Auth successful. Checking setup status for role: ${userRole}`
-        );
-
-        // Simplified loading - just show loading during redirect
         startTransition();
-
-        // For students, check if they need to complete setup before redirecting
-        if (userRole === "student") {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (user) {
-            const { data: student, error: studentError } = await supabase
-              .from("Student")
-              .select("initialSetupComplete")
-              .eq("id", user.id)
-              .single();
-
-            if (studentError) {
-              console.error(
-                "[SIGN_IN] Error checking student setup status:",
-                studentError
-              );
-              router.push("/student");
-            } else if (student && !student.initialSetupComplete) {
-              console.log(
-                "[SIGN_IN] Student setup incomplete, redirecting to complete-setup"
-              );
-              router.push("/student/complete-setup");
-            } else {
-              console.log(
-                "[SIGN_IN] Student setup complete, redirecting to dashboard"
-              );
-              router.push("/student");
-            }
-          } else {
-            router.push("/student");
-          }
-        } else {
-          // For non-students, redirect to their role dashboard directly
-          router.push(`/${userRole}`);
-        }
-        router.refresh();
+        router.push(`/${userRole}`);
       }
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during sign-in.");
-      console.error("Sign-in submission error:", err);
+      console.error("[CLIENT_SIGN_IN] Error:", err);
+      setError(err.message || "An unexpected error occurred");
+    } finally {
       setIsLoading(false);
     }
-    // Note: Removed finally block to keep loading state active during navigation
   };
 
   const handleGoogleSignIn = async () => {
@@ -179,10 +142,7 @@ export default function SignInPage() {
 
   return (
     <>
-      <TransitionLoader
-        isVisible={isTransitioning}
-        message="Loading your dashboard..."
-      />
+      <TransitionLoader isVisible={isTransitioning} />
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         {/* Navigation */}
         <nav className="fixed w-full bg-white/80 backdrop-blur-md shadow-sm z-50 border-b border-gray-100">
@@ -363,5 +323,13 @@ export default function SignInPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignInContent />
+    </Suspense>
   );
 }

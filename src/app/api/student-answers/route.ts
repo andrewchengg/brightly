@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@/generated/prisma";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 
 interface StudentAnswerCreateRequest {

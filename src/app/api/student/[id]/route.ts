@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { calculateLevel } from "@/lib/xp-utils";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -17,10 +19,7 @@ export async function GET(
     });
 
     if (!student) {
-      return NextResponse.json(
-        { error: "Student not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
     // Calculate level based on XP points
@@ -38,4 +37,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 interface RouteParams {
   params: {
     sessionId: string;
@@ -113,15 +115,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       totalMarksEarned = session.studentAnswers
         .filter((answer) => answer.isCorrect)
         .reduce((sum, answer) => sum + (answer.question?.marks || 0), 0);
-      
+
       totalPossibleMarks = session.studentAnswers.reduce((sum, answer) => {
         const questionMarks = answer.question?.marks || 0;
         return sum + questionMarks;
       }, 0);
-      
-      console.log(`[Session ${session.id}] Calculated marks (fallback): ${totalMarksEarned}/${totalPossibleMarks}`);
+
+      console.log(
+        `[Session ${session.id}] Calculated marks (fallback): ${totalMarksEarned}/${totalPossibleMarks}`
+      );
     } else {
-      console.log(`[Session ${session.id}] Using stored marks: ${totalMarksEarned}/${totalPossibleMarks}`);
+      console.log(
+        `[Session ${session.id}] Using stored marks: ${totalMarksEarned}/${totalPossibleMarks}`
+      );
     }
 
     // Calculate XP earned (example formula, adjust as needed)

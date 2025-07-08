@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { PrismaClient } from "@/generated/prisma";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {

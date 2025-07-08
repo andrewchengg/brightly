@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { resetWeeklyQuests } from "@/lib/weekly-quest-service";
 import { withAdminAuth } from "@/lib/api-protection";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   return withAdminAuth(async (auth) => {
     try {

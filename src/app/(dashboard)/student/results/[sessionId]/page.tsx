@@ -61,7 +61,8 @@ interface SessionDetails {
   title?: string | null;
   type: keyof typeof PrismaPracticeSessionType;
   endTime?: string | null;
-  score?: number | null;
+  totalMarksEarned?: number | null;
+  totalPossibleMarks?: number | null;
   totalQuestions?: number | null;
   correctAnswers?: number | null;
   xpEarned: number;
@@ -69,9 +70,6 @@ interface SessionDetails {
   topicName?: string | null;
   questionGroupName?: string | null;
   studentAnswers: StudentAnswerForReview[];
-  totalPossibleMarksCalculated?: number;
-  totalPossibleMarks?: number | null;
-  totalMarksEarned?: number | null;
 }
 
 export default function SessionReviewPage() {
@@ -114,7 +112,8 @@ export default function SessionReviewPage() {
               calculatedTotalPossibleMarksFromAnswers += sa.question.marks;
             } else {
               // If marks is not available, use pointsAwarded as fallback
-              calculatedTotalPossibleMarksFromAnswers += sa.question?.pointsAwarded || 0;
+              calculatedTotalPossibleMarksFromAnswers +=
+                sa.question?.pointsAwarded || 0;
               console.warn(
                 `SessionReviewPage: Question ID ${sa.question?.id} is missing marks field. Using pointsAwarded (${sa.question?.pointsAwarded}) as fallback.`
               );
