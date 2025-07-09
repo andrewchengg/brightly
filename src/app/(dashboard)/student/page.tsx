@@ -101,10 +101,7 @@ export default async function StudentPage() {
     prisma.practiceSession.findMany({
       where: {
         studentId: userId,
-        OR: [
-          { status: PracticeSessionStatus.NOT_STARTED },
-          { status: PracticeSessionStatus.IN_PROGRESS },
-        ],
+        status: PracticeSessionStatus.IN_PROGRESS,
         assignedByParentId: { not: null },
       },
       include: {

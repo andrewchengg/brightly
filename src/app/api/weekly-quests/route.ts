@@ -29,13 +29,11 @@ export async function GET(request: NextRequest) {
     }
 
     const studentId = user.id;
-    console.log(`🎯 Fetching weekly quests for student: ${studentId}`);
 
     // Check cache first
     const cacheKey = `quests-${studentId}`;
     const cached = questCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      console.log(`📦 Returning cached quests for ${studentId}`);
       return NextResponse.json(cached.data);
     }
 
@@ -46,10 +44,6 @@ export async function GET(request: NextRequest) {
     weekStart.setDate(diff);
     weekStart.setHours(0, 0, 0, 0);
     const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-    console.log(
-      `📅 Week range: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
-    );
 
     // Get student info and current quests
     const [student, studentQuests, allQuests] = await Promise.all([
@@ -91,28 +85,8 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    console.log(
-      `👤 Student found: ${student?.name || "Unknown"}, XP: ${
-        student?.xpPoints || 0
-      }`
-    );
-    console.log(
-      `📋 Existing student quests for this week: ${studentQuests.length}`
-    );
-    console.log(`🗃 Total quests in database: ${allQuests.length}`);
-
-    // Debug quest availability
-    allQuests.forEach((quest) => {
-      console.log(
-        `  📝 Quest: "${quest.title}" (${quest.questType}) - Active: ${
-          quest.isActive
-        }, MinLevel: ${quest.minLevel}, MaxLevel: ${quest.maxLevel || "None"}`
-      );
-    });
-
     // Calculate actual level from XP for consistency
     const studentLevel = calculateLevel(student?.xpPoints || 0);
-    console.log(`🎖 Student level: ${studentLevel} (calculated from XP)`);
 
     // Check what quests are available for this student's level
     const availableQuests = allQuests.filter(
@@ -122,15 +96,7 @@ export async function GET(request: NextRequest) {
         (!quest.maxLevel || quest.maxLevel >= studentLevel)
     );
 
-    console.log(
-      `🎯 Quests available for level ${studentLevel}: ${availableQuests.length}`
-    );
-    availableQuests.forEach((quest) => {
-      console.log(`  ✅ Available: "${quest.title}" (${quest.questType})`);
-    });
-
     if (studentLevel < 2) {
-      console.log(`🔒 Student level ${studentLevel} is below required level 2`);
       const result = {
         locked: true,
         level: studentLevel,
@@ -151,21 +117,10 @@ export async function GET(request: NextRequest) {
 
     // If no quests exist for this week, auto-generate them
     if (studentQuests.length === 0) {
-      console.log(
-        `⚠️ No StudentQuest records found for this week - generating new quests`
-      );
-      console.log(`   Available quests in DB: ${availableQuests.length}`);
-      console.log(`   Student level: ${studentLevel}`);
-      console.log(`   Week start: ${weekStart.toISOString()}`);
-
       try {
         // Auto-generate quests for this week
         const { generateWeeklyQuests } = await import("@/lib/quest-service");
         const newStudentQuests = await generateWeeklyQuests(studentId);
-
-        console.log(
-          `✅ Auto-generated ${newStudentQuests.length} new quests for the week`
-        );
 
         // Format the newly generated quests
         const formattedQuests = newStudentQuests.map((sq: any) => ({
@@ -221,8 +176,6 @@ export async function GET(request: NextRequest) {
       isCompleted: sq.isCompleted,
       completedAt: sq.completedAt,
     }));
-
-    console.log(`📤 Returning ${formattedQuests.length} formatted quests`);
 
     const result = { quests: formattedQuests };
     questCache.set(cacheKey, { data: result, timestamp: Date.now() });

@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
 
     // Group by status for easier display
     const groupedTasks = {
-      pending: formattedTasks.filter((task) => task.status === "NOT_STARTED"),
+      pending: formattedTasks.filter((task) => task.status === "IN_PROGRESS"),
       inProgress: formattedTasks.filter(
         (task) => task.status === "IN_PROGRESS"
       ),

@@ -20,6 +20,12 @@ import {
   createSessionContext,
   createQuestionContext,
 } from "@/components/AILearningAssistant";
+import {
+  completeSession,
+  gracefulSessionExit,
+  useSessionHeartbeat,
+} from "@/lib/session-management-v2";
+import { useUngracefulExitDetection } from "@/lib/ungraceful-exit-handler";
 import { InteractiveLoadingAnimation } from "@/components/ui/InteractiveLoadingAnimation";
 import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoader";
 import ConfettiComponent from "@/components/Confetti";
@@ -352,48 +358,29 @@ export default function RandomPractice() {
     }
   }, [authUser, authUserIsLoaded, router]);
 
-  // Delete session when user closes window or navigates away
+  // Enhanced session management with ungraceful exit detection
+  const ungracefulExitHandler = useUngracefulExitDetection(
+    currentPracticeSessionId,
+    !sessionFinalized
+  );
+
+  // Session heartbeat to track activity
+  useSessionHeartbeat(currentPracticeSessionId);
+
+  // Handle component unmount - graceful exit if session not completed
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (currentPracticeSessionId) {
-        console.log(
-          "🗑️ DEBUG: Window closing - deleting session:",
-          currentPracticeSessionId
-        );
-        // Use sendBeacon for reliable cleanup during page unload
-        navigator.sendBeacon(
-          `/api/practice-sessions/${currentPracticeSessionId}`,
-          JSON.stringify({ method: "DELETE" })
-        );
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
-        console.log(
-          "🗑️ DEBUG: Page hidden - deleting session:",
-          currentPracticeSessionId
-        );
-        // User switched tabs or minimized - clean up session
-        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-          method: "DELETE",
-        }).catch((err) => {
-          console.warn("Failed to delete session on visibility change:", err);
-        });
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      // Final cleanup on component unmount
       if (currentPracticeSessionId && !sessionFinalized) {
-        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-          method: "DELETE",
-        }).catch(() => {});
+        console.log(
+          "🚪 DEBUG: Component unmount - gracefully exiting incomplete session:",
+          currentPracticeSessionId
+        );
+        gracefulSessionExit(currentPracticeSessionId);
+      } else if (currentPracticeSessionId && sessionFinalized) {
+        console.log(
+          "✅ DEBUG: Component unmount - session already completed:",
+          currentPracticeSessionId
+        );
       }
     };
   }, [currentPracticeSessionId, sessionFinalized]);
@@ -421,16 +408,8 @@ export default function RandomPractice() {
           throw new Error("Session does not belong to current user");
         }
 
-        // Update session to IN_PROGRESS if it's NOT_STARTED
-        if (sessionData.status === PracticeSessionStatus.NOT_STARTED) {
-          await fetch(`/api/practice-sessions/${sessionId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: PracticeSessionStatus.IN_PROGRESS,
-            }),
-          });
-        }
+        // Session should already be IN_PROGRESS when created
+        // No need to update status since NOT_STARTED was removed
 
         setCurrentPracticeSessionId(sessionId);
         setCurrentSubjectId(sessionData.subjectId);
@@ -900,22 +879,30 @@ export default function RandomPractice() {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
 
+      // Complete session using the API endpoint
       const response = await fetch(`/api/practice-session/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: currentPracticeSessionId,
-          score: calculatedScore,
           correctAnswers: correctCount,
           xpEarned: calculatedScore,
+          totalMarksEarned: calculatedScore,
+          totalPossibleMarks: questions.length * 10, // Assuming 10 points per question
         }),
       });
+
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || "Failed to finalize session");
       }
 
       setSessionFinalized(true);
+
+      // Notify ungraceful exit handler that session is completed
+      if (ungracefulExitHandler) {
+        ungracefulExitHandler.markAsCompleted();
+      }
 
       // Trigger confetti for session completion
       setShowConfetti(true);
@@ -947,6 +934,8 @@ export default function RandomPractice() {
     sessionFinalized,
     setNewLevel,
     setShowLevelUp,
+    questions.length,
+    ungracefulExitHandler,
   ]);
 
   const handleSubmitAnswer = useCallback(
@@ -1144,16 +1133,25 @@ export default function RandomPractice() {
 
   const handleExitConfirm = useCallback(() => {
     console.log(
-      "🚪 DEBUG: User confirmed exit - deleting session and navigating"
+      "🚪 DEBUG: User confirmed exit - checking session status and navigating"
     );
 
-    // Delete session immediately
-    if (currentPracticeSessionId) {
+    // Only delete session if it's not completed
+    if (currentPracticeSessionId && !sessionFinalized) {
+      console.log(
+        "🗑️ DEBUG: Deleting incomplete session:",
+        currentPracticeSessionId
+      );
       fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
         method: "DELETE",
       }).catch((err) => {
         console.warn("Failed to delete practice session:", err);
       });
+    } else if (currentPracticeSessionId && sessionFinalized) {
+      console.log(
+        "✅ DEBUG: Keeping completed session:",
+        currentPracticeSessionId
+      );
     }
 
     // Navigate away
@@ -1162,7 +1160,7 @@ export default function RandomPractice() {
     } else {
       router.push("/student/practice");
     }
-  }, [currentPracticeSessionId, currentSubjectId, router]);
+  }, [currentPracticeSessionId, currentSubjectId, router, sessionFinalized]);
 
   const clearProgressAndExit = useCallback(() => {
     setShowExitDialog(true);
@@ -1682,6 +1680,13 @@ export default function RandomPractice() {
                 className="flex-1"
               >
                 <FaArrowLeft className="mr-2" /> Practice Menu
+              </Button>
+              <Button
+                onClick={() => router.push("/student/results")}
+                variant="outline"
+                className="flex-1"
+              >
+                <FaChartBar className="mr-2" /> View All Results
               </Button>
               <Button
                 onClick={completeSessionAndStartNew}

@@ -86,10 +86,11 @@ export default function StudentResultsPage() {
 
   // Function to get performance level and styling
   const getPerformanceDetails = (session: SessionSummary) => {
-    const totalPossible =
-      (session.totalQuestions || 1) * (session.type === "MOCK_EXAM" ? 1 : 10);
+    const totalPossible = session.totalPossibleMarks || 0;
     const scorePercentage =
-      ((session.totalMarksEarned || 0) / totalPossible) * 100;
+      totalPossible > 0
+        ? ((session.totalMarksEarned || 0) / totalPossible) * 100
+        : 0;
 
     if (scorePercentage >= 80) {
       return {

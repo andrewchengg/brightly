@@ -187,12 +187,12 @@ export default function ClozePassagePracticePage() {
     }
   }, [authUser, authUserIsLoaded]);
 
-  // Delete session when user closes window or navigates away
+  // Delete session when user closes window or navigates away (only if not completed)
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (currentPracticeSessionId && !sessionFinalized) {
         console.log(
-          "🗑️ DEBUG: Window closing - deleting session:",
+          "🗑️ DEBUG: Window closing - deleting incomplete session:",
           currentPracticeSessionId
         );
         // Use sendBeacon for reliable cleanup during page unload
@@ -206,7 +206,7 @@ export default function ClozePassagePracticePage() {
     const handleVisibilityChange = () => {
       if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
         console.log(
-          "🗑️ DEBUG: Page hidden - deleting session:",
+          "🗑️ DEBUG: Page hidden - deleting incomplete session:",
           currentPracticeSessionId
         );
         // User switched tabs or minimized - clean up session
@@ -224,11 +224,20 @@ export default function ClozePassagePracticePage() {
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      // Final cleanup on component unmount
+      // Final cleanup on component unmount - only delete if not completed
       if (currentPracticeSessionId && !sessionFinalized) {
+        console.log(
+          "🗑️ DEBUG: Component unmount - deleting incomplete session:",
+          currentPracticeSessionId
+        );
         fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
           method: "DELETE",
         }).catch(() => {});
+      } else if (currentPracticeSessionId && sessionFinalized) {
+        console.log(
+          "✅ DEBUG: Component unmount - keeping completed session:",
+          currentPracticeSessionId
+        );
       }
     };
   }, [currentPracticeSessionId, sessionFinalized]);

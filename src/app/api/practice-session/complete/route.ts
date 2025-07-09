@@ -23,7 +23,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId, correctAnswers, xpEarned, totalMarksEarned, totalPossibleMarks } = await request.json();
+    const {
+      sessionId,
+      correctAnswers,
+      xpEarned,
+      totalMarksEarned,
+      totalPossibleMarks,
+    } = await request.json();
 
     if (!sessionId) {
       return NextResponse.json(
@@ -42,14 +48,13 @@ export async function POST(request: NextRequest) {
       },
       select: {
         startTime: true,
+        status: true,
+        title: true,
       },
     });
 
     if (!existingSession) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     // Calculate duration in seconds
@@ -112,14 +117,7 @@ export async function POST(request: NextRequest) {
 
     // Update weekly quest progress
     try {
-      console.log(
-        `🎯 About to update quest progress for session ${sessionId}, student ${studentId}`
-      );
-      console.log(
-        `Session details: score=${totalMarksEarned}, correctAnswers=${correctAnswers}, xpEarned=${xpEarned}`
-      );
       await updateQuestProgressForSession(updatedSession);
-      console.log(`✅ Quest progress updated successfully`);
     } catch (questError) {
       console.error("❌ Error updating quest progress:", questError);
       // Don't fail the session completion if quest update fails

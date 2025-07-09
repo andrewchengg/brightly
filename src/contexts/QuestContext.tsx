@@ -112,7 +112,6 @@ export function QuestProvider({ children }: { children: ReactNode }) {
   // Listen for practice session completion events to refresh quest data
   useEffect(() => {
     const handlePracticeSessionComplete = () => {
-      console.log("🎯 Practice session completed - refreshing quest data");
       refreshQuests();
     };
 

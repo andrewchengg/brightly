@@ -136,8 +136,16 @@ export async function PATCH(
     const { id: practiceSessionId } = params;
     const body = await request.json();
     // Ensure totalQuestions is destructured if sent for update
-    const { status, endTime, durationSeconds, correctAnswers, totalMarksEarned, totalPossibleMarks, xpEarned, totalQuestions } =
-      body;
+    const {
+      status,
+      endTime,
+      durationSeconds,
+      correctAnswers,
+      totalMarksEarned,
+      totalPossibleMarks,
+      xpEarned,
+      totalQuestions,
+    } = body;
 
     const {
       data: { user: authUser },
@@ -165,10 +173,14 @@ export async function PATCH(
       );
     }
     if (endTime !== undefined) updateData.endTime = new Date(endTime);
-    if (durationSeconds !== undefined) updateData.durationSeconds = Number(durationSeconds);
-    if (correctAnswers !== undefined) updateData.correctAnswers = Number(correctAnswers);
-    if (totalMarksEarned !== undefined) updateData.totalMarksEarned = Number(totalMarksEarned);
-    if (totalPossibleMarks !== undefined) updateData.totalPossibleMarks = Number(totalPossibleMarks);
+    if (durationSeconds !== undefined)
+      updateData.durationSeconds = Number(durationSeconds);
+    if (correctAnswers !== undefined)
+      updateData.correctAnswers = Number(correctAnswers);
+    if (totalMarksEarned !== undefined)
+      updateData.totalMarksEarned = Number(totalMarksEarned);
+    if (totalPossibleMarks !== undefined)
+      updateData.totalPossibleMarks = Number(totalPossibleMarks);
     if (xpEarned !== undefined) updateData.xpEarned = Number(xpEarned);
 
     // Crucially, handle totalQuestions if it's part of the PATCH payload
@@ -194,15 +206,13 @@ export async function PATCH(
       await prisma.result.upsert({
         where: { practiceSessionId: updatedPracticeSession.id },
         update: {
-          totalMarksEarned: updatedPracticeSession.totalMarksEarned || 0,
-          totalPossibleMarks: updatedPracticeSession.totalPossibleMarks || 0,
+          score: updatedPracticeSession.totalMarksEarned || 0,
           submittedAt: updatedPracticeSession.endTime || new Date(),
         },
         create: {
+          score: updatedPracticeSession.totalMarksEarned || 0,
           studentId: updatedPracticeSession.studentId,
           practiceSessionId: updatedPracticeSession.id,
-          totalMarksEarned: updatedPracticeSession.totalMarksEarned || 0,
-          totalPossibleMarks: updatedPracticeSession.totalPossibleMarks || 0,
           submittedAt: updatedPracticeSession.endTime || new Date(),
         },
       });
@@ -222,13 +232,63 @@ export async function PATCH(
       }
     }
 
-    console.log(`Practice session ${updatedPracticeSession.id} updated: ${updatedPracticeSession.status}, Marks: ${updatedPracticeSession.totalMarksEarned}/${updatedPracticeSession.totalPossibleMarks}, Correct: ${updatedPracticeSession.correctAnswers}, TotalQ: ${updatedPracticeSession.totalQuestions}`);
+    console.log(
+      `Practice session ${updatedPracticeSession.id} updated: ${updatedPracticeSession.status}, Marks: ${updatedPracticeSession.totalMarksEarned}/${updatedPracticeSession.totalPossibleMarks}, Correct: ${updatedPracticeSession.correctAnswers}, TotalQ: ${updatedPracticeSession.totalQuestions}`
+    );
     return NextResponse.json(updatedPracticeSession);
   } catch (error: any) {
     console.error("API PATCH Error for /practice-sessions/[id]:", error);
     return NextResponse.json(
       {
         error: error.message || "Failed to update practice session",
+        details: error.stack,
+      },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const cookieStore = cookies();
+  const supabase = createClient();
+  try {
+    const { id: practiceSessionId } = params;
+
+    const {
+      data: { user: authUser },
+      error: authErr,
+    } = await supabase.auth.getUser();
+    if (authErr || !authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const session = await prisma.practiceSession.findUnique({
+      where: { id: practiceSessionId },
+      include: {
+        subject: { select: { id: true, name: true } },
+        topic: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!session) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+
+    if (session.studentId !== authUser.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    return NextResponse.json(session);
+  } catch (error: any) {
+    console.error("API GET Error for /practice-sessions/[id]:", error);
+    return NextResponse.json(
+      {
+        error: error.message || "Failed to fetch practice session",
         details: error.stack,
       },
       { status: 500 }

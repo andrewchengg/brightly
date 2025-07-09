@@ -70,6 +70,7 @@ interface SessionDetails {
   topicName?: string | null;
   questionGroupName?: string | null;
   studentAnswers: StudentAnswerForReview[];
+  totalPossibleMarksCalculated?: number;
 }
 
 export default function SessionReviewPage() {
@@ -105,29 +106,40 @@ export default function SessionReviewPage() {
         }
         const data: SessionDetails = await response.json();
 
+        // Calculate the actual marks earned from correct answers
+        let actualMarksEarned = 0;
         let calculatedTotalPossibleMarksFromAnswers = 0;
+
         if (data.studentAnswers && data.studentAnswers.length > 0) {
           data.studentAnswers.forEach((sa) => {
             if (sa.question && typeof sa.question.marks === "number") {
               calculatedTotalPossibleMarksFromAnswers += sa.question.marks;
+              // Add marks only if the answer is correct
+              if (sa.isCorrect) {
+                actualMarksEarned += sa.question.marks;
+              }
             } else {
-              // If marks is not available, use pointsAwarded as fallback
-              calculatedTotalPossibleMarksFromAnswers +=
-                sa.question?.pointsAwarded || 0;
-              console.warn(
-                `SessionReviewPage: Question ID ${sa.question?.id} is missing marks field. Using pointsAwarded (${sa.question?.pointsAwarded}) as fallback.`
+              console.error(
+                `SessionReviewPage: Question ID ${sa.question?.id} is missing marks field. This should not happen - every question must have marks.`
               );
+              // Don't add anything to the total if marks is missing
             }
           });
         }
+
         console.log(
           "SessionReviewPage: Calculated totalPossibleMarks from studentAnswers:",
           calculatedTotalPossibleMarksFromAnswers
+        );
+        console.log(
+          "SessionReviewPage: Calculated actual marks earned from correct answers:",
+          actualMarksEarned
         );
 
         setSessionDetails({
           ...data,
           totalPossibleMarksCalculated: calculatedTotalPossibleMarksFromAnswers,
+          totalMarksEarned: actualMarksEarned, // Use the calculated value instead of stored value
         });
       } catch (err: any) {
         console.error("Error fetching session details:", err);
@@ -293,91 +305,19 @@ export default function SessionReviewPage() {
     );
   }
 
-  let displayDenominatorMarks: number | string = "N/A";
+  // Always use the calculated marks from questions for accurate scoring
+  const displayDenominatorMarks =
+    sessionDetails.totalPossibleMarksCalculated || 0;
+
   let scorePercentage: number | null = null;
-
-  const totalPossibleMarksFromAnswers =
-    sessionDetails.totalPossibleMarksCalculated;
-
-  if (sessionDetails) {
-    if (
-      sessionDetails.type === PrismaPracticeSessionType.MOCK_EXAM &&
-      sessionDetails.subjectName?.toLowerCase() === "mathematics"
-    ) {
-      const subjectMath = MOCK_EXAM_PAPER_CONFIG.mathematics;
-      if (sessionDetails.title?.toLowerCase().includes("paper 1")) {
-        displayDenominatorMarks = subjectMath.paper1.totalMarks;
-      } else if (sessionDetails.title?.toLowerCase().includes("paper 2")) {
-        displayDenominatorMarks = subjectMath.paper2.totalMarks;
-      } else if (
-        sessionDetails.title?.toLowerCase().includes("full mock exam")
-      ) {
-        displayDenominatorMarks = subjectMath.both.totalMarks;
-      } else if (
-        sessionDetails.totalPossibleMarks &&
-        sessionDetails.totalPossibleMarks > 0
-      ) {
-        displayDenominatorMarks = sessionDetails.totalPossibleMarks;
-      } else if (
-        sessionDetails.totalPossibleMarksCalculated !== undefined &&
-        sessionDetails.totalPossibleMarksCalculated > 0
-      ) {
-        displayDenominatorMarks = sessionDetails.totalPossibleMarksCalculated;
-      } else if (
-        sessionDetails.totalQuestions &&
-        sessionDetails.totalQuestions > 0
-      ) {
-        // Fallback for mock exam if title doesn't help and no student answers to sum marks
-        // Infer based on expected question count if possible
-        if (
-          sessionDetails.totalQuestions ===
-          subjectMath.paper1.expectedQuestionCount
-        )
-          displayDenominatorMarks = subjectMath.paper1.totalMarks;
-        else if (
-          sessionDetails.totalQuestions ===
-          subjectMath.paper2.expectedQuestionCount
-        )
-          displayDenominatorMarks = subjectMath.paper2.totalMarks;
-        else if (
-          sessionDetails.totalQuestions ===
-          subjectMath.both.expectedQuestionCount
-        )
-          displayDenominatorMarks = subjectMath.both.totalMarks;
-        else {
-          displayDenominatorMarks = sessionDetails.totalQuestions * 2; // Very rough estimate
-          console.warn(
-            "SessionReviewPage: Estimating total possible marks for MOCK_EXAM. This may be inaccurate."
-          );
-        }
-      }
-    } else if (
-      sessionDetails.totalPossibleMarks &&
-      sessionDetails.totalPossibleMarks > 0
-    ) {
-      displayDenominatorMarks = sessionDetails.totalPossibleMarks;
-    } else if (
-      sessionDetails.totalPossibleMarksCalculated !== undefined &&
-      sessionDetails.totalPossibleMarksCalculated > 0
-    ) {
-      displayDenominatorMarks = sessionDetails.totalPossibleMarksCalculated;
-    } else if (
-      sessionDetails.totalQuestions &&
-      sessionDetails.totalQuestions > 0
-    ) {
-      displayDenominatorMarks = sessionDetails.totalQuestions;
-    }
-
-    if (
-      typeof displayDenominatorMarks === "number" &&
-      displayDenominatorMarks > 0 &&
-      sessionDetails.totalMarksEarned !== null &&
-      sessionDetails.totalMarksEarned !== undefined
-    ) {
-      scorePercentage = Math.round(
-        (sessionDetails.totalMarksEarned / displayDenominatorMarks) * 100
-      );
-    }
+  if (
+    displayDenominatorMarks > 0 &&
+    sessionDetails.totalMarksEarned !== null &&
+    sessionDetails.totalMarksEarned !== undefined
+  ) {
+    scorePercentage = Math.round(
+      (sessionDetails.totalMarksEarned / displayDenominatorMarks) * 100
+    );
   }
 
   return (
@@ -407,7 +347,8 @@ export default function SessionReviewPage() {
           <div>
             <p className="text-xs text-gray-500 uppercase">Score (Marks)</p>
             <p className="text-2xl font-bold text-indigo-600">
-              {sessionDetails.totalMarksEarned ?? 0} / {displayDenominatorMarks}
+              {sessionDetails.totalMarksEarned ?? 0} /{" "}
+              {displayDenominatorMarks > 0 ? displayDenominatorMarks : "N/A"}
               {scorePercentage !== null && ` (${scorePercentage}%)`}
             </p>
           </div>
