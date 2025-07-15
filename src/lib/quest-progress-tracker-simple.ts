@@ -26,21 +26,6 @@ export async function updateQuestProgressForSession(
   const { studentId } = practiceSession;
   const weekStart = getWeekStart();
 
-  console.log(
-    `🎯 Updating quest progress for student ${studentId} after practice session ${practiceSession.id}`
-  );
-  console.log(
-    `   Session Type: ${practiceSession.type}, Subject: ${
-      practiceSession.subject?.name || "None"
-    }, Topic: ${practiceSession.topic?.name || "None"}`
-  );
-  console.log(
-    `Practice session completed:
-   Title: ${practiceSession.title}
-   Type: ${practiceSession.type}
-   Marks: ${practiceSession.totalMarksEarned}/${practiceSession.totalPossibleMarks}, Correct: ${practiceSession.correctAnswers}/${practiceSession.totalQuestions}, XP: ${practiceSession.xpEarned}`
-  );
-
   // Get all active quests for this student for the current week
   const activeQuests = await prisma.studentQuest.findMany({
     where: {
@@ -56,22 +41,10 @@ export async function updateQuestProgressForSession(
     },
   });
 
-  console.log(`   Found ${activeQuests.length} active quests to check:`);
-  activeQuests.forEach((sq) => {
-    console.log(
-      `   - ${sq.quest.title} (${sq.quest.questType}): ${sq.progress}/${sq.target}`
-    );
-  });
-
   // Update each quest based on the practice session
   for (const studentQuest of activeQuests) {
-    console.log(
-      `\n   Checking quest: ${studentQuest.quest.title} (${studentQuest.quest.questType})`
-    );
     await updateSpecificQuest(studentQuest, practiceSession);
   }
-
-  console.log(`🎯 Finished updating quest progress for student ${studentId}\n`);
 }
 
 // Simplified quest update function
@@ -81,8 +54,6 @@ async function updateSpecificQuest(
 ) {
   const { quest } = studentQuest;
   let progressIncrement = 0;
-
-  console.log(`     Evaluating quest type: ${quest.questType}`);
 
   switch (quest.questType) {
     case "earn-xp":
@@ -216,19 +187,14 @@ async function updateSpecificQuest(
     case "endurance-runner":
     case "night-owl":
       // These are too complex - skip for now
-      console.log(`Quest type ${quest.questType} - SKIPPED (too complex)`);
       return; // Don't update progress for complex quests
 
     default:
-      console.log(`Unknown quest type: ${quest.questType}`);
       return;
   }
 
   if (progressIncrement > 0) {
-    console.log(`     ➕ Progress increment: ${progressIncrement}`);
     await applyQuestProgressIncrement(studentQuest.id, progressIncrement);
-  } else {
-    console.log(`     ⏸️  No progress increment (${progressIncrement})`);
   }
 }
 

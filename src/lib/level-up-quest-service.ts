@@ -13,16 +13,8 @@ export async function checkAndGenerateFirstQuests(
   newLevel: number,
   oldLevel?: number
 ) {
-  console.log(
-    `🎯 Checking quest eligibility for student ${studentId}: ${oldLevel} → ${newLevel}`
-  );
-
   // If student just reached level 2, generate their first quests
   if (newLevel >= 2 && (oldLevel === undefined || oldLevel < 2)) {
-    console.log(
-      `🎉 Student ${studentId} just reached level 2! Generating first weekly quests...`
-    );
-
     try {
       // Check if they already have quests for this week
       const weekStart = new Date();
@@ -41,17 +33,11 @@ export async function checkAndGenerateFirstQuests(
 
       if (existingQuests.length === 0) {
         // await generateWeeklyQuests(studentId, newLevel); // Temporarily disabled - needs schema update
-        console.log(
-          `✅ Generated first weekly quests for student ${studentId}`
-        );
         return {
           questsGenerated: true,
           message: "Congratulations! You've unlocked weekly quests!",
         };
       } else {
-        console.log(
-          `ℹ️ Student ${studentId} already has ${existingQuests.length} quests for this week`
-        );
         return {
           questsGenerated: false,
           message: "Weekly quests already exist",
@@ -90,10 +76,6 @@ export async function updateStudentLevelWithQuestCheck(
       where: { id: studentId },
       data: { level: newLevel },
     });
-
-    console.log(
-      `📈 Updated student ${studentId} level: ${oldLevel} → ${newLevel}`
-    );
 
     // Check and generate quests if needed
     const questResult = await checkAndGenerateFirstQuests(

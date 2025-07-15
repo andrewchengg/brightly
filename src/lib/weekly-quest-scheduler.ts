@@ -33,28 +33,17 @@ export async function performWeeklyQuestRotation(): Promise<{
   oldQuestsCleanedUp: number;
   message: string;
 }> {
-  console.log("🔄 Starting weekly quest rotation...");
-
   try {
     // Step 1: Clean up old quests (older than 2 weeks)
-    console.log("🧹 Cleaning up old quests...");
     const cleanedUpCount = await cleanupOldQuests();
-    console.log(`🗑️ Cleaned up ${cleanedUpCount} old quests`);
 
     // Step 2: Archive completed quests from last week
     await archiveLastWeekQuests();
 
     // Step 3: Generate new quests for all eligible students
-    console.log("🎯 Generating new weekly quests for all students...");
     const result = await generateQuestsForAllStudents();
 
     const totalQuests = result.processed * 2; // 2 quests per student
-
-    console.log("✅ Weekly quest rotation completed successfully!");
-    console.log(`   - ${result.processed} students processed`);
-    console.log(`   - ${result.failed} students failed`);
-    console.log(`   - ${totalQuests} new quests generated`);
-    console.log(`   - ${cleanedUpCount} old quests cleaned up`);
 
     return {
       success: true,
@@ -96,16 +85,7 @@ async function archiveLastWeekQuests(): Promise<void> {
     },
   });
 
-  console.log(
-    `📊 Found ${completedQuests.length} completed quests from last week to archive`
-  );
-
   // Here you could save to a separate analytics table or just log for now
-  for (const quest of completedQuests) {
-    console.log(
-      `🏆 Student ${quest.student.username} completed: ${quest.quest.title}`
-    );
-  }
 
   // TODO: Could implement a QuestCompletionHistory table for analytics
 }
@@ -129,10 +109,6 @@ export async function checkAndGenerateQuestsIfNeeded(
 
   // If no quests exist, check if student is eligible and generate
   if (existingQuests.length === 0) {
-    console.log(
-      `🎯 No quests found for student ${studentId}, checking eligibility...`
-    );
-
     // Check student level
     const student = await prisma.student.findUnique({
       where: { id: studentId },
@@ -140,23 +116,16 @@ export async function checkAndGenerateQuestsIfNeeded(
     });
 
     if (!student) {
-      console.log(`❌ Student ${studentId} not found`);
       return false;
     }
 
     const studentLevel = calculateLevel(student.xpPoints || 0);
 
     if (studentLevel >= 2) {
-      console.log(
-        `✨ Generating quests for ${student.username} (Level ${studentLevel})`
-      );
       const { generateWeeklyQuests } = await import("./quest-service");
       await generateWeeklyQuests(studentId);
       return true;
     } else {
-      console.log(
-        `⏳ Student ${student.username} is Level ${studentLevel}, needs Level 2+ for quests`
-      );
       return false;
     }
   }
@@ -183,9 +152,6 @@ export async function checkWeeklyRotationNeeded(): Promise<boolean> {
 
   // If no quests exist for current week, rotation is needed
   if (!recentQuests) {
-    console.log(
-      "🗓️ New week detected and no current week quests found - rotation needed"
-    );
     await performWeeklyQuestRotation();
     return true;
   }
@@ -256,8 +222,6 @@ export async function triggerManualQuestRotation(): Promise<{
   message: string;
   details: any;
 }> {
-  console.log("🔧 Manual weekly quest rotation triggered");
-
   const result = await performWeeklyQuestRotation();
 
   return {

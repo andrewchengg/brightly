@@ -32,10 +32,13 @@ import { PracticeCompletionLoader } from "@/components/ui/PracticeCompletionLoad
 import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
-import WhiteboardButton from "@/components/ui/WhiteboardButton";
-import WhiteboardModal from "@/components/ui/WhiteboardModal";
+
 import MobileFloatingButtons from "@/components/MobileFloatingButtons";
-import { cleanupPracticeSession } from "@/lib/session-management";
+import {
+  gracefulSessionExit,
+  useSessionHeartbeat,
+} from "@/lib/session-management-v2";
+import { useUngracefulExitDetection } from "@/lib/ungraceful-exit-handler";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -286,6 +289,8 @@ export default function TopicalPracticePage() {
   const [currentPracticeSessionId, setCurrentPracticeSessionId] = useState<
     string | null
   >(null);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const isCreatingSessionRef = useRef(false);
   const { user: authUser, isLoaded: authUserIsLoaded } = useSupabaseUser();
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -293,9 +298,6 @@ export default function TopicalPracticePage() {
   const [newLevel, setNewLevel] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
-
-  // Whiteboard state
-  const [showWhiteboard, setShowWhiteboard] = useState(false);
 
   // Mobile detection state
   const [isMobile, setIsMobile] = useState(false);
@@ -326,6 +328,8 @@ export default function TopicalPracticePage() {
 
   const [showReportModal, setShowReportModal] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [showContinueDialog, setShowContinueDialog] = useState(false);
+  const [resumableSessions, setResumableSessions] = useState<any[]>([]);
 
   // Set client state when component mounts
   useEffect(() => {
@@ -338,51 +342,33 @@ export default function TopicalPracticePage() {
     }
   }, [authUser, authUserIsLoaded]);
 
-  // Delete session when user closes window or navigates away
+  // Enhanced session management with ungraceful exit detection
+  const ungracefulExitHandler = useUngracefulExitDetection(
+    currentPracticeSessionId,
+    !sessionFinalized
+  );
+
+  // Session heartbeat to track activity
+  useSessionHeartbeat(currentPracticeSessionId);
+
+  // Handle component unmount - just log, don't abandon session immediately
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (currentPracticeSessionId && !sessionFinalized) {
-        console.log(
-          "🗑️ DEBUG: Window closing - deleting session:",
-          currentPracticeSessionId
-        );
-        // Use sendBeacon for reliable cleanup during page unload
-        navigator.sendBeacon(
-          `/api/practice-sessions/${currentPracticeSessionId}`,
-          JSON.stringify({ method: "DELETE" })
-        );
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
-        console.log(
-          "🗑️ DEBUG: Page hidden - deleting session:",
-          currentPracticeSessionId
-        );
-        // User switched tabs or minimized - clean up session
-        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-          method: "DELETE",
-        }).catch((err) => {
-          console.warn("Failed to delete session on visibility change:", err);
-        });
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      // Final cleanup on component unmount
       if (currentPracticeSessionId && !sessionFinalized) {
-        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-          method: "DELETE",
-        }).catch(() => {});
+        console.log(
+          "🚪 DEBUG: Component unmount - session remains IN_PROGRESS for potential resumption:",
+          currentPracticeSessionId
+        );
+        // Don't call gracefulSessionExit here - let users resume the session
+        // UngracefulExitHandler will handle timeout-based abandonment
+      } else if (currentPracticeSessionId && sessionFinalized) {
+        console.log(
+          "✅ DEBUG: Component unmount - session already completed:",
+          currentPracticeSessionId
+        );
       }
     };
-  }, [currentPracticeSessionId, sessionFinalized]);
+  }, [currentPracticeSessionId, sessionFinalized, localStorageKey]);
 
   // Fetch Topic Details
   useEffect(() => {
@@ -426,24 +412,11 @@ export default function TopicalPracticePage() {
 
         const sessionData = await response.json();
 
-        // Update the existing session to IN_PROGRESS if it's NOT_STARTED
-        if (sessionData.status === PracticeSessionStatus.NOT_STARTED) {
-          const updateResponse = await fetch(
-            `/api/practice-sessions/${sessionId}`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                status: PracticeSessionStatus.IN_PROGRESS,
-              }),
-            }
-          );
-          if (!updateResponse.ok) {
-            console.warn("Failed to update session status to IN_PROGRESS");
-          }
-        }
+        // Session should already be IN_PROGRESS when created
+        // No need to update status since NOT_STARTED was removed
 
         setCurrentPracticeSessionId(sessionId);
+        setScore(sessionData.totalMarksEarned || 0);
 
         // Fetch the original questions for this session
         const questionsResponse = await fetch(
@@ -459,6 +432,79 @@ export default function TopicalPracticePage() {
         }
 
         setQuestions(questions);
+
+        console.log(
+          "🔍 DEBUG: Topic Practice - Loading session with questions in order:",
+          questions.map((q, idx) => ({
+            index: idx,
+            id: q.id,
+            text: q.text?.substring(0, 50) + "...",
+            hasAnswer:
+              q.submittedAnswer !== null && q.submittedAnswer !== undefined,
+            submittedAnswer: q.submittedAnswer,
+            isCorrect: q.isCorrect,
+          }))
+        );
+
+        // Build answered questions map from StudentAnswer records
+        const answeredQuestionsMap: Record<
+          number,
+          string | Record<string, string>
+        > = {};
+        const results: typeof questionResults = [];
+
+        questions.forEach((question, index) => {
+          if (
+            question.submittedAnswer !== null &&
+            question.submittedAnswer !== undefined
+          ) {
+            console.log(
+              `✅ DEBUG: Topic Question ${index + 1} (ID: ${
+                question.id
+              }) ANSWERED:`,
+              question.submittedAnswer
+            );
+            answeredQuestionsMap[question.id] = question.submittedAnswer;
+            results.push({
+              id: question.id,
+              correct: question.isCorrect || false,
+              question: question.text,
+              userAnswer: question.submittedAnswer,
+              correctAnswer: question.correctAnswer,
+            });
+          } else {
+            console.log(
+              `❌ DEBUG: Topic Question ${index + 1} (ID: ${
+                question.id
+              }) NOT ANSWERED`
+            );
+          }
+        });
+
+        setAnsweredQuestions(answeredQuestionsMap);
+        setQuestionResults(results);
+
+        // Find current question index (first unanswered question)
+        const firstUnansweredIndex = questions.findIndex(
+          (q) => !answeredQuestionsMap.hasOwnProperty(q.id)
+        );
+
+        console.log(
+          "🔍 DEBUG: Topic - First unanswered question index:",
+          firstUnansweredIndex
+        );
+        let actualCurrentIndex;
+        if (firstUnansweredIndex === -1) {
+          // All questions answered, show summary
+          actualCurrentIndex = questions.length;
+          setCurrentQuestionIndex(questions.length);
+          setShowSummary(true);
+          setSessionFinalized(true);
+        } else {
+          actualCurrentIndex = firstUnansweredIndex;
+          setCurrentQuestionIndex(firstUnansweredIndex);
+        }
+
         return sessionId;
       } catch (err: any) {
         setError(`Could not load existing session: ${err.message}`);
@@ -517,12 +563,104 @@ export default function TopicalPracticePage() {
     [userId, currentTopic, numericTopicId]
   );
 
+  // Check for existing resumable sessions
+  const checkForResumableSessions = useCallback(async (): Promise<any[]> => {
+    if (!userId) return [];
+
+    try {
+      const response = await fetch(
+        `/api/student/practice-sessions/in-progress?studentId=${userId}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch resumable sessions");
+      }
+      const data = await response.json();
+
+      // Separate sessions into resumable and empty ones
+      const resumableSessions: any[] = [];
+      const emptySessions: any[] = [];
+
+      (data.sessions || []).forEach((session: any) => {
+        const hasProgress =
+          session.correctAnswers > 0 || session.totalMarksEarned > 0;
+        const isCurrentTopic = session.topicId === numericTopicId;
+
+        if (isCurrentTopic) {
+          if (hasProgress) {
+            resumableSessions.push(session);
+          } else {
+            emptySessions.push(session);
+          }
+        }
+      });
+
+      // Automatically abandon empty sessions
+      if (emptySessions.length > 0) {
+        for (const emptySession of emptySessions) {
+          try {
+            await fetch(`/api/practice-sessions/${emptySession.id}/abandon`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reason: "Auto-cleanup: No progress made",
+                timestamp: new Date().toISOString(),
+              }),
+            });
+          } catch (err) {
+            // Silently continue if abandonment fails
+          }
+        }
+      }
+
+      return resumableSessions;
+    } catch (err: any) {
+      return [];
+    }
+  }, [userId, numericTopicId]);
+
+  // Handle continue existing session
+  const handleContinueSession = useCallback(
+    async (sessionId: string) => {
+      setShowContinueDialog(false);
+
+      // Navigate to the session with the sessionId in URL
+      const newUrl = `${window.location.pathname}?sessionId=${sessionId}`;
+      window.history.pushState(null, "", newUrl);
+
+      // Load the existing session
+      const success = await loadExistingSession(sessionId);
+      if (success) {
+        // Clear localStorage since we're using database session
+        if (localStorageKey) {
+          safeStorage.removeItem(localStorageKey, "local");
+        }
+      } else {
+        setError(
+          "Could not continue the selected session. It may have expired."
+        );
+      }
+    },
+    [loadExistingSession, localStorageKey]
+  );
+
   const fetchTopicalQuestionsAndStartSession = useCallback(async () => {
     if (!userId || !numericTopicId || isNaN(numericTopicId) || !currentTopic)
       return;
 
+    // Guard against multiple session creation
+    if (currentPracticeSessionId && currentPracticeSessionId !== null) {
+      return;
+    }
+
+    // Guard against concurrent session creation
+    if (isCreatingSession || isCreatingSessionRef.current) {
+      return;
+    }
+
     if (localStorageKey) safeStorage.removeItem(localStorageKey, "local");
     setLoading(true);
+    setIsCreatingSession(true);
+    isCreatingSessionRef.current = true;
     setError(null);
     setCurrentQuestionIndex(0);
     setScore(0);
@@ -571,6 +709,8 @@ export default function TopicalPracticePage() {
       setQuestions([]);
     } finally {
       setLoading(false);
+      setIsCreatingSession(false);
+      isCreatingSessionRef.current = false;
     }
   }, [
     userId,
@@ -578,6 +718,39 @@ export default function TopicalPracticePage() {
     currentTopic,
     createNewTopicalPracticeSession,
     localStorageKey,
+    currentPracticeSessionId,
+    isCreatingSession,
+  ]);
+
+  // Handle start new session (abandon existing ones)
+  const handleStartNewSession = useCallback(async () => {
+    setShowContinueDialog(false);
+
+    // Mark existing sessions as abandoned
+    try {
+      for (const session of resumableSessions) {
+        await fetch(`/api/practice-sessions/${session.id}/abandon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reason: "User started new session",
+            timestamp: new Date().toISOString(),
+          }),
+        });
+      }
+    } catch (err) {
+      // Silently continue if some sessions couldn't be abandoned
+    }
+
+    // Clear localStorage and create new session
+    if (localStorageKey) {
+      safeStorage.removeItem(localStorageKey, "local");
+    }
+    await fetchTopicalQuestionsAndStartSession();
+  }, [
+    resumableSessions,
+    localStorageKey,
+    fetchTopicalQuestionsAndStartSession,
   ]);
 
   useEffect(() => {
@@ -591,65 +764,83 @@ export default function TopicalPracticePage() {
     }
     if (!localStorageKey) return;
 
-    setLoading(true);
+    const initializeSession = async () => {
+      // Guard against concurrent initialization
+      if (isCreatingSession || isCreatingSessionRef.current) {
+        return;
+      }
 
-    // If there's an existing session ID from URL, load that instead of localStorage
-    if (existingSessionId) {
-      loadExistingSession(existingSessionId).then((success) => {
+      setLoading(true);
+
+      // If there's an existing session ID from URL, load that instead of localStorage
+      if (existingSessionId) {
+        const success = await loadExistingSession(existingSessionId);
         if (success) {
           // Clear any old localStorage for this topic since we're using an existing session
           safeStorage.removeItem(localStorageKey, "local");
         }
         setLoading(false);
-      });
-      return;
-    }
+        return;
+      }
 
-    // Otherwise, check localStorage for resumable session
-    const savedProgressString = safeStorage.getItem(localStorageKey, "local");
-    let resumableSessionFound = false;
-    if (savedProgressString) {
-      try {
-        const progress: LocalStorageTopicalPracticeProgress =
-          JSON.parse(savedProgressString);
-        // Ensure the saved progress is for the current topic
-        if (
-          progress.topicId === numericTopicId &&
-          progress.questions?.length > 0 &&
-          !progress.sessionFinalized &&
-          progress.practiceSessionId
-        ) {
-          setQuestions(progress.questions);
-          setCurrentQuestionIndex(progress.currentQuestionIndex || 0);
-          setScore(progress.score || 0);
-          setAnsweredQuestions(
-            (progress.answeredQuestions as Record<
-              number,
-              string | Record<string, string>
-            >) || {}
-          );
-          setQuestionResults(progress.questionResults || []);
-          setCurrentPracticeSessionId(progress.practiceSessionId);
-          // subjectId is part of currentTopic now
-          setSessionFinalized(false);
-          if (progress.currentQuestionIndex >= progress.questions.length) {
-            setShowSummary(true);
-            setSessionFinalized(true);
+      // Check for database resumable sessions first
+      const existingSessions = await checkForResumableSessions();
+
+      if (existingSessions.length > 0) {
+        setResumableSessions(existingSessions);
+        setShowContinueDialog(true);
+        setLoading(false);
+        return;
+      }
+
+      // Otherwise, check localStorage for resumable session
+      const savedProgressString = safeStorage.getItem(localStorageKey, "local");
+      let resumableSessionFound = false;
+      if (savedProgressString) {
+        try {
+          const progress: LocalStorageTopicalPracticeProgress =
+            JSON.parse(savedProgressString);
+          // Ensure the saved progress is for the current topic
+          if (
+            progress.topicId === numericTopicId &&
+            progress.questions?.length > 0 &&
+            !progress.sessionFinalized &&
+            progress.practiceSessionId
+          ) {
+            setQuestions(progress.questions);
+            setCurrentQuestionIndex(progress.currentQuestionIndex || 0);
+            setScore(progress.score || 0);
+            setAnsweredQuestions(
+              (progress.answeredQuestions as Record<
+                number,
+                string | Record<string, string>
+              >) || {}
+            );
+            setQuestionResults(progress.questionResults || []);
+            setCurrentPracticeSessionId(progress.practiceSessionId);
+            // subjectId is part of currentTopic now
+            setSessionFinalized(false);
+            if (progress.currentQuestionIndex >= progress.questions.length) {
+              setShowSummary(true);
+              setSessionFinalized(true);
+            }
+            resumableSessionFound = true;
+          } else {
+            safeStorage.removeItem(localStorageKey, "local");
           }
-          resumableSessionFound = true;
-        } else {
+        } catch (error) {
           safeStorage.removeItem(localStorageKey, "local");
         }
-      } catch (error) {
-        safeStorage.removeItem(localStorageKey, "local");
       }
-    }
 
-    if (!resumableSessionFound) {
-      fetchTopicalQuestionsAndStartSession();
-    } else {
-      setLoading(false);
-    }
+      if (!resumableSessionFound) {
+        await fetchTopicalQuestionsAndStartSession();
+      } else {
+        setLoading(false);
+      }
+    };
+
+    initializeSession();
   }, [
     userId,
     numericTopicId,
@@ -658,6 +849,7 @@ export default function TopicalPracticePage() {
     currentTopic,
     existingSessionId,
     loadExistingSession,
+    checkForResumableSessions,
   ]);
 
   useEffect(() => {
@@ -916,6 +1108,11 @@ export default function TopicalPracticePage() {
 
       setSessionFinalized(true);
 
+      // Notify ungraceful exit handler that session is completed
+      if (ungracefulExitHandler) {
+        ungracefulExitHandler.markAsCompleted();
+      }
+
       // Trigger confetti for session completion
       setShowConfetti(true);
 
@@ -947,6 +1144,7 @@ export default function TopicalPracticePage() {
     localStorageKey,
     setNewLevel,
     setShowLevelUp,
+    ungracefulExitHandler,
   ]);
 
   const handleSubmitAnswer = useCallback(
@@ -1145,21 +1343,31 @@ export default function TopicalPracticePage() {
 
   const handleExitConfirm = useCallback(() => {
     console.log(
-      "🚪 DEBUG: User confirmed exit - deleting session and navigating"
+      "🚪 DEBUG: User confirmed exit - abandoning incomplete session and navigating"
     );
 
-    // Delete session immediately
-    if (currentPracticeSessionId) {
-      fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-        method: "DELETE",
-      }).catch((err) => {
-        console.warn("Failed to delete practice session:", err);
+    // Force abandon session if it's not completed (explicit user exit)
+    if (currentPracticeSessionId && !sessionFinalized) {
+      console.log(
+        "🗑️ DEBUG: Force abandoning incomplete session:",
+        currentPracticeSessionId
+      );
+      gracefulSessionExit(
+        currentPracticeSessionId,
+        localStorageKey || undefined,
+        true
+      ).catch((err) => {
+        console.warn("Failed to abandon practice session:", err);
       });
-    }
-
-    // Clear localStorage
-    if (localStorageKey) {
-      safeStorage.removeItem(localStorageKey, "local");
+    } else if (currentPracticeSessionId && sessionFinalized) {
+      console.log(
+        "✅ DEBUG: Keeping completed session:",
+        currentPracticeSessionId
+      );
+      // Clear localStorage for completed sessions
+      if (localStorageKey) {
+        safeStorage.removeItem(localStorageKey, "local");
+      }
     }
 
     // Navigate away
@@ -1168,7 +1376,14 @@ export default function TopicalPracticePage() {
     } else {
       router.push("/student/practice");
     }
-  }, [userId, currentTopic, router, currentPracticeSessionId, localStorageKey]);
+  }, [
+    userId,
+    currentTopic,
+    router,
+    currentPracticeSessionId,
+    localStorageKey,
+    sessionFinalized,
+  ]);
 
   const exitToTopicList = useCallback(() => {
     setShowExitDialog(true);
@@ -1775,6 +1990,13 @@ export default function TopicalPracticePage() {
                 <FaArrowLeft className="mr-2" /> Back to Topics
               </Button>
               <Button
+                onClick={() => router.push("/student/results")}
+                variant="outline"
+                className="flex-1"
+              >
+                <FaChartBar className="mr-2" /> View All Results
+              </Button>
+              <Button
                 onClick={restartTopicalPractice}
                 className="flex-1 bg-indigo-600 hover:bg-indigo-700"
               >
@@ -1924,14 +2146,7 @@ export default function TopicalPracticePage() {
               >
                 {currentQuestion?.difficulty || "MEDIUM"}
               </span>
-              {/* Whiteboard Button - Only show on desktop */}
-              {!isMobile && (
-                <WhiteboardButton
-                  onClick={() => setShowWhiteboard(true)}
-                  className="ml-2"
-                  size="sm"
-                />
-              )}
+
               {/* Report Button - Hide on mobile to reduce clutter */}
               <button
                 className="hidden lg:flex ml-2 items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
@@ -2149,24 +2364,79 @@ export default function TopicalPracticePage() {
         }}
       />
 
+      {/* Continue Session Dialog */}
+      {showContinueDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Continue Previous Session?
+            </h3>
+            <p className="text-gray-600 mb-6">
+              You have {resumableSessions.length} practice session
+              {resumableSessions.length > 1 ? "s" : ""} for this topic that can
+              be continued. Would you like to continue where you left off or
+              start a new session?
+            </p>
+
+            {resumableSessions.length > 0 && (
+              <div className="mb-6 space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">
+                  Available sessions:
+                </h4>
+                {resumableSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="text-sm text-gray-600 bg-gray-50 p-3 rounded"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">
+                        {session.title || "Topic Practice"}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {session.correctAnswers || 0}/
+                        {session.totalQuestions || 0} questions
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Started: {new Date(session.startTime).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                onClick={() => handleContinueSession(resumableSessions[0].id)}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Continue Session
+              </Button>
+              <Button
+                onClick={handleStartNewSession}
+                variant="outline"
+                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Start New
+              </Button>
+            </div>
+
+            <button
+              onClick={() => setShowContinueDialog(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       <ReportQuestionModal
         open={showReportModal}
         onClose={() => setShowReportModal(false)}
         questionId={currentQuestion?.id}
         studentId={userId}
       />
-      {/* Desktop Whiteboard Modal - Mobile uses floating buttons */}
-      {isClient && showWhiteboard && !isMobile && (
-        <WhiteboardModal
-          isOpen={showWhiteboard}
-          onClose={() => setShowWhiteboard(false)}
-          onSave={(imageDataURL) => {
-            // Optional: Save whiteboard content to session or local storage
-            console.log("Whiteboard saved:", imageDataURL);
-            setShowWhiteboard(false);
-          }}
-        />
-      )}
     </div>
   );
 }

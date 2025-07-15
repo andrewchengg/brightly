@@ -278,9 +278,6 @@ export async function generateWeeklyQuests(
       });
 
       if (existingQuest) {
-        console.log(
-          `Quest ${quest.questType} already exists for student, skipping...`
-        );
         studentQuests.push(existingQuest);
         continue;
       }
@@ -304,9 +301,6 @@ export async function generateWeeklyQuests(
     }
   }
 
-  console.log(
-    `🎯 Generated ${studentQuests.length} quests for student ${studentId} (Level ${studentLevel})`
-  );
   return studentQuests;
 }
 
@@ -351,9 +345,7 @@ export async function updateQuestProgress(
     },
   });
 
-  if (isCompleted) {
-    console.log(`🏆 Quest completed: ${questType} for student ${studentId}`);
-  }
+  // Quest completion handled elsewhere
 }
 
 // Admin function: Generate quests for all eligible students

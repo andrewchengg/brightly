@@ -119,6 +119,81 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
       }
     }, []);
 
+    // Helper function to check if a point is near a line
+    const isPointNearLine = useCallback(
+      (
+        point: { x: number; y: number },
+        linePoints: number[],
+        threshold: number = 10
+      ) => {
+        // Check distance from point to line segments
+        for (let i = 0; i < linePoints.length - 2; i += 2) {
+          const x1 = linePoints[i];
+          const y1 = linePoints[i + 1];
+          const x2 = linePoints[i + 2];
+          const y2 = linePoints[i + 3];
+
+          // Calculate distance from point to line segment
+          const A = point.x - x1;
+          const B = point.y - y1;
+          const C = x2 - x1;
+          const D = y2 - y1;
+
+          const dot = A * C + B * D;
+          const lenSq = C * C + D * D;
+
+          if (lenSq === 0) {
+            // Line segment is actually a point
+            const distance = Math.sqrt(A * A + B * B);
+            if (distance <= threshold) return true;
+            continue;
+          }
+
+          const param = dot / lenSq;
+          let xx, yy;
+
+          if (param < 0) {
+            xx = x1;
+            yy = y1;
+          } else if (param > 1) {
+            xx = x2;
+            yy = y2;
+          } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+          }
+
+          const dx = point.x - xx;
+          const dy = point.y - yy;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance <= threshold) return true;
+        }
+        return false;
+      },
+      []
+    );
+
+    // Helper function to erase lines at a point
+    const eraseLinesAtPoint = useCallback(
+      (point: { x: number; y: number }) => {
+        // Check freehand lines
+        setLines((prev) =>
+          prev.filter(
+            (line) => !isPointNearLine(point, line.points, eraserSize)
+          )
+        );
+
+        // Check straight lines
+        setStraightLines((prev) =>
+          prev.filter(
+            (line) => !isPointNearLine(point, line.points, eraserSize)
+          )
+        );
+      },
+      [isPointNearLine, eraserSize]
+    );
+
     // Whiteboard functionality
 
     const handleMouseDown = useCallback(
@@ -142,20 +217,31 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
             setLineStart(null);
             setTempLine(null);
           }
+        } else if (tool === "eraser") {
+          // Erase any lines at this position
+          eraseLinesAtPoint(pos);
         } else {
+          // Pen tool
           const newLine: DrawingLine = {
             id: Date.now().toString(),
             tool,
             points: [pos.x, pos.y],
-            stroke: tool === "pen" ? "#000000" : "#FFFFFF",
-            strokeWidth: tool === "pen" ? penSize : eraserSize,
-            globalCompositeOperation:
-              tool === "eraser" ? "destination-out" : "source-over",
+            stroke: "#000000",
+            strokeWidth: penSize,
+            globalCompositeOperation: "source-over",
           };
           setLines((prev) => [...prev, newLine]);
         }
       },
-      [tool, penSize, eraserSize, lineStart, mode, konvaLoaded]
+      [
+        tool,
+        penSize,
+        eraserSize,
+        lineStart,
+        mode,
+        konvaLoaded,
+        eraseLinesAtPoint,
+      ]
     );
 
     const handleMouseMove = useCallback(
@@ -172,7 +258,10 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
             stroke: "#000000",
             strokeWidth: penSize,
           });
-        } else if (tool !== "line") {
+        } else if (tool === "eraser") {
+          // Continue erasing lines as we move
+          eraseLinesAtPoint(point);
+        } else if (tool === "pen") {
           setLines((prev) => {
             const newLines = [...prev];
             const lastLine = newLines[newLines.length - 1];
@@ -183,7 +272,15 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
           });
         }
       },
-      [isDrawing, tool, lineStart, penSize, mode, konvaLoaded]
+      [
+        isDrawing,
+        tool,
+        lineStart,
+        penSize,
+        mode,
+        konvaLoaded,
+        eraseLinesAtPoint,
+      ]
     );
 
     const handleMouseUp = useCallback(() => {
@@ -402,10 +499,6 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
       }
 
       try {
-        console.log("AIAssistant: Sending message", {
-          message: sanitizedMessage,
-        });
-
         // Create a default session context if none is provided
         const defaultSessionContext = {
           sessionType: "text_highlight",
@@ -426,32 +519,18 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
           },
         };
 
-        console.log("AIAssistant: Sending request to API", {
-          requestBody: JSON.stringify(requestBody, null, 2),
-        });
-
         const response = await fetch("/api/ai-tutor", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         });
 
-        console.log("AIAssistant: Received API response", {
-          status: response.status,
-          statusText: response.statusText,
-        });
-
         if (!response.ok) {
           const errorData = await response.json();
-          console.error("AIAssistant: API error", {
-            status: response.status,
-            error: errorData,
-          });
           throw new Error(errorData.error || "Failed to get response from AI");
         }
 
         const data = await response.json();
-        console.log("AIAssistant: API response data", { data });
 
         // Split the AI response into sentences for separate messages
         const sentences = splitIntoSentences(data.message);
@@ -475,7 +554,6 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
           onResponseReceived(data.message);
         }
       } catch (error: any) {
-        console.error("AI Assistant Error:", error);
         const errorMessage = error.message.includes("rate limit")
           ? "You've asked too many questions recently. Please wait a moment before asking again."
           : "I'm having trouble connecting right now. Please try again in a moment.";

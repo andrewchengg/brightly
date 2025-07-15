@@ -47,9 +47,6 @@ export async function POST() {
     }
 
     // Generate new quests
-    console.log(
-      `🎯 Generating quests for student ${studentId} (Level ${studentLevel})`
-    );
     const studentQuests = await generateWeeklyQuests(studentId);
 
     // Format for frontend

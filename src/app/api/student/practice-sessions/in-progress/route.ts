@@ -15,11 +15,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Find all in-progress sessions for the student
+    // Find all resumable sessions for the student (IN_PROGRESS and PAUSED)
     const inProgressSessions = await prisma.practiceSession.findMany({
       where: {
         studentId,
-        status: "IN_PROGRESS",
+        status: {
+          in: ["IN_PROGRESS", "PAUSED"],
+        },
       },
       select: {
         id: true,

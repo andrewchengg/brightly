@@ -212,12 +212,12 @@ export default function QuestionGroupPracticePage() {
     }
   }, [authUser, authUserIsLoaded]);
 
-  // Delete session when user closes window or navigates away
+  // Delete session when user closes window or navigates away (only if not completed)
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (currentPracticeSessionId && !sessionFinalized) {
         console.log(
-          "🗑️ DEBUG: Window closing - deleting session:",
+          "🗑️ DEBUG: Window closing - deleting incomplete session:",
           currentPracticeSessionId
         );
         // Use sendBeacon for reliable cleanup during page unload
@@ -231,7 +231,7 @@ export default function QuestionGroupPracticePage() {
     const handleVisibilityChange = () => {
       if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
         console.log(
-          "🗑️ DEBUG: Page hidden - deleting session:",
+          "🗑️ DEBUG: Page hidden - deleting incomplete session:",
           currentPracticeSessionId
         );
         // User switched tabs or minimized - clean up session
@@ -249,11 +249,20 @@ export default function QuestionGroupPracticePage() {
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      // Final cleanup on component unmount
+      // Final cleanup on component unmount - only delete if not completed
       if (currentPracticeSessionId && !sessionFinalized) {
+        console.log(
+          "🗑️ DEBUG: Component unmount - deleting incomplete session:",
+          currentPracticeSessionId
+        );
         fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
           method: "DELETE",
         }).catch(() => {});
+      } else if (currentPracticeSessionId && sessionFinalized) {
+        console.log(
+          "✅ DEBUG: Component unmount - keeping completed session:",
+          currentPracticeSessionId
+        );
       }
     };
   }, [currentPracticeSessionId, sessionFinalized]);
@@ -922,16 +931,25 @@ export default function QuestionGroupPracticePage() {
 
   const handleExitConfirm = useCallback(() => {
     console.log(
-      "🚪 DEBUG: User confirmed exit - deleting session and navigating"
+      "🚪 DEBUG: User confirmed exit - checking session status and navigating"
     );
 
-    // Delete session immediately
-    if (currentPracticeSessionId) {
+    // Only delete session if it's not completed
+    if (currentPracticeSessionId && !sessionFinalized) {
+      console.log(
+        "🗑️ DEBUG: Deleting incomplete session:",
+        currentPracticeSessionId
+      );
       fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
         method: "DELETE",
       }).catch((err) => {
         console.warn("Failed to delete practice session:", err);
       });
+    } else if (currentPracticeSessionId && sessionFinalized) {
+      console.log(
+        "✅ DEBUG: Keeping completed session:",
+        currentPracticeSessionId
+      );
     }
 
     // Clear localStorage
@@ -945,7 +963,13 @@ export default function QuestionGroupPracticePage() {
     } else {
       router.push("/student/practice");
     }
-  }, [currentSubjectId, router, currentPracticeSessionId, localStorageKey]);
+  }, [
+    currentSubjectId,
+    router,
+    currentPracticeSessionId,
+    localStorageKey,
+    sessionFinalized,
+  ]);
 
   const exitToSubjectPractice = useCallback(() => {
     setShowExitDialog(true);
@@ -1459,14 +1483,25 @@ export default function QuestionGroupPracticePage() {
               </div>
             ))}
           </div>
-          <div className="border-t border-gray-200 p-6 flex justify-center">
-            <Button
-              onClick={() => {
-                router.push("/student/practice");
-              }}
-            >
-              Continue Practice
-            </Button>
+          <div className="border-t border-gray-200 p-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={() => {
+                  router.push("/student/practice");
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                <FaArrowLeft className="mr-2" /> Continue Practice
+              </Button>
+              <Button
+                onClick={() => router.push("/student/results")}
+                variant="outline"
+                className="flex-1"
+              >
+                <FaChartBar className="mr-2" /> View All Results
+              </Button>
+            </div>
           </div>
         </div>
       </div>

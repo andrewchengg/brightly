@@ -123,9 +123,9 @@ model Subject {
   practiceSessions  PracticeSession[]          @relation("SubjectPracticeSessions")
   questions         Question[]                 @relation("SubjectQuestions")
   uploadedQuestions StudentUploadedQuestion[]  @relation("StudentUploadedQuestionSubjects")
+  subjectPlan       SubjectPlan?
   subjectTeachers   SubjectTeacher[]
   topics            Topic[]
-  subjectPlan       SubjectPlan?
 }
 
 model Topic {
@@ -272,7 +272,7 @@ model PracticeSession {
   id                      String                @id @default(uuid())
   studentId               String
   title                   String?
-  status                  PracticeSessionStatus @default(NOT_STARTED)
+  status                  PracticeSessionStatus @default(IN_PROGRESS)
   subjectId               Int?
   topicId                 Int?
   assignedByParentId      String?
@@ -291,6 +291,14 @@ model PracticeSession {
   challengeWeekIdentifier DateTime?
   totalMarksEarned        Int?
   totalPossibleMarks      Int?
+  abandonedAt             DateTime?
+  cleanupAttempts         Int                   @default(0)
+  cleanupCompletedAt      DateTime?
+  gracePeriodEnds         DateTime?
+  gracePeriodStarted      DateTime?
+  isMarkedForCleanup      Boolean               @default(false)
+  lastActivityAt          DateTime?
+  lastHeartbeatAt         DateTime?
   assignedByParent        Parent?               @relation("AssignedSessionsByParent", fields: [assignedByParentId], references: [id])
   assignedByTeacher       Teacher?              @relation("AssignedSessionsByTeacher", fields: [assignedByTeacherId], references: [id])
   basedOnQuestionGroup    QuestionGroup?        @relation("BasedOnQuestionGroup", fields: [basedOnQuestionGroupId], references: [id])
@@ -299,6 +307,12 @@ model PracticeSession {
   topic                   Topic?                @relation("TopicPracticeSessions", fields: [topicId], references: [id])
   Result                  Result?
   studentAnswers          StudentAnswer[]
+
+  @@index([isMarkedForCleanup, gracePeriodEnds])
+  @@index([status, gracePeriodEnds])
+  @@index([status, lastActivityAt])
+  @@index([studentId, lastActivityAt])
+  @@index([studentId, status])
 }
 
 model StudentAnswer {
@@ -561,6 +575,52 @@ model QuestionReport {
   @@index([status])
 }
 
+model SubjectPlan {
+  id            Int                   @id @default(autoincrement())
+  subjectId     Int                   @unique
+  name          String
+  description   String?
+  monthlyPrice  Decimal               @db.Decimal(10, 2)
+  yearlyPrice   Decimal?              @db.Decimal(10, 2)
+  features      Json
+  isActive      Boolean               @default(true)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  subject       Subject               @relation(fields: [subjectId], references: [id])
+  subscriptions SubjectSubscription[]
+}
+
+model SubjectSubscription {
+  id                   String             @id @default(uuid())
+  parentId             String
+  subjectPlanId        Int
+  studentIds           String[]
+  status               SubscriptionStatus @default(TRIAL)
+  startDate            DateTime           @default(now())
+  endDate              DateTime
+  nextBillingDate      DateTime?
+  paymentMethod        String?
+  stripeSubscriptionId String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  paymentHistory       PaymentHistory[]
+  parent               Parent             @relation(fields: [parentId], references: [id])
+  subjectPlan          SubjectPlan        @relation(fields: [subjectPlanId], references: [id])
+
+  @@unique([parentId, subjectPlanId])
+}
+
+model PaymentHistory {
+  id                    String              @id @default(uuid())
+  subjectSubscriptionId String
+  amount                Decimal             @db.Decimal(10, 2)
+  currency              String              @default("USD")
+  status                String
+  stripePaymentIntentId String?
+  createdAt             DateTime            @default(now())
+  subscription          SubjectSubscription @relation(fields: [subjectSubscriptionId], references: [id])
+}
+
 enum UserSex {
   MALE
   FEMALE
@@ -593,10 +653,14 @@ enum DifficultyLevel {
 }
 
 enum PracticeSessionStatus {
-  NOT_STARTED
   IN_PROGRESS
   COMPLETED
   PAUSED
+  ABANDONED
+  TIMED_OUT
+  FORCE_CLOSED
+  CLEANUP_PENDING
+  CLEANED_UP
 }
 
 enum PracticeSessionType {
@@ -666,53 +730,4 @@ enum SubscriptionStatus {
   PAUSED
   CANCELLED
   EXPIRED
-}
-
-model SubjectPlan {
-  id            Int                   @id @default(autoincrement())
-  subjectId     Int                   @unique
-  name          String
-  description   String?
-  monthlyPrice  Decimal               @db.Decimal(10,2)
-  yearlyPrice   Decimal?              @db.Decimal(10,2)
-  features      Json
-  isActive      Boolean               @default(true)
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  
-  subject       Subject               @relation(fields: [subjectId], references: [id])
-  subscriptions SubjectSubscription[]
-}
-
-model SubjectSubscription {
-  id                   String             @id @default(uuid())
-  parentId             String
-  subjectPlanId        Int
-  studentIds           String[]
-  status               SubscriptionStatus @default(TRIAL)
-  startDate            DateTime           @default(now())
-  endDate              DateTime
-  nextBillingDate      DateTime?
-  paymentMethod        String?
-  stripeSubscriptionId String?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  
-  parent               Parent             @relation(fields: [parentId], references: [id])
-  subjectPlan          SubjectPlan        @relation(fields: [subjectPlanId], references: [id])
-  paymentHistory       PaymentHistory[]
-  
-  @@unique([parentId, subjectPlanId])
-}
-
-model PaymentHistory {
-  id                    String              @id @default(uuid())
-  subjectSubscriptionId String
-  amount                Decimal             @db.Decimal(10,2)
-  currency              String              @default("USD")
-  status                String
-  stripePaymentIntentId String?
-  createdAt             DateTime            @default(now())
-  
-  subscription          SubjectSubscription @relation(fields: [subjectSubscriptionId], references: [id])
 }

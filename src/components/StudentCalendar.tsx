@@ -29,7 +29,7 @@ interface Event {
   start: Date;
   end: Date;
   description?: string;
-  type: "personal" | "lesson";
+  type: "personal" | "lesson" | "practice";
 }
 
 interface StudentCalendarProps {
@@ -50,6 +50,9 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [practiceDates, setPracticeDates] = useState<{ [key: string]: any }>(
+    {}
+  );
+  const [practiceSessions, setPracticeSessions] = useState<{ [key: string]: any[] }>(
     {}
   );
   const [formData, setFormData] = useState({
@@ -74,6 +77,37 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
       }
     } catch (error) {
       console.error("Error fetching practice dates:", error);
+    }
+  };
+
+  // Fetch practice sessions for calendar display
+  const fetchPracticeSessions = async () => {
+    try {
+      // Calculate date range for current view
+      let startDate: Date, endDate: Date;
+      
+      if (view === Views.MONTH) {
+        startDate = moment(date).startOf('month').toDate();
+        endDate = moment(date).endOf('month').toDate();
+      } else if (view === Views.WEEK) {
+        startDate = moment(date).startOf('week').toDate();
+        endDate = moment(date).endOf('week').toDate();
+      } else {
+        // DAY view
+        startDate = moment(date).startOf('day').toDate();
+        endDate = moment(date).endOf('day').toDate();
+      }
+
+      const response = await fetch(
+        `/api/student/practice-sessions-calendar?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPracticeSessions(data.sessionsByDate || {});
+      }
+    } catch (error) {
+      console.error("Error fetching practice sessions:", error);
     }
   };
 
@@ -112,8 +146,23 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
         }));
       }
 
-      // Combine both types of events
-      setEvents([...personalEvents, ...lessonEvents]);
+      // Convert practice sessions to events
+      const practiceEvents: Event[] = [];
+      Object.entries(practiceSessions).forEach(([dateKey, sessions]) => {
+        sessions.forEach((session: any) => {
+          practiceEvents.push({
+            id: session.id,
+            title: `${session.subject?.name || 'Practice'} - ${session.topic?.name || 'General'}`,
+            start: new Date(session.startTime),
+            end: new Date(session.endTime || session.startTime),
+            description: `Practice Session: ${session.title || 'Untitled'}\nQuestions: ${session.totalQuestions || 0}\nScore: ${session.totalMarksEarned || 0}/${session.totalPossibleMarks || 0}`,
+            type: "practice" as const,
+          });
+        });
+      });
+
+      // Combine all types of events
+      setEvents([...personalEvents, ...lessonEvents, ...practiceEvents]);
     } catch (error) {
       console.error("Error fetching events:", error);
       toast.error("Failed to load events");
@@ -123,7 +172,8 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   useEffect(() => {
     fetchEvents();
     fetchPracticeDates();
-  }, []);
+    fetchPracticeSessions();
+  }, [view, date]);
 
   // Navigation functions
   const navigateToNext = () => {
@@ -353,6 +403,24 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
       console.error("Error deleting event:", error);
       toast.error("Failed to delete event");
     }
+  };
+
+  // Delete confirmation modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = () => {
+    if (eventToDelete) {
+      deleteEvent(eventToDelete.id);
+      setShowDeleteModal(false);
+      setEventToDelete(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setEventToDelete(null);
   };
 
   const handleViewChange = (selectedView: View) => {
@@ -615,44 +683,23 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             background-color: rgba(99, 102, 241, 0.2);
           }
 
-          /* Practice completed days - modern dot */
-          .practice-completed::after {
-            content: "";
-            position: absolute;
-            bottom: 6px;
-            right: 6px;
-            width: 8px;
-            height: 8px;
-            background: linear-gradient(135deg, #10b981, #059669);
-            border-radius: 50%;
-            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+          /* Practice completed days - green border */
+          .practice-completed {
+            border: 2px solid #10b981 !important;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
           }
 
-          /* Today + practiced - enhanced green dot */
-          .practice-today-completed::after {
-            content: "";
-            position: absolute;
-            bottom: 6px;
-            right: 6px;
-            width: 10px;
-            height: 10px;
-            background: linear-gradient(135deg, #10b981, #059669);
-            border-radius: 50%;
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+          /* Today + practiced - enhanced green border */
+          .practice-today-completed {
+            border: 3px solid #10b981 !important;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
             animation: pulse 2s infinite;
           }
 
-          /* Today + not practiced - modern orange dot */
-          .practice-today-pending::after {
-            content: "";
-            position: absolute;
-            bottom: 6px;
-            left: 6px;
-            width: 8px;
-            height: 8px;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            border-radius: 50%;
-            box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+          /* Today + not practiced - orange border */
+          .practice-today-pending {
+            border: 2px solid #f59e0b !important;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
           }
 
           @keyframes pulse {
@@ -690,6 +737,8 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
               backgroundColor:
                 event.type === "lesson"
                   ? "linear-gradient(135deg, #059669, #047857)"
+                  : event.type === "practice"
+                  ? "linear-gradient(135deg, #10b981, #059669)"
                   : "linear-gradient(135deg, #6366f1, #4f46e5)",
               borderRadius: "8px",
               opacity: 0.9,
@@ -706,44 +755,50 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
             const isToday = moment(date).isSame(today, "day");
             const dateKey = moment(date).format("YYYY-MM-DD");
             const hasPracticed = practiceDates[dateKey]?.hasPracticed;
+            const daySessions = practiceSessions[dateKey] || [];
 
             let backgroundColor = undefined;
-            let border = undefined;
             let className = "";
 
-            if (isToday && hasPracticed) {
+            // Check if there are practice sessions for this day
+            const hasPracticeSessions = daySessions.length > 0;
+
+            if (isToday && hasPracticeSessions) {
               backgroundColor = "#ecfdf5"; // light green
-              border = "2px solid #10b981"; // green border
               className = "practice-today-completed";
-            } else if (isToday && !hasPracticed) {
+            } else if (isToday && !hasPracticeSessions) {
               backgroundColor = "#fef3c7"; // light yellow
-              border = "2px solid #f59e0b"; // orange border
               className = "practice-today-pending";
             } else if (isToday) {
               backgroundColor = "#f0f9ff"; // light blue
-              border = "2px solid #3b82f6"; // blue border
-            } else if (hasPracticed) {
+            } else if (hasPracticeSessions) {
               backgroundColor = "#f0fdf4"; // very light green
-              border = "1px solid #22c55e"; // green border
               className = "practice-completed";
+            }
+
+            // Create tooltip with practice session details
+            let tooltip = "";
+            if (hasPracticeSessions) {
+              const sessionCount = daySessions.length;
+              const subjects = [...new Set(daySessions.map((s: any) => s.subject?.name || 'Unknown'))];
+              tooltip = `📚 ${sessionCount} practice session(s) on ${moment(date).format("MMM D")}\n`;
+              tooltip += `📖 Subjects: ${subjects.join(', ')}\n`;
+              if (practiceDates[dateKey]) {
+                tooltip += `📊 ${practiceDates[dateKey].avgAccuracy}% accuracy`;
+              }
+            } else if (isToday) {
+              tooltip = "🎯 Practice today to keep your streak!";
             }
 
             return {
               style: {
                 backgroundColor,
-                border,
                 position: "relative" as const,
                 borderRadius: "8px",
                 transition: "all 0.2s ease",
               },
               className,
-              title: hasPracticed
-                ? `✨ Practiced on ${moment(date).format("MMM D")} - ${
-                    practiceDates[dateKey].sessionCount
-                  } session(s), ${practiceDates[dateKey].avgAccuracy}% accuracy`
-                : isToday
-                ? "🎯 Practice today to keep your streak!"
-                : undefined,
+              title: tooltip,
             };
           }}
         />
@@ -805,13 +860,8 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                   </Button>
                   <Button
                     onClick={() => {
-                      if (
-                        window.confirm(
-                          `Are you sure you want to delete "${selectedEvent.title}"?`
-                        )
-                      ) {
-                        deleteEvent(selectedEvent.id);
-                      }
+                      setEventToDelete(selectedEvent);
+                      setShowDeleteModal(true);
                     }}
                     variant="outline"
                     className="flex-1 text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400 transition-all duration-200"
@@ -819,6 +869,12 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                     <FaTrash className="mr-2" size={14} />
                     Delete
                   </Button>
+                </div>
+              ) : selectedEvent.type === "practice" ? (
+                <div className="pt-4">
+                  <p className="text-sm text-slate-500 text-center p-4 bg-slate-50 rounded-xl">
+                    Practice sessions are automatically tracked and cannot be modified
+                  </p>
                 </div>
               ) : (
                 <div className="pt-4">
@@ -961,6 +1017,65 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
                     setIsEditing(false);
                     setSelectedEvent(null);
                   }}
+                  className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && eventToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md bg-white shadow-2xl border-0 rounded-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 p-6 text-white">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold">Delete Event</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteCancel}
+                  className="text-white hover:bg-white/20 rounded-full p-2"
+                >
+                  <FaTimes size={16} />
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-slate-600">
+                <FaCalendarAlt className="text-red-500" size={16} />
+                <span className="font-medium">{eventToDelete.title}</span>
+              </div>
+
+              <div className="flex items-center gap-3 text-slate-600">
+                <FaClock className="text-red-500" size={16} />
+                <span className="font-medium">
+                  {moment(eventToDelete.start).format("MMMM D, YYYY")} at{" "}
+                  {moment(eventToDelete.start).format("h:mm A")}
+                </span>
+              </div>
+
+              <div className="p-4 bg-red-50 rounded-xl border border-red-200">
+                <p className="text-red-700 text-center font-medium">
+                  Are you sure you want to delete this event? This action cannot be undone.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  onClick={handleDeleteConfirm}
+                  className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg transition-all duration-200"
+                >
+                  <FaTrash className="mr-2" size={14} />
+                  Delete Event
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleDeleteCancel}
                   className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200"
                 >
                   Cancel

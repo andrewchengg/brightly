@@ -6,13 +6,9 @@ export const dynamic = "force-dynamic";
 // GET /api/weekly-quests/test-refresh - Test the quest refresh system
 export async function GET() {
   try {
-    console.log("🧪 Testing quest refresh system...");
-
     // Simulate what happens after a practice session completes
     setTimeout(() => {
-      console.log("🎯 Triggering quest refresh event...");
       triggerQuestRefresh();
-      console.log("✅ Quest refresh event triggered successfully!");
     }, 100);
 
     return NextResponse.json({

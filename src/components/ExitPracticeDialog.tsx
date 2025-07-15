@@ -24,6 +24,7 @@ interface ExitPracticeDialogProps {
     xpEarned: number;
   };
   showSaveOption?: boolean;
+  simple?: boolean;
 }
 
 export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
@@ -35,36 +36,67 @@ export const ExitPracticeDialog: React.FC<ExitPracticeDialogProps> = ({
   subtitle = "Are you sure you want to leave this practice session?",
   currentProgress,
   showSaveOption = false,
+  simple = false,
 }) => {
-  // Debug logging when dialog opens
-  React.useEffect(() => {
-    if (isOpen) {
-      console.log("🚪 DEBUG: Exit dialog opened");
-      console.log("📊 DEBUG: Current progress:", currentProgress);
-      console.log("💾 DEBUG: Save option available:", showSaveOption);
-    }
-  }, [isOpen, currentProgress, showSaveOption]);
-
   const handleStayAndContinue = () => {
-    console.log("✅ DEBUG: User chose to STAY and continue practice");
     onClose();
   };
 
   const handleSaveAndExit = () => {
-    console.log("💾 DEBUG: User chose to SAVE AND EXIT");
-    console.log("📊 DEBUG: Progress being saved:", currentProgress);
     if (onSaveAndExit) {
       onSaveAndExit();
     }
   };
 
   const handleExitWithoutSaving = () => {
-    console.log("❌ DEBUG: User chose to EXIT WITHOUT SAVING");
-    console.log("🗑️ DEBUG: Progress will be lost:", currentProgress);
     onExit();
   };
 
   if (!isOpen) return null;
+
+  if (simple) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md mx-4 animate-in fade-in zoom-in duration-200">
+          <div className="relative p-6">
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1"
+            >
+              <FaTimes size={16} />
+            </button>
+
+            <div className="text-center">
+              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaExclamationTriangle className="text-amber-600 text-2xl" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Are you sure you want to exit?
+              </h3>
+              <p className="text-gray-600 mb-6">All progress will be lost.</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 p-6 pt-0">
+            <Button
+              variant="outline"
+              onClick={handleStayAndContinue}
+              className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              Stay
+            </Button>
+            <Button
+              onClick={handleExitWithoutSaving}
+              variant="outline"
+              className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+            >
+              Exit
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">

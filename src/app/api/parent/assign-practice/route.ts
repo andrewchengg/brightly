@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
         studentId,
         title: title || `${type.replace(/_/g, " ")} Assignment`,
         type: sessionTypeEnumValue,
-        status: PracticeSessionStatus.NOT_STARTED, // Assignments start as NOT_STARTED
+        status: PracticeSessionStatus.IN_PROGRESS, // Assignments start as IN_PROGRESS
         assignedByParentId: parentId,
         subjectId: Number(subjectId),
         topicId: topicId ? Number(topicId) : undefined,

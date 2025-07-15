@@ -210,9 +210,6 @@ export async function getStudentContext(
     console.log(`❌ StudentContext: Recent mistakes:`, recentMistakes);
 
     // Find weak topics (accuracy < 70% and at least 3 questions)
-    console.log(
-      `🎯 StudentContext: Filtering for weak topics (accuracy < 70%, min 3 questions)...`
-    );
 
     const allTopics = Array.from(topicStats.entries()).map(
       ([topicKey, stats]) => {

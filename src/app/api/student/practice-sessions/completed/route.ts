@@ -30,7 +30,18 @@ export async function GET(request: NextRequest) {
     const completedSessions = await prisma.practiceSession.findMany({
       where: {
         studentId: studentId,
-        status: PracticeSessionStatus.COMPLETED,
+        OR: [
+          { status: PracticeSessionStatus.COMPLETED },
+          // Include abandoned sessions that have completion data (temporary fix for race condition issue)
+          {
+            status: PracticeSessionStatus.ABANDONED,
+            AND: [
+              { endTime: { not: null } },
+              { totalMarksEarned: { not: null } },
+              { correctAnswers: { not: null } },
+            ],
+          },
+        ],
       },
       include: {
         subject: { select: { name: true } },
@@ -59,20 +70,20 @@ export async function GET(request: NextRequest) {
 
     // Calculate session statistics and format
     const formattedSessions = completedSessions.map((session) => {
-      // Use stored marks fields if available, fallback to calculation for older sessions
-      let totalPossibleMarks = session.totalPossibleMarks;
-      let totalMarksEarned = session.totalMarksEarned;
+      // Always calculate from actual question marks to ensure accuracy
+      let totalMarksEarned = 0;
+      let totalPossibleMarks = 0;
 
-      if (totalPossibleMarks === null || totalMarksEarned === null) {
-        // Fallback calculation for older sessions
-        totalMarksEarned = session.studentAnswers
-          .filter((answer) => answer.isCorrect)
-          .reduce((sum, answer) => sum + (answer.question?.marks || 0), 0);
-        
-        totalPossibleMarks = session.studentAnswers.reduce((sum, answer) => {
+      if (session.studentAnswers && session.studentAnswers.length > 0) {
+        session.studentAnswers.forEach((answer) => {
           const questionMarks = answer.question?.marks || 0;
-          return sum + questionMarks;
-        }, 0);
+          totalPossibleMarks += questionMarks;
+
+          // Add marks only if the answer is correct
+          if (answer.isCorrect) {
+            totalMarksEarned += questionMarks;
+          }
+        });
       }
 
       return {

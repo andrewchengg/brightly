@@ -173,9 +173,7 @@ export async function POST(request: NextRequest) {
         },
       });
       const resumableSession = allAttemptsThisWeek.find(
-        (s) =>
-          s.status === PracticeSessionStatus.IN_PROGRESS ||
-          s.status === PracticeSessionStatus.NOT_STARTED
+        (s) => s.status === PracticeSessionStatus.IN_PROGRESS
       );
       return NextResponse.json(
         {
