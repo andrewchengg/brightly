@@ -104,13 +104,13 @@ interface DetailedChildrenPerformanceProps {
   };
 }
 
-const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = ({
-  childrenStats,
-  loading = false,
-  dateRange,
-}) => {
+const DetailedChildrenPerformance: React.FC<
+  DetailedChildrenPerformanceProps
+> = ({ childrenStats, loading = false, dateRange }) => {
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "subjects" | "progress">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "analytics" | "subjects" | "progress"
+  >("overview");
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -129,7 +129,8 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
     );
 
     if (diffHours < 24) return { status: "Today", color: "text-green-600" };
-    if (diffHours < 48) return { status: "Yesterday", color: "text-yellow-600" };
+    if (diffHours < 48)
+      return { status: "Yesterday", color: "text-yellow-600" };
     if (diffHours < 168)
       return {
         status: `${Math.floor(diffHours / 24)} days ago`,
@@ -164,7 +165,7 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
       child.dailyStats?.map((day) => ({
         day: new Date(day.date).toLocaleDateString("en-US", {
           month: "short",
-          day: "numeric"
+          day: "numeric",
         }),
         accuracy: day.accuracy,
         questions: day.questions,
@@ -176,15 +177,24 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
 
   const prepareSubjectData = (child: ChildStats) => {
     if (child.subjectBreakdown.length === 0) {
-      return [{
-        name: "No Data",
-        questions: 0,
-        accuracy: 0,
-        timeMinutes: 0,
-        fill: "#e5e7eb",
-      }];
+      return [
+        {
+          name: "No Data",
+          questions: 0,
+          accuracy: 0,
+          timeMinutes: 0,
+          fill: "#e5e7eb",
+        },
+      ];
     }
-    const colors = ["#7e22ce", "#9333ea", "#10b981", "#f59e0b", "#ef4444", "#3b82f6"];
+    const colors = [
+      "#7e22ce",
+      "#9333ea",
+      "#10b981",
+      "#f59e0b",
+      "#ef4444",
+      "#3b82f6",
+    ];
     return child.subjectBreakdown.map((subject, index) => ({
       name: subject.subject,
       questions: subject.questions,
@@ -196,62 +206,93 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
 
   const prepareRadarData = (child: ChildStats) => {
     if (child.subjectBreakdown.length === 0) {
-      return [{
-        subject: "No Data",
-        accuracy: 0,
-        questions: 0,
-        timeEfficiency: 0,
-      }];
+      return [
+        {
+          subject: "No Data",
+          accuracy: 0,
+          questions: 0,
+          timeEfficiency: 0,
+        },
+      ];
     }
     return child.subjectBreakdown.map((subject) => ({
       subject: subject.subject,
       accuracy: subject.accuracy,
       questions: Math.min(subject.questions / 10, 100), // Normalize to 0-100
-      timeEfficiency: Math.min((subject.accuracy * subject.questions) / 10, 100), // Combined metric
+      timeEfficiency: Math.min(
+        (subject.accuracy * subject.questions) / 10,
+        100
+      ), // Combined metric
     }));
   };
 
   const getLearningInsights = (child: ChildStats) => {
     const insights = [];
-    
+
     // Accuracy insights
     if (child.today.accuracy >= 90) {
-      insights.push({ type: "success", text: "Excellent accuracy today!", icon: FaCheckCircle });
+      insights.push({
+        type: "success",
+        text: "Excellent accuracy today!",
+        icon: FaCheckCircle,
+      });
     } else if (child.today.accuracy < 70) {
-      insights.push({ type: "warning", text: "Accuracy needs improvement", icon: FaExclamationTriangle });
+      insights.push({
+        type: "warning",
+        text: "Accuracy needs improvement",
+        icon: FaExclamationTriangle,
+      });
     }
 
     // Streak insights
     if (child.currentStreak >= 7) {
-      insights.push({ type: "success", text: "Amazing consistency streak!", icon: FaFire });
+      insights.push({
+        type: "success",
+        text: "Amazing consistency streak!",
+        icon: FaFire,
+      });
     } else if (child.currentStreak === 0) {
-      insights.push({ type: "warning", text: "No recent activity", icon: FaPause });
+      insights.push({
+        type: "warning",
+        text: "No recent activity",
+        icon: FaPause,
+      });
     }
 
     // Study time insights
-    if (child.today.timeSpent >= 3600) { // 1 hour
-      insights.push({ type: "success", text: "Great study session today!", icon: FaClock });
-    } else if (child.today.timeSpent < 900) { // 15 minutes
-      insights.push({ type: "info", text: "Short study session", icon: FaLightbulb });
+    if (child.today.timeSpent >= 3600) {
+      // 1 hour
+      insights.push({
+        type: "success",
+        text: "Great study session today!",
+        icon: FaClock,
+      });
+    } else if (child.today.timeSpent < 900) {
+      // 15 minutes
+      insights.push({
+        type: "info",
+        text: "Short study session",
+        icon: FaLightbulb,
+      });
     }
 
     // Subject insights
     if (child.subjectBreakdown.length > 0) {
-      const weakestSubject = child.subjectBreakdown.reduce((min, subject) => 
+      const weakestSubject = child.subjectBreakdown.reduce((min, subject) =>
         subject.accuracy < min.accuracy ? subject : min
       );
       if (weakestSubject.accuracy < 70) {
-        insights.push({ 
-          type: "warning", 
-          text: `${weakestSubject.subject} needs attention`, 
-          icon: FaBookOpen 
+        insights.push({
+          type: "warning",
+          text: `${weakestSubject.subject} needs attention`,
+          icon: FaBookOpen,
         });
       }
     } else {
-      insights.push({ 
-        type: "info", 
-        text: "Start practicing to see subject insights", 
-        icon: FaBookOpen 
+      insights.push({
+        type: "info",
+        text: "Start practicing to see subject insights",
+        icon: FaBookOpen,
       });
     }
 
@@ -305,8 +346,8 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
     );
   }
 
-  const selectedChildData = selectedChild 
-    ? childrenStats.find(child => child.id === selectedChild)
+  const selectedChildData = selectedChild
+    ? childrenStats.find((child) => child.id === selectedChild)
     : childrenStats[0];
 
   if (!selectedChildData) return null;
@@ -326,7 +367,12 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
           return (
             <Button
               key={child.id}
-              variant={selectedChild === child.id || (!selectedChild && child.id === childrenStats[0].id) ? "default" : "outline"}
+              variant={
+                selectedChild === child.id ||
+                (!selectedChild && child.id === childrenStats[0].id)
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
               onClick={() => setSelectedChild(child.id)}
               className="flex items-center gap-2"
@@ -379,15 +425,20 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                     <FaUser className="text-indigo-600 text-xl" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold">{selectedChildData.name}</h3>
+                    <h3 className="text-xl font-bold">
+                      {selectedChildData.name}
+                    </h3>
                     <p className="text-sm text-gray-600">
-                      Level {calculateLevel(selectedChildData.xpPoints)} • {selectedChildData.xpPoints.toLocaleString()} XP
+                      Level {calculateLevel(selectedChildData.xpPoints)} •{" "}
+                      {selectedChildData.xpPoints.toLocaleString()} XP
                     </p>
                   </div>
                 </CardTitle>
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1 mb-1">
-                    <span className="text-2xl">{getStreakEmoji(selectedChildData.currentStreak)}</span>
+                    <span className="text-2xl">
+                      {getStreakEmoji(selectedChildData.currentStreak)}
+                    </span>
                   </div>
                   <p className="text-sm font-bold text-orange-600">
                     {selectedChildData.currentStreak} day streak
@@ -399,9 +450,12 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
               {/* Level Progress */}
               <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Level Progress</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Level Progress
+                  </span>
                   <span className="text-sm text-gray-600">
-                    {levelInfo.xpInCurrentLevel} / {levelInfo.xpNeededForCurrentLevel} XP
+                    {levelInfo.xpInCurrentLevel} /{" "}
+                    {levelInfo.xpNeededForCurrentLevel} XP
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
@@ -411,14 +465,19 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                   ></div>
                 </div>
                 <p className="text-xs text-gray-600 mt-1">
-                  {levelInfo.xpToNextLevel} XP to Level {calculateLevel(selectedChildData.xpPoints) + 1}
+                  {levelInfo.xpToNextLevel} XP to Level{" "}
+                  {calculateLevel(selectedChildData.xpPoints) + 1}
                 </p>
               </div>
 
               {/* Activity Status */}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Last Active</span>
-                <span className={`text-sm font-medium ${getActivityStatus(selectedChildData.lastActivityDate).color}`}>
+                <span
+                  className={`text-sm font-medium ${
+                    getActivityStatus(selectedChildData.lastActivityDate).color
+                  }`}
+                >
                   {getActivityStatus(selectedChildData.lastActivityDate).status}
                 </span>
               </div>
@@ -446,13 +505,22 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                 {insights.map((insight, index) => {
                   const Icon = insight.icon;
                   return (
-                    <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                      <Icon className={`w-4 h-4 ${
-                        insight.type === 'success' ? 'text-green-600' :
-                        insight.type === 'warning' ? 'text-amber-600' :
-                        'text-blue-600'
-                      }`} />
-                      <span className="text-sm text-gray-700">{insight.text}</span>
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-gray-50"
+                    >
+                      <Icon
+                        className={`w-4 h-4 ${
+                          insight.type === "success"
+                            ? "text-green-600"
+                            : insight.type === "warning"
+                            ? "text-amber-600"
+                            : "text-blue-600"
+                        }`}
+                      />
+                      <span className="text-sm text-gray-700">
+                        {insight.text}
+                      </span>
                     </div>
                   );
                 })}
@@ -554,19 +622,31 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Total Study Time</span>
-                        <span className="font-semibold">{formatTime(selectedChildData.week.timeSpent)}</span>
+                        <span className="font-semibold">
+                          {formatTime(selectedChildData.week.timeSpent)}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Questions Answered</span>
-                        <span className="font-semibold">{selectedChildData.week.questionsAnswered}</span>
+                        <span className="text-gray-600">
+                          Questions Answered
+                        </span>
+                        <span className="font-semibold">
+                          {selectedChildData.week.questionsAnswered}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Average Accuracy</span>
-                        <span className="font-semibold">{selectedChildData.week.accuracy}%</span>
+                        <span className="font-semibold">
+                          {selectedChildData.week.accuracy}%
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Sessions Completed</span>
-                        <span className="font-semibold">{selectedChildData.week.sessionsCompleted}</span>
+                        <span className="text-gray-600">
+                          Sessions Completed
+                        </span>
+                        <span className="font-semibold">
+                          {selectedChildData.week.sessionsCompleted}
+                        </span>
                       </div>
                     </div>
                   </CardContent>
@@ -580,8 +660,13 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                       Progress
                       {dateRange && (
                         <span className="text-sm text-gray-500 ml-2 font-normal">
-                          ({dateRange.period === "7d" ? "7 days" : 
-                            dateRange.period === "30d" ? "Month" : "Quarter"})
+                          (
+                          {dateRange.period === "7d"
+                            ? "7 days"
+                            : dateRange.period === "30d"
+                            ? "Month"
+                            : "Quarter"}
+                          )
                         </span>
                       )}
                     </CardTitle>
@@ -657,23 +742,31 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {selectedChildData.subjectBreakdown.map((subject, index) => {
-                        const efficiency = Math.round((subject.accuracy * subject.questions) / 10);
-                        return (
-                          <div key={index} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{subject.subject}</span>
-                              <span className="text-sm text-gray-600">{efficiency}%</span>
+                      {selectedChildData.subjectBreakdown.map(
+                        (subject, index) => {
+                          const efficiency = Math.round(
+                            (subject.accuracy * subject.questions) / 10
+                          );
+                          return (
+                            <div key={index} className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">
+                                  {subject.subject}
+                                </span>
+                                <span className="text-sm text-gray-600">
+                                  {efficiency}%
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full"
+                                  style={{ width: `${efficiency}%` }}
+                                ></div>
+                              </div>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full"
-                                style={{ width: `${efficiency}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        }
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -713,7 +806,10 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                       </div>
                       <div className="space-y-4">
                         {subjectData.map((subject, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          >
                             <div className="flex items-center gap-3">
                               <div
                                 className="w-4 h-4 rounded-full"
@@ -722,12 +818,17 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
                               <div>
                                 <p className="font-medium">{subject.name}</p>
                                 <p className="text-sm text-gray-600">
-                                  {subject.questions} questions • {subject.timeMinutes} min
+                                  {subject.questions} questions •{" "}
+                                  {subject.timeMinutes} min
                                 </p>
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className={`font-bold ${getPerformanceColor(subject.accuracy)}`}>
+                              <p
+                                className={`font-bold ${getPerformanceColor(
+                                  subject.accuracy
+                                )}`}
+                              >
                                 {subject.accuracy}%
                               </p>
                             </div>
@@ -827,4 +928,4 @@ const DetailedChildrenPerformance: React.FC<DetailedChildrenPerformanceProps> = 
   );
 };
 
-export default DetailedChildrenPerformance; 
+export default DetailedChildrenPerformance;

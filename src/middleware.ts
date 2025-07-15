@@ -74,6 +74,34 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
+    // Check if student needs to complete setup BEFORE checking route access
+    if (userRole === "student" && !isSetupPath && !isPublicPath) {
+      console.log(
+        `[MIDDLEWARE] Checking setup for student ${user.id} on path ${pathname}`
+      );
+      try {
+        const { data: student } = await supabase
+          .from("Student")
+          .select("initialSetupComplete")
+          .eq("id", user.id)
+          .single();
+
+        console.log(`[MIDDLEWARE] Student setup data:`, student);
+
+        if (student && student.initialSetupComplete === false) {
+          console.log(
+            `[MIDDLEWARE] Redirecting student ${user.id} to setup page`
+          );
+          const setupUrl = new URL("/student/complete-setup", req.url);
+          return NextResponse.redirect(setupUrl);
+        }
+      } catch (error) {
+        console.error("Error checking student setup status:", error);
+        // Continue with normal flow if there's an error
+      }
+    }
+
+    // Handle sign-in/sign-up redirects
     if (
       (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up")) &&
       pathname !== "/"
@@ -82,6 +110,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(dashboardUrl);
     }
 
+    // Check route access permissions
     for (const [routePattern, allowedRoles] of Object.entries(routeAccessMap)) {
       const regex = new RegExp(`^${routePattern}(\\/.*|$)`);
       if (regex.test(pathname)) {

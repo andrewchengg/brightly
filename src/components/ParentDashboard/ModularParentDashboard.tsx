@@ -79,12 +79,19 @@ interface DashboardStats {
 }
 
 const ModularParentDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "children"
-  >("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "children">(
+    "overview"
+  );
 
   // Use the custom date range hook
-  const { dateRange, updateDateRange, data: stats, loading, updating, error } = useDateRange();
+  const {
+    dateRange,
+    updateDateRange,
+    data: stats,
+    loading,
+    updating,
+    error,
+  } = useDateRange();
 
   // Show toast errors
   useEffect(() => {
@@ -171,7 +178,7 @@ const ModularParentDashboard: React.FC = () => {
       </div>
 
       {/* Date Range Controller */}
-      <DateRangeController 
+      <DateRangeController
         currentRange={dateRange}
         onRangeChange={updateDateRange}
         updating={updating}
@@ -196,24 +203,16 @@ const ModularParentDashboard: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-lg transition-all duration-300 ${
+                className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-lg transition-all duration-300 font-bold text-gray-900 text-lg ${
                   activeTab === tab.id
-                    ? "bg-purple-100 text-purple-800"
-                    : "text-gray-600 hover:bg-gray-50"
+                    ? "bg-white border-2 border-purple-500 shadow-md z-10"
+                    : "hover:bg-gray-50 border border-transparent"
                 }`}
               >
-                <Icon
-                  className={`w-5 h-5 ${
-                    activeTab === tab.id ? "text-white" : "text-gray-400"
-                  }`}
-                />
+                <Icon className="w-5 h-5 text-gray-900" />
                 <div className="text-left">
-                  <p className="font-semibold">{tab.label}</p>
-                  <p
-                    className={`text-xs ${
-                      activeTab === tab.id ? "text-indigo-100" : "text-gray-500"
-                    }`}
-                  >
+                  <p className="font-bold text-gray-900 text-lg">{tab.label}</p>
+                  <p className="text-xs font-bold text-gray-900">
                     {tab.description}
                   </p>
                 </div>
@@ -224,7 +223,11 @@ const ModularParentDashboard: React.FC = () => {
       </div>
 
       {/* Tab Content */}
-              <div className={`min-h-[400px] transition-opacity duration-300 ${updating ? 'opacity-70' : 'opacity-100'}`}>
+      <div
+        className={`min-h-[400px] transition-opacity duration-300 ${
+          updating ? "opacity-70" : "opacity-100"
+        }`}
+      >
         {activeTab === "overview" && (
           <div className="space-y-8">
             {/* Children Overview with Charts */}
