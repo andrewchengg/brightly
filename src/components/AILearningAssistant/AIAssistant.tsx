@@ -350,6 +350,16 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
     const chatContentRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+    // Auto-scroll to bottom when new messages arrive (enabled)
+    useEffect(() => {
+      if (mode === "chat" && chatContentRef.current) {
+        chatContentRef.current.scrollTo({
+          top: chatContentRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }, [chatHistory, isLoading, mode]);
+
     // Expose a function to parent components to add text to the input
     useImperativeHandle(ref, () => ({
       addTextToInput: (text: string) => {
@@ -358,18 +368,6 @@ const AIAssistant = forwardRef<AIAssistantRef, AIAssistantProps>(
         textareaRef.current?.focus();
       },
     }));
-
-    // Auto-scroll to bottom when new messages arrive - DISABLED for free scrolling
-    // useEffect(() => {
-    //   if (chatContentRef.current) {
-    //     setTimeout(() => {
-    //       if (chatContentRef.current) {
-    //         chatContentRef.current.scrollTop =
-    //           chatContentRef.current.scrollHeight;
-    //       }
-    //     }, 100);
-    //   }
-    // }, [chatHistory, isLoading]);
 
     // Handle paste events with length validation
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
