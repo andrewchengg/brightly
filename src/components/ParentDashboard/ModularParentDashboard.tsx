@@ -211,7 +211,7 @@ const ModularParentDashboard: React.FC = () => {
                   <p className="font-semibold">{tab.label}</p>
                   <p
                     className={`text-xs ${
-                      activeTab === tab.id ? "text-indigo-100" : "text-gray-500"
+                      activeTab === tab.id ? "text-purple-900" : "text-gray-800"
                     }`}
                   >
                     {tab.description}
