@@ -115,6 +115,18 @@ const Homepage = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Handle OAuth codes that get redirected to the home page instead of the auth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+
+    if (code) {
+      // Redirect to the auth callback with all query parameters
+      const callbackUrl = `/auth/callback?${urlParams.toString()}`;
+      router.push(callbackUrl);
+    }
+  }, [router]);
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };

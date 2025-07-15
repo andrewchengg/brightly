@@ -40,7 +40,7 @@ export default function DashboardLayout({
       if (isMobile && sidebarOpen) {
         const sidebar = document.getElementById("sidebar");
         const hamburger = document.getElementById("hamburger-button");
-        
+
         if (
           sidebar &&
           !sidebar.contains(event.target as Node) &&
@@ -150,16 +150,12 @@ export default function DashboardLayout({
               />
             </svg>
           </button>
-          <div className="text-lg font-semibold text-gray-900">
-            Brightly
-          </div>
+          <div className="text-lg font-semibold text-gray-900">Brightly</div>
           <div className="w-10"></div> {/* Spacer for centering */}
         </div>
 
         {/* Page content */}
-        <div className="flex-1 overflow-y-auto">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

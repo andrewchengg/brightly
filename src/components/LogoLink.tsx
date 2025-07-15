@@ -22,12 +22,12 @@ const LogoLink = () => {
   };
 
   return (
-    <div className="pt-2 pb-2 px-2">
+    <div className="w-full flex justify-center items-center py-3">
       <Link
         href={getDashboardUrl()}
-        className="flex items-center justify-center gap-3 py-1 px-4 rounded-2xl hover:bg-slate-50 transition-all duration-300 group"
+        className="w-full flex justify-center items-center"
       >
-        <span className="hidden lg:block font-bold text-4xl text-slate-900 tracking-tight group-hover:text-slate-700 transition-colors duration-300">
+        <span className="font-bold text-4xl text-slate-900 tracking-tight group-hover:text-slate-700 transition-colors duration-300">
           Brightly
         </span>
       </Link>

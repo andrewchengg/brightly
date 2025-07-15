@@ -74,6 +74,25 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
+    // Check if student needs to complete setup BEFORE checking route access
+    if (userRole === "student" && !isSetupPath && !isPublicPath) {
+      try {
+        const { data: student } = await supabase
+          .from("Student")
+          .select("initialSetupComplete")
+          .eq("id", user.id)
+          .single();
+
+        if (student && student.initialSetupComplete === false) {
+          const setupUrl = new URL("/student/complete-setup", req.url);
+          return NextResponse.redirect(setupUrl);
+        }
+      } catch (error) {
+        // Continue with normal flow if there's an error
+      }
+    }
+
+    // Handle sign-in/sign-up redirects
     if (
       (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up")) &&
       pathname !== "/"
@@ -82,6 +101,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(dashboardUrl);
     }
 
+    // Check route access permissions
     for (const [routePattern, allowedRoles] of Object.entries(routeAccessMap)) {
       const regex = new RegExp(`^${routePattern}(\\/.*|$)`);
       if (regex.test(pathname)) {
@@ -95,7 +115,6 @@ export async function middleware(req: NextRequest) {
 
     return res;
   } catch (error) {
-    console.error("Middleware error:", error);
     return res;
   }
 }

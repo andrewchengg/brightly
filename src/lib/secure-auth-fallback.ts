@@ -63,38 +63,33 @@ export async function getFallbackUserRole(
         .single();
       if (parent) return "parent";
 
-      // Check Student table (default)
+      // Check Student table
+      const { data: student } = await supabase
+        .from("Student")
+        .select("id")
+        .eq("id", user.id)
+        .single();
+      if (student) return "student";
+
       return "student";
     } catch (dbError) {
-      console.error(
-        "Database lookup failed in middleware, using fallback:",
-        dbError
-      );
-
       // FALLBACK: Use metadata only if DB fails AND only for non-admin roles
       // Admin roles must always be verified via database
       const metadataRole = user.user_metadata?.role as string | undefined;
 
       // Never trust metadata for admin - require database verification
       if (metadataRole === "admin") {
-        console.warn(
-          "Admin role in metadata rejected - database verification required"
-        );
         return "student"; // Safe default
       }
 
       // Allow other roles as fallback but log for monitoring
       if (metadataRole === "teacher" || metadataRole === "parent") {
-        console.warn(
-          `Using metadata fallback for role: ${metadataRole}. User: ${user.id}`
-        );
         return metadataRole as UserRole;
       }
 
       return "student"; // Safe default
     }
   } catch (error) {
-    console.error("Complete auth failure in middleware:", error);
     return null;
   }
 }

@@ -101,7 +101,18 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const formattedResults = wrongAnswers.map((sa) => {
+    // Filter out unanswered questions from MOCK_EXAM sessions
+    const filteredWrongAnswers = wrongAnswers.filter((sa) => {
+      if (
+        sa.practiceSession.type === "MOCK_EXAM" &&
+        (sa.submittedAnswer === null || sa.submittedAnswer === "")
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    const formattedResults = filteredWrongAnswers.map((sa) => {
       let clientCorrectAnswer = sa.question.correctAnswer;
       if (typeof sa.question.correctAnswer === "string") {
         try {
