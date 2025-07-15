@@ -38,7 +38,6 @@ export async function markSessionCompleted(
       }),
     });
 
-    console.log(`✅ Session ${sessionId} marked as COMPLETED`);
     return response.ok;
   } catch (error) {
     console.error(
@@ -55,7 +54,6 @@ export async function markSessionCompleted(
 export function cleanupLocalStorage(localStorageKey: string): void {
   try {
     localStorage.removeItem(localStorageKey);
-    console.log(`🧹 Cleaned up localStorage: ${localStorageKey}`);
   } catch (error) {
     console.error(`❌ Failed to cleanup localStorage:`, error);
   }
@@ -81,22 +79,20 @@ export async function updateSessionActivity(sessionId: string): Promise<void> {
 }
 
 /**
- * Graceful session exit (for user-initiated exits)
+ * Graceful session exit (for user-initiated exits only)
+ * Note: This should only be called for explicit user actions like clicking "Exit" button
+ * For normal navigation, sessions should remain IN_PROGRESS for resumption
  */
 export async function gracefulSessionExit(
   sessionId: string,
-  localStorageKey?: string
+  localStorageKey?: string,
+  forceAbandon: boolean = false
 ): Promise<void> {
   try {
-    console.log(
-      `🔍 DEBUG: gracefulSessionExit called for session ${sessionId}`
-    );
-
     // First check the current session status to avoid overriding completed sessions
     const statusResponse = await fetch(`/api/practice-sessions/${sessionId}`);
     if (statusResponse.ok) {
       const sessionData = await statusResponse.json();
-      console.log(`🔍 DEBUG: Current session status is ${sessionData.status}`);
 
       // Don't mark as abandoned if already completed OR has completion data
       if (
@@ -105,41 +101,40 @@ export async function gracefulSessionExit(
           sessionData.totalMarksEarned !== null &&
           sessionData.correctAnswers !== null)
       ) {
-        console.log(
-          `✅ Session ${sessionId} already completed (status: ${
-            sessionData.status
-          }, hasCompletionData: ${!!(
-            sessionData.endTime && sessionData.totalMarksEarned !== null
-          )}) - skipping abandon`
-        );
         if (localStorageKey) {
           cleanupLocalStorage(localStorageKey);
         }
         return;
       }
-    } else {
-      console.warn(
-        `⚠️ DEBUG: Failed to fetch session status: ${statusResponse.status} ${statusResponse.statusText}`
-      );
     }
 
-    console.log(`🚪 DEBUG: Marking session ${sessionId} as ABANDONED`);
-    // Mark as abandoned (server will clean up later)
-    await fetch(`/api/practice-sessions/${sessionId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        status: "ABANDONED",
-        endTime: new Date().toISOString(),
-      }),
-    });
+    // Only mark as ABANDONED if explicitly forced (e.g., user clicked "Exit" button)
+    // For normal navigation, let sessions remain IN_PROGRESS for resumption
+    if (forceAbandon) {
+      await fetch(`/api/practice-sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "ABANDONED",
+          endTime: new Date().toISOString(),
+        }),
+      });
+    } else {
+      // Don't change the session status - let user resume it later
+      // Just update the last activity time
+      await fetch(`/api/practice-sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lastActivity: new Date().toISOString(),
+        }),
+      });
+    }
 
     // Clean up localStorage
     if (localStorageKey) {
       cleanupLocalStorage(localStorageKey);
     }
-
-    console.log(`🚪 Session ${sessionId} gracefully exited`);
   } catch (error) {
     console.error(`❌ Failed graceful exit for session ${sessionId}:`, error);
     // Still clean up localStorage even if API fails
@@ -193,8 +188,6 @@ export async function completeSession(
     });
 
     if (response.ok) {
-      console.log(`✅ Session ${sessionId} completed successfully`);
-
       // Clean up localStorage
       if (localStorageKey) {
         cleanupLocalStorage(localStorageKey);

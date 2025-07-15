@@ -27,6 +27,8 @@ import {
   FaBookOpen,
   FaPlay,
   FaLaptop,
+  FaClock,
+  FaRedo,
 } from "react-icons/fa";
 import { LuCalculator } from "react-icons/lu";
 import { useQuestData } from "@/contexts/QuestContext";
@@ -44,6 +46,19 @@ interface WeeklyQuest {
   category: string;
   isCompleted: boolean;
   completedAt?: string;
+}
+
+// Interface for in-progress practice sessions
+interface InProgressSession {
+  id: string;
+  title: string;
+  type: string;
+  startTime: string;
+  subjectId: number;
+  topicId?: number;
+  totalQuestions: number;
+  correctAnswers: number | null;
+  totalMarksEarned: number | null;
 }
 
 // Define the subjects we want to display
@@ -120,6 +135,12 @@ export default function PracticePage() {
     loading: questsLoading,
   } = useQuestData();
 
+  // State for in-progress sessions
+  const [inProgressSessions, setInProgressSessions] = useState<
+    InProgressSession[]
+  >([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+
   // Mock mistakes count - replace with actual data source
   const mistakesCount = 0; // This would come from your data source
 
@@ -133,15 +154,61 @@ export default function PracticePage() {
     }
   };
 
+  // Fetch in-progress sessions
+  const fetchInProgressSessions = async () => {
+    if (!user?.id) return;
+
+    try {
+      setSessionsLoading(true);
+      const response = await fetch(
+        `/api/student/practice-sessions/in-progress?studentId=${user.id}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch in-progress sessions");
+      }
+      const data = await response.json();
+      setInProgressSessions(data.sessions || []);
+    } catch (error) {
+      console.error("Error fetching in-progress sessions:", error);
+      setInProgressSessions([]);
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  // Load in-progress sessions when component mounts
+  useEffect(() => {
+    if (user?.id) {
+      fetchInProgressSessions();
+    }
+  }, [user?.id]);
+
   // Check for in-progress sessions before navigating
   const handleSubjectPractice = async (subjectId: number) => {
-    console.log("🎯 DEBUG: Subject practice clicked for:", subjectId);
-    console.log("🔄 DEBUG: Navigating to subject page:", subjectId);
     router.push(`/student/practice/subject/${subjectId}`);
   };
 
   const handleMistakesReview = () => {
     router.push("/student/review");
+  };
+
+  // Handle resuming a specific session
+  const handleResumeSession = (session: InProgressSession) => {
+    // Navigate to the appropriate practice page with session ID
+    if (session.type === "TOPIC_QUIZ" && session.topicId) {
+      router.push(
+        `/student/practice/topic/${session.topicId}?sessionId=${session.id}`
+      );
+    } else if (session.type === "PRACTICE") {
+      router.push(
+        `/student/practice/random?sessionId=${session.id}&subjectId=${session.subjectId}`
+      );
+    } else {
+      // Default to random practice
+      router.push(
+        `/student/practice/random?sessionId=${session.id}&subjectId=${session.subjectId}`
+      );
+    }
   };
 
   return (
@@ -172,8 +239,63 @@ export default function PracticePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Resume Practice Section */}
+            {sessionsLoading ? (
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <FaClock className="text-blue-600" />
+                    Resume Practice
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {[1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="bg-white rounded-lg border border-blue-200 p-4 animate-pulse"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-24 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-20"></div>
+                          </div>
+                          <div className="h-8 bg-gray-200 rounded w-16"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : inProgressSessions.length > 0 ? (
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <FaClock className="text-blue-600" />
+                    Resume Practice
+                  </CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Continue where you left off
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {inProgressSessions.map((session) => (
+                    <ResumeSessionCard
+                      key={session.id}
+                      session={session}
+                      onResume={() => handleResumeSession(session)}
+                    />
+                  ))}
+                </CardContent>
+              </Card>
+            ) : null}
+
             {/* Subject Practice Containers */}
             <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Start New Practice
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {subjects.map((subject) => (
                   <SubjectPracticeCard
@@ -465,6 +587,98 @@ function WeeklyQuestCard({ quest }: { quest: WeeklyQuest }) {
         className="h-2 bg-gray-200"
         progressClassName={`${config.progress} transition-all duration-500 ease-out`}
       />
+    </div>
+  );
+}
+
+// Resume Session Card component
+interface ResumeSessionCardProps {
+  session: InProgressSession;
+  onResume: () => void;
+}
+
+function ResumeSessionCard({ session, onResume }: ResumeSessionCardProps) {
+  const getSubjectName = (subjectId: number) => {
+    const subject = subjects.find((s) => s.id === subjectId);
+    return subject?.name || "Unknown Subject";
+  };
+
+  const getSessionTypeDisplay = (type: string) => {
+    switch (type) {
+      case "TOPIC_QUIZ":
+        return "Topic Practice";
+      case "PRACTICE":
+        return "Random Practice";
+      case "WEEKLY_CHALLENGE":
+        return "Weekly Challenge";
+      default:
+        return type;
+    }
+  };
+
+  const formatStartTime = (startTime: string) => {
+    const date = new Date(startTime);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMins / 60);
+
+    if (diffMins < 60) {
+      return `${diffMins} minutes ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hours ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  const progress = session.correctAnswers || 0;
+  const total = session.totalQuestions;
+  const progressPercentage = total > 0 ? (progress / total) * 100 : 0;
+
+  return (
+    <div className="bg-white rounded-lg border border-blue-200 p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-semibold text-gray-900">
+              {getSubjectName(session.subjectId)}
+            </span>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+              {getSessionTypeDisplay(session.type)}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mb-2">
+            Started {formatStartTime(session.startTime)}
+          </p>
+          <div className="flex items-center gap-4 text-xs text-gray-600">
+            <span>
+              {progress}/{total} questions
+            </span>
+            {session.totalMarksEarned !== null && (
+              <span>{session.totalMarksEarned} points</span>
+            )}
+          </div>
+          {total > 0 && (
+            <div className="mt-2">
+              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div
+                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercentage}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+        </div>
+        <Button
+          onClick={onResume}
+          size="sm"
+          className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-medium flex items-center gap-2"
+        >
+          <FaRedo className="text-xs" />
+          Resume
+        </Button>
+      </div>
     </div>
   );
 }

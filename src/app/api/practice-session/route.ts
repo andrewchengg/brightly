@@ -12,6 +12,66 @@ export const dynamic = "force-dynamic";
 
 const prisma = new PrismaClient();
 
+// Helper function to ensure options are in the correct format for the client
+function formatOptionsForClient(options: any): any[] {
+  if (!options) return [];
+
+  try {
+    let parsedOptions = options;
+    if (typeof options === "string") {
+      // Try to parse if it's a JSON string that represents an array or object
+      if (
+        (options.startsWith("{") && options.endsWith("}")) ||
+        (options.startsWith("[") && options.endsWith("]"))
+      ) {
+        parsedOptions = JSON.parse(options);
+      } else {
+        // If it's a simple string not intended to be JSON, and we expect options,
+        // this might indicate a data issue or it's not an MCQ with structured options.
+        // For now, we'll assume if it's a non-JSON string, it's not structured options.
+        console.warn(
+          "formatOptionsForClient received a non-JSON string for options, returning empty:",
+          options
+        );
+        return [];
+      }
+    }
+
+    if (Array.isArray(parsedOptions)) {
+      // Assumes elements are either strings or objects like {id: "A", text: "Option A"}
+      return parsedOptions.map((opt, index) => {
+        if (typeof opt === "object" && opt !== null && opt.id && opt.text) {
+          return { id: String(opt.id), text: String(opt.text) };
+        }
+        // If just an array of strings, assign simple IDs
+        return { id: String.fromCharCode(97 + index), text: String(opt) };
+      });
+    }
+
+    if (typeof parsedOptions === "object" && parsedOptions !== null) {
+      // Converts { "1": "Text1", "A": "TextA" } to [{id: "1", text: "Text1"}, {id: "A", text: "TextA"}]
+      return Object.entries(parsedOptions).map(([key, value]) => ({
+        id: key,
+        text: String(value),
+      }));
+    }
+
+    console.warn(
+      "Unknown options format received by formatOptionsForClient:",
+      options
+    );
+    return [];
+  } catch (error) {
+    console.error(
+      "Error formatting options for client:",
+      error,
+      "Original options:",
+      options
+    );
+    return []; // Return empty array on error
+  }
+}
+
 interface PracticeSessionCreateRequest {
   studentId: string;
   title: string;
@@ -109,18 +169,21 @@ export async function POST(request: Request) {
     });
 
     if (Array.isArray(questions) && questions.length > 0) {
-      await prisma.studentAnswer.createMany({
-        data: questions.map((q) => ({
-          practiceSessionId: practiceSession.id,
-          questionId: q.id,
-        })),
-      });
+      // Create student answers individually to preserve order
+      for (let i = 0; i < questions.length; i++) {
+        await prisma.studentAnswer.create({
+          data: {
+            practiceSessionId: practiceSession.id,
+            questionId: questions[i].id,
+          },
+        });
+        // Small delay to ensure different createdAt timestamps
+        if (i < questions.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
+      }
     }
 
-    console.log(
-      "API: PracticeSession created (or MOCK_EXAM initialized):",
-      practiceSession.id
-    );
     return NextResponse.json(practiceSession, { status: 201 });
   } catch (error: any) {
     console.error(
@@ -177,8 +240,33 @@ export async function GET(request: Request) {
 
     const questions = session.studentAnswers.map((sa) => {
       const q = sa.question;
+
+      // Format correctAnswer similar to other question APIs
+      let clientCorrectAnswer = q.correctAnswer;
+      if (typeof q.correctAnswer === "string") {
+        try {
+          const parsed = JSON.parse(q.correctAnswer);
+          if (typeof parsed === "object" || Array.isArray(parsed)) {
+            clientCorrectAnswer = parsed;
+          }
+        } catch (e) {
+          // Not a valid JSON string, keep as string
+        }
+      }
+
       return {
-        ...q,
+        id: q.id,
+        text: q.text,
+        question: q.text, // For compatibility
+        options: formatOptionsForClient(q.options),
+        correctAnswer: clientCorrectAnswer,
+        hint: q.hint,
+        explanation: q.explanation,
+        difficulty: q.difficulty,
+        pointsAwarded: q.pointsAwarded,
+        marks: q.marks,
+        questionType: q.questionType,
+        imageUrl: q.imageUrl,
         topic: q.topic,
         submittedAnswer: sa.submittedAnswer,
         isCorrect: sa.isCorrect,

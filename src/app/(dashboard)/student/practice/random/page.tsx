@@ -323,6 +323,8 @@ export default function RandomPractice() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showContinueDialog, setShowContinueDialog] = useState(false);
+  const [resumableSessions, setResumableSessions] = useState<any[]>([]);
 
   // Mobile detection state
   const [isMobile, setIsMobile] = useState(false);
@@ -367,20 +369,12 @@ export default function RandomPractice() {
   // Session heartbeat to track activity
   useSessionHeartbeat(currentPracticeSessionId);
 
-  // Handle component unmount - graceful exit if session not completed
+  // Handle component unmount - just log, don't abandon session immediately
   useEffect(() => {
     return () => {
       if (currentPracticeSessionId && !sessionFinalized) {
-        console.log(
-          "🚪 DEBUG: Component unmount - gracefully exiting incomplete session:",
-          currentPracticeSessionId
-        );
-        gracefulSessionExit(currentPracticeSessionId);
-      } else if (currentPracticeSessionId && sessionFinalized) {
-        console.log(
-          "✅ DEBUG: Component unmount - session already completed:",
-          currentPracticeSessionId
-        );
+        // Don't call gracefulSessionExit here - let users resume the session
+        // UngracefulExitHandler will handle timeout-based abandonment
       }
     };
   }, [currentPracticeSessionId, sessionFinalized]);
@@ -438,27 +432,11 @@ export default function RandomPractice() {
         > = {};
         const results: typeof questionResults = [];
 
-        console.log(
-          "🔍 DEBUG: Loading session with questions:",
-          questions.map((q) => ({
-            id: q.id,
-            text: q.text?.substring(0, 50) + "...",
-            submittedAnswer: q.submittedAnswer,
-            isCorrect: q.isCorrect,
-          }))
-        );
-
         questions.forEach((question, index) => {
           if (
             question.submittedAnswer !== null &&
             question.submittedAnswer !== undefined
           ) {
-            console.log(
-              `✅ DEBUG: Question ${index + 1} (ID: ${
-                question.id
-              }) has answer:`,
-              question.submittedAnswer
-            );
             answeredQuestionsMap[question.id] = question.submittedAnswer;
             results.push({
               id: question.id,
@@ -467,12 +445,6 @@ export default function RandomPractice() {
               userAnswer: question.submittedAnswer,
               correctAnswer: question.correctAnswer,
             });
-          } else {
-            console.log(
-              `❌ DEBUG: Question ${index + 1} (ID: ${
-                question.id
-              }) has NO answer`
-            );
           }
         });
 
@@ -495,17 +467,6 @@ export default function RandomPractice() {
           actualCurrentIndex = firstUnansweredIndex;
           setCurrentQuestionIndex(firstUnansweredIndex);
         }
-
-        console.log(
-          `🎯 DEBUG: Resuming at question ${actualCurrentIndex + 1} of ${
-            questions.length
-          } (index: ${actualCurrentIndex})`
-        );
-        console.log(
-          `📊 DEBUG: Answered questions: ${
-            Object.keys(answeredQuestionsMap).length
-          }/${questions.length}`
-        );
 
         // Update progress state using the calculated index
         setProgress({
@@ -585,18 +546,87 @@ export default function RandomPractice() {
     }
   }, [userId, currentSubjectId, currentTopicId]);
 
-  // Find or create session and load questions
-  const initializePracticeSession = useCallback(async () => {
-    if (!userId) {
-      console.log("❌ DEBUG: No userId available for session initialization");
+  // Check for existing resumable sessions
+  const checkForResumableSessions = useCallback(async (): Promise<any[]> => {
+    if (!userId) return [];
+
+    try {
+      const response = await fetch(
+        `/api/student/practice-sessions/in-progress?studentId=${userId}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch resumable sessions");
+      }
+      const data = await response.json();
+      return data.sessions || [];
+    } catch (err: any) {
+      return [];
+    }
+  }, [userId]);
+
+  // Handle continue existing session
+  const handleContinueSession = useCallback(
+    async (sessionId: string) => {
+      setShowContinueDialog(false);
+
+      // Navigate to the session with the sessionId in URL
+      const newUrl = `${window.location.pathname}?sessionId=${sessionId}${
+        currentSubjectId ? `&subjectId=${currentSubjectId}` : ""
+      }`;
+      window.history.pushState(null, "", newUrl);
+
+      // Load the existing session
+      const success = await loadExistingSession(sessionId);
+      if (!success) {
+        setError(
+          "Could not continue the selected session. It may have expired."
+        );
+      }
+    },
+    [currentSubjectId, loadExistingSession]
+  );
+
+  // Handle start new session (abandon existing ones)
+  const handleStartNewSession = useCallback(async () => {
+    setShowContinueDialog(false);
+
+    // Mark existing sessions as abandoned
+    try {
+      for (const session of resumableSessions) {
+        await fetch(`/api/practice-sessions/${session.id}/abandon`, {
+          method: "PATCH",
+        });
+      }
+    } catch (err) {
+      // Silently continue if some sessions couldn't be abandoned
+    }
+
+    // Create new session
+    const sessionId = await createNewPracticeSession();
+    if (!sessionId) {
+      setError("Failed to create practice session");
       return;
     }
 
-    console.log("🚀 DEBUG: Starting practice session initialization");
-    console.log("🔍 DEBUG: User ID:", userId);
-    console.log("🔍 DEBUG: Current subject ID:", currentSubjectId);
-    console.log("🔍 DEBUG: Current topic ID:", currentTopicId);
-    console.log("🔍 DEBUG: Existing session ID from URL:", existingSessionId);
+    setCurrentPracticeSessionId(sessionId);
+
+    // Update progress state for new session
+    setProgress({
+      currentQuestion: 1,
+      totalQuestions: questions.length,
+      score: 0,
+      correctAnswers: 0,
+      totalMarksEarned: 0,
+      totalPossibleMarks: 0,
+      xpEarned: 0,
+    });
+  }, [resumableSessions, createNewPracticeSession, questions.length]);
+
+  // Find or create session and load questions
+  const initializePracticeSession = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -604,15 +634,8 @@ export default function RandomPractice() {
     try {
       // If there's an existing session ID from URL, load that
       if (existingSessionId) {
-        console.log(
-          "🔄 DEBUG: Attempting to load existing session:",
-          existingSessionId
-        );
         const success = await loadExistingSession(existingSessionId);
-        if (success) {
-          console.log("✅ DEBUG: Successfully loaded existing session");
-        } else {
-          console.log("❌ DEBUG: Failed to load existing session");
+        if (!success) {
           setError(
             "Could not load the specified practice session. It may have expired or been completed."
           );
@@ -621,9 +644,18 @@ export default function RandomPractice() {
         return;
       }
 
-      // No existing session ID - check if we should create a new session
+      // No existing session ID - check for resumable sessions first
+      const existingSessions = await checkForResumableSessions();
+
+      if (existingSessions.length > 0) {
+        setResumableSessions(existingSessions);
+        setShowContinueDialog(true);
+        setLoading(false);
+        return;
+      }
+
+      // No existing sessions - check if we should create a new session
       if (!currentSubjectId) {
-        console.log("❌ DEBUG: No subject ID - showing error");
         setError(
           "No practice session to continue. Please start a new practice session."
         );
@@ -632,18 +664,12 @@ export default function RandomPractice() {
       }
 
       // Create new session
-      console.log(
-        "➕ DEBUG: Creating new practice session for subject:",
-        currentSubjectId
-      );
       const sessionId = await createNewPracticeSession();
       if (!sessionId) {
-        console.log("❌ DEBUG: Failed to create new session");
         setError("Failed to create practice session");
         setLoading(false);
         return;
       }
-      console.log("✅ DEBUG: Successfully created new session:", sessionId);
 
       setCurrentPracticeSessionId(sessionId);
 
@@ -657,10 +683,7 @@ export default function RandomPractice() {
         totalPossibleMarks: 0,
         xpEarned: 0,
       });
-
-      console.log("✅ DEBUG: Session initialization completed successfully");
     } catch (err: any) {
-      console.error("❌ DEBUG: Error during session initialization:", err);
       setError(`Failed to initialize practice session: ${err.message}`);
     } finally {
       setLoading(false);
@@ -672,6 +695,7 @@ export default function RandomPractice() {
     existingSessionId,
     loadExistingSession,
     createNewPracticeSession,
+    checkForResumableSessions,
     questions.length,
   ]);
 
@@ -717,11 +741,9 @@ export default function RandomPractice() {
 
     // Prevent double initialization
     if (initializationAttempted.current) {
-      console.log("🔄 DEBUG: Initialization already attempted, skipping");
       return;
     }
 
-    console.log("🚀 DEBUG: Starting first-time initialization");
     initializationAttempted.current = true;
     initializePracticeSession();
   }, [userId, initializePracticeSession]);
@@ -808,9 +830,6 @@ export default function RandomPractice() {
   const awardXPAndStreak = useCallback(
     async (xpToAdd: number) => {
       if (!userId || sessionFinalized || xpToAdd < 0) return null; // Allow 0 XP for streak update
-      console.log(
-        `Attempting to award ${xpToAdd} XP and update streak for user: ${userId}`
-      );
       let levelUpDetails = null;
       try {
         if (xpToAdd > 0) {
@@ -852,7 +871,6 @@ export default function RandomPractice() {
 
         if (streakResponse.ok) {
           const streakData = await streakResponse.json();
-          console.log("Streak updated:", streakData);
         } else {
           const errorData = await streakResponse
             .json()
@@ -864,7 +882,6 @@ export default function RandomPractice() {
           );
         }
       } catch (error) {
-        console.error("Error awarding XP/Streak", error);
         toast.error("An error occurred while updating your progress.");
       }
       return levelUpDetails;
@@ -921,7 +938,6 @@ export default function RandomPractice() {
       triggerQuestRefresh();
     } catch (err: any) {
       toast.error(`Session finalization error: ${err.message}`);
-      console.error("Session finalization error:", err);
     } finally {
       setLoading(false);
     }
@@ -1132,25 +1148,12 @@ export default function RandomPractice() {
   }, [initializePracticeSession]);
 
   const handleExitConfirm = useCallback(() => {
-    console.log(
-      "🚪 DEBUG: User confirmed exit - checking session status and navigating"
-    );
-
-    // Only delete session if it's not completed
+    // Force abandon session if it's not completed (explicit user exit)
     if (currentPracticeSessionId && !sessionFinalized) {
-      console.log(
-        "🗑️ DEBUG: Deleting incomplete session:",
-        currentPracticeSessionId
-      );
-      fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-        method: "DELETE",
-      }).catch((err) => {
-        console.warn("Failed to delete practice session:", err);
-      });
-    } else if (currentPracticeSessionId && sessionFinalized) {
-      console.log(
-        "✅ DEBUG: Keeping completed session:",
-        currentPracticeSessionId
+      gracefulSessionExit(currentPracticeSessionId, undefined, true).catch(
+        (err) => {
+          console.warn("Failed to abandon practice session:", err);
+        }
       );
     }
 
@@ -1758,19 +1761,7 @@ export default function RandomPractice() {
         isOpen={showExitDialog}
         onClose={() => setShowExitDialog(false)}
         onExit={handleExitConfirm}
-        title="Exit Random Practice?"
-        subtitle="You're in the middle of a practice session"
-        currentProgress={{
-          currentQuestion: currentQuestionIndex + 1,
-          totalQuestions: questions.length,
-          score: score,
-          correctAnswers: questionResults.filter((r) => r.correct).length,
-          totalMarksEarned: score,
-          totalPossibleMarks:
-            questions.length *
-            (currentQuestion?.marks || currentQuestion?.pointsAwarded || 1),
-          xpEarned: score,
-        }}
+        simple={true}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm">
         <button
@@ -2034,6 +2025,73 @@ export default function RandomPractice() {
           disabled: false,
         }}
       />
+
+      {/* Continue Session Dialog */}
+      {showContinueDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Continue Previous Session?
+            </h3>
+            <p className="text-gray-600 mb-6">
+              You have {resumableSessions.length} practice session
+              {resumableSessions.length > 1 ? "s" : ""} that can be continued.
+              Would you like to continue where you left off or start a new
+              session?
+            </p>
+
+            {resumableSessions.length > 0 && (
+              <div className="mb-6 space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">
+                  Available sessions:
+                </h4>
+                {resumableSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="text-sm text-gray-600 bg-gray-50 p-3 rounded"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">
+                        {session.title || "Practice Session"}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {session.correctAnswers || 0}/
+                        {session.totalQuestions || 0} questions
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Started: {new Date(session.startTime).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                onClick={() => handleContinueSession(resumableSessions[0].id)}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Continue Session
+              </Button>
+              <Button
+                onClick={handleStartNewSession}
+                variant="outline"
+                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Start New
+              </Button>
+            </div>
+
+            <button
+              onClick={() => setShowContinueDialog(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       <ReportQuestionModal
         open={showReportModal}

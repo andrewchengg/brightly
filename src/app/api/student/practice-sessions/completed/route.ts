@@ -86,10 +86,6 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      console.log(
-        `Session ${session.id}: Calculated marks ${totalMarksEarned}/${totalPossibleMarks}`
-      );
-
       return {
         id: session.id,
         title: session.title,

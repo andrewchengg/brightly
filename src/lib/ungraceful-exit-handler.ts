@@ -70,47 +70,47 @@ export class UngracefulExitHandler {
   }
 
   private handleBeforeUnload = (): void => {
-    console.log("🚪 DEBUG: beforeunload - user closing page");
-    this.triggerUngracefulExit("beforeunload");
+    // Only trigger for actual page unload, not navigation
+    this.triggerUngracefulExit("page_unload");
   };
 
   private handlePageHide = (): void => {
-    console.log("🚪 DEBUG: pagehide - page hidden (mobile/desktop)");
-    this.triggerUngracefulExit("pagehide");
+    // Don't immediately abandon - this could be navigation within the app
+    // Use a longer timeout to distinguish between navigation and actual exit
+    setTimeout(() => {
+      if (this.isActive && document.hidden) {
+        this.triggerUngracefulExit("page_exit");
+      }
+    }, 300000); // Wait 5 minutes
   };
 
   private handleVisibilityChange = (): void => {
     if (document.hidden) {
-      console.log("👁️ DEBUG: Page hidden - user switched tabs");
-      // Don't immediately trigger - might come back
+      // For within-app navigation, don't abandon the session
+      // Only abandon if the user is away for a very long time (15+ minutes)
       setTimeout(() => {
         if (document.hidden && this.isActive) {
-          this.triggerUngracefulExit("visibility_hidden");
+          this.triggerUngracefulExit("long_absence");
         }
-      }, 60000); // Wait 1 minute
+      }, 900000); // Wait 15 minutes instead of 1 minute
     } else {
-      console.log("👁️ DEBUG: Page visible - user returned");
       this.updateActivity();
     }
   };
 
   private handleWindowBlur = (): void => {
-    console.log("🔍 DEBUG: Window lost focus");
     // Don't trigger immediately - just log
   };
 
   private handleWindowFocus = (): void => {
-    console.log("🔍 DEBUG: Window gained focus");
     this.updateActivity();
   };
 
   private handleOffline = (): void => {
-    console.log("📡 DEBUG: Network offline - potential ungraceful exit");
     // Mark as potentially abandoned, but don't trigger immediately
   };
 
   private handleOnline = (): void => {
-    console.log("📡 DEBUG: Network online - user returned");
     this.updateActivity();
     // Send heartbeat to reconnect
     this.sendHeartbeat();
@@ -133,9 +133,6 @@ export class UngracefulExitHandler {
 
     // If no activity for grace period, mark as abandoned
     if (timeSinceActivity > this.gracePeriod) {
-      console.log(
-        `⏰ DEBUG: No activity for ${this.gracePeriod}ms - marking as abandoned`
-      );
       this.triggerUngracefulExit("inactivity_timeout");
       return;
     }
@@ -157,7 +154,6 @@ export class UngracefulExitHandler {
   private triggerUngracefulExit(reason: string): void {
     if (!this.isActive) return; // Already handled
 
-    console.log(`🚨 DEBUG: Ungraceful exit detected - reason: ${reason}`);
     this.isActive = false;
 
     // Try to notify the callback
@@ -183,7 +179,6 @@ export class UngracefulExitHandler {
   }
 
   public destroy(): void {
-    console.log("🧹 DEBUG: Destroying ungraceful exit handler");
     this.isActive = false;
 
     if (this.heartbeatTimer) {
@@ -217,9 +212,6 @@ export class UngracefulExitHandler {
   }
 
   public markAsCompleted(): void {
-    console.log(
-      "✅ DEBUG: Session completed - stopping ungraceful exit detection"
-    );
     this.destroy();
   }
 }
@@ -248,7 +240,6 @@ export function useUngracefulExitDetection(
     const newHandler = new UngracefulExitHandler({
       sessionId,
       onUngracefulExit: (id) => {
-        console.log(`🚨 Ungraceful exit detected for session: ${id}`);
         // Additional client-side handling can go here
       },
     });
