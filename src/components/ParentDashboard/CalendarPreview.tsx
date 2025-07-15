@@ -130,14 +130,14 @@ const CalendarPreview: React.FC<CalendarPreviewProps> = ({ limit = 5 }) => {
 
   const getEventIcon = (event: Event) => {
     if (event.type === "lesson") {
-      return <FaGraduationCap className="text-blue-600" />;
+      return <FaGraduationCap className="text-purple-800" />;
     }
     return <FaUser className="text-purple-800" />;
   };
 
   const getEventColor = (event: Event) => {
     if (event.type === "lesson") {
-      return "border-l-blue-500 bg-blue-50";
+      return "border-l-purple-800 bg-purple-100";
     }
     return "border-l-purple-800 bg-purple-100";
   };
@@ -148,7 +148,7 @@ const CalendarPreview: React.FC<CalendarPreviewProps> = ({ limit = 5 }) => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center">
-              <FaCalendarAlt className="mr-2 text-green-600" />
+              <FaCalendarAlt className="mr-2 text-purple-800" />
               Upcoming Events
             </CardTitle>
           </div>
@@ -177,14 +177,14 @@ const CalendarPreview: React.FC<CalendarPreviewProps> = ({ limit = 5 }) => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center">
-            <FaCalendarAlt className="mr-2 text-green-600" />
+            <FaCalendarAlt className="mr-2 text-purple-800" />
             Upcoming Events
           </CardTitle>
           <Link href="/parent/calendar">
             <Button
               variant="outline"
               size="sm"
-              className="text-green-600 hover:bg-green-50"
+              className="text-purple-800 hover:bg-purple-100"
             >
               View Full Calendar
               <FaArrowRight className="ml-2 w-3 h-3" />

@@ -160,14 +160,14 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center">
-            <FaChartLine className="mr-2 text-indigo-600" />
+            <FaChartLine className="mr-2 text-purple-800" />
             Recent Results
           </CardTitle>
           <Link href="/parent/results">
             <Button
               variant="outline"
               size="sm"
-              className="text-indigo-600 hover:bg-indigo-50"
+              className="text-purple-800 hover:bg-purple-100"
             >
               View All Results
               <FaArrowRight className="ml-2 w-3 h-3" />
@@ -197,7 +197,7 @@ const RecentResultsPreview: React.FC<RecentResultsPreviewProps> = ({
               return (
                 <div
                   key={session.id}
-                  className="group border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-indigo-300 transition-all duration-200"
+                  className="group border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-purple-300 transition-all duration-200"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">

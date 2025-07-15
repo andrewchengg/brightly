@@ -138,37 +138,52 @@ export default function ParentResultsPage() {
     router.push(`/parent/results/${sessionId}`);
   };
 
-  // Function to get emoji and color based on performance
+  // Function to get performance details based on session type and score
   const getPerformanceDetails = (session: CompletedSession) => {
-    const totalPossible = session.totalPossibleMarks || 0;
-    const scorePercentage = totalPossible > 0 ? ((session.totalMarksEarned || 0) / totalPossible) * 100 : 0;
+    let totalPossible = session.totalPossibleMarks || 0;
+    let scorePercentage = 0;
+
+    // For mock exams, use the predefined total marks based on paper type
+    if (session.type === PrismaPracticeSessionType.MOCK_EXAM && session.title) {
+      const title = session.title.toLowerCase();
+      if (title.includes('paper 1')) {
+        totalPossible = 45; // Paper 1 total marks
+      } else if (title.includes('paper 2')) {
+        totalPossible = 55; // Paper 2 total marks
+      } else if (title.includes('full mock exam')) {
+        totalPossible = 100; // Both papers total marks
+      }
+    }
+
+    // Calculate percentage
+    scorePercentage = totalPossible > 0 ? ((session.totalMarksEarned || 0) / totalPossible) * 100 : 0;
 
     if (scorePercentage >= 80) {
       return {
         emoji: "🏆",
-        color: "from-green-400 to-emerald-500",
-        textColor: "text-emerald-600",
+        color: "from-purple-800 to-purple-900",
+        textColor: "text-purple-800",
         label: "Excellent",
       };
     } else if (scorePercentage >= 60) {
       return {
         emoji: "🌟",
-        color: "from-blue-400 to-indigo-500",
-        textColor: "text-indigo-600",
+        color: "from-purple-700 to-purple-800",
+        textColor: "text-purple-800",
         label: "Good",
       };
     } else if (scorePercentage >= 40) {
       return {
         emoji: "👍",
-        color: "from-yellow-300 to-amber-500",
-        textColor: "text-amber-600",
+        color: "from-purple-600 to-purple-700",
+        textColor: "text-purple-800",
         label: "Fair",
       };
     } else {
       return {
         emoji: "📚",
-        color: "from-orange-300 to-red-400",
-        textColor: "text-red-500",
+        color: "from-purple-500 to-purple-600",
+        textColor: "text-purple-800",
         label: "Needs Practice",
       };
     }
@@ -177,7 +192,7 @@ export default function ParentResultsPage() {
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-4rem)]">
-        <div className="w-16 h-16 border-4 border-t-indigo-600 border-indigo-200 rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-t-purple-800 border-purple-200 rounded-full animate-spin"></div>
         <p className="mt-4 text-lg text-gray-600 font-medium">
           Loading Children's Results...
         </p>
@@ -187,7 +202,7 @@ export default function ParentResultsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-purple-100 flex items-center justify-center p-6">
         <Card className="max-w-md w-full">
           <CardContent className="p-6 text-center">
             <FaExclamationTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -472,7 +487,17 @@ export default function ParentResultsPage() {
                             Score
                           </p>
                           <p className={`text-2xl font-bold mt-1 ${performanceDetails.textColor}`}>
-                            {session.totalMarksEarned ?? 0}/{session.totalPossibleMarks || 0}
+                            {session.totalMarksEarned ?? 0}/{
+                              session.type === PrismaPracticeSessionType.MOCK_EXAM && session.title
+                                ? session.title.toLowerCase().includes('paper 1')
+                                  ? 45
+                                  : session.title.toLowerCase().includes('paper 2')
+                                  ? 55
+                                  : session.title.toLowerCase().includes('full mock exam')
+                                  ? 100
+                                  : session.totalPossibleMarks || 0
+                                : session.totalPossibleMarks || 0
+                            }
                           </p>
                         </div>
                         <div className="bg-green-50 p-3 rounded-lg text-center">
@@ -480,8 +505,7 @@ export default function ParentResultsPage() {
                             Correct Answers
                           </p>
                           <p className="text-2xl font-bold mt-1 text-green-600">
-                            {session.correctAnswers ?? 0}/
-                            {session.totalQuestions ?? 0}
+                            {session.correctAnswers ?? 0}/{session.totalQuestions ?? 0}
                           </p>
                         </div>
                         <div className="bg-amber-50 p-3 rounded-lg text-center">
@@ -499,9 +523,12 @@ export default function ParentResultsPage() {
                           <p className="text-xs text-blue-500 uppercase tracking-wider font-semibold">
                             Session Type
                           </p>
-                          <p className="text-sm font-semibold mt-2 text-blue-700 capitalize">
-                            {session.type?.replace(/_/g, " ").toLowerCase() ||
-                              "Practice"}
+                          <p className="text-lg font-semibold mt-1 text-blue-700 capitalize">
+                            {session.type === PrismaPracticeSessionType.MOCK_EXAM
+                              ? session.title?.toLowerCase().includes('paper')
+                                ? session.title.split('-')[0].trim()
+                                : 'Mock Exam'
+                              : session.type.replace(/_/g, ' ').toLowerCase()}
                           </p>
                         </div>
                       </div>

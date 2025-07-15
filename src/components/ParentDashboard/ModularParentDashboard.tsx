@@ -111,7 +111,7 @@ const ModularParentDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[60vh]">
-        <div className="w-16 h-16 border-4 border-t-indigo-600 border-indigo-200 rounded-full animate-spin mb-4"></div>
+        <div className="w-16 h-16 border-4 border-t-purple-800 border-purple-200 rounded-full animate-spin mb-4"></div>
         <p className="text-lg text-gray-600 font-medium">
           Loading Dashboard...
         </p>
@@ -179,9 +179,9 @@ const ModularParentDashboard: React.FC = () => {
 
       {/* Updating Indicator */}
       {updating && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-3">
-          <FaSpinner className="w-4 h-4 text-blue-500 animate-spin" />
-          <span className="text-blue-700 text-sm font-medium">
+        <div className="bg-purple-100 border border-purple-200 rounded-lg px-4 py-2 flex items-center gap-3">
+          <FaSpinner className="w-4 h-4 text-purple-800 animate-spin" />
+          <span className="text-purple-800 text-sm font-medium">
             Updating charts with new data...
           </span>
         </div>
@@ -198,7 +198,7 @@ const ModularParentDashboard: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-lg transition-all duration-300 ${
                   activeTab === tab.id
-                    ? "bg-indigo-600 text-white shadow-lg"
+                    ? "bg-purple-100 text-purple-800"
                     : "text-gray-600 hover:bg-gray-50"
                 }`}
               >

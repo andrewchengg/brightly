@@ -38,7 +38,7 @@ const subjectsConfig: SubjectConfig[] = [
     id: "mathematics",
     name: "Mathematics",
     icon: <FaCalculator className="text-2xl" />,
-    color: "blue",
+    color: "purple",
     description: "Algebraic concepts, geometry, and calculus",
     available: true,
     papers: [
@@ -62,7 +62,7 @@ const subjectsConfig: SubjectConfig[] = [
     id: "science",
     name: "Science",
     icon: <FaFlask className="text-2xl" />,
-    color: "green",
+    color: "purple",
     description: "Physics, chemistry, and biology concepts",
     available: false,
     papers: [],
@@ -80,7 +80,7 @@ const subjectsConfig: SubjectConfig[] = [
     id: "history",
     name: "History",
     icon: <FaGlobeAmericas className="text-2xl" />,
-    color: "orange",
+    color: "purple",
     description: "World history and historical analysis",
     available: false,
     papers: [],
@@ -170,49 +170,49 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
     const colorMap = {
       blue: {
         bg: isSelected
-          ? "bg-gradient-to-r from-blue-500 to-indigo-600"
-          : "bg-gradient-to-r from-blue-50 to-indigo-50",
-        border: isSelected ? "border-blue-500" : "border-blue-200",
-        text: isSelected ? "text-white" : "text-blue-700",
-        hover: "hover:border-blue-400 hover:shadow-lg",
+          ? "bg-purple-800"
+          : "bg-purple-100",
+        border: isSelected ? "border-purple-800" : "border-purple-200",
+        text: isSelected ? "text-white" : "text-purple-800",
+        hover: "hover:border-purple-300 hover:shadow-lg",
       },
       green: {
         bg: isSelected
-          ? "bg-gradient-to-r from-green-500 to-emerald-600"
-          : "bg-gradient-to-r from-green-50 to-emerald-50",
-        border: isSelected ? "border-green-500" : "border-green-200",
-        text: isSelected ? "text-white" : "text-green-700",
-        hover: "hover:border-green-400 hover:shadow-lg",
+          ? "bg-purple-800"
+          : "bg-purple-100",
+        border: isSelected ? "border-purple-800" : "border-purple-200",
+        text: isSelected ? "text-white" : "text-purple-800",
+        hover: "hover:border-purple-300 hover:shadow-lg",
       },
       purple: {
         bg: isSelected
-          ? "bg-gradient-to-r from-purple-500 to-violet-600"
-          : "bg-gradient-to-r from-purple-50 to-violet-50",
+          ? "bg-purple-800"
+          : "bg-purple-100",
         border: isSelected ? "border-purple-800" : "border-purple-200",
         text: isSelected ? "text-white" : "text-purple-800",
-        hover: "hover:border-purple-200 hover:shadow-lg",
+        hover: "hover:border-purple-300 hover:shadow-lg",
       },
       orange: {
         bg: isSelected
-          ? "bg-gradient-to-r from-orange-500 to-red-600"
-          : "bg-gradient-to-r from-orange-50 to-red-50",
-        border: isSelected ? "border-orange-500" : "border-orange-200",
-        text: isSelected ? "text-white" : "text-orange-700",
-        hover: "hover:border-orange-400 hover:shadow-lg",
+          ? "bg-purple-800"
+          : "bg-purple-100",
+        border: isSelected ? "border-purple-800" : "border-purple-200",
+        text: isSelected ? "text-white" : "text-purple-800",
+        hover: "hover:border-purple-300 hover:shadow-lg",
       },
     };
     return colorMap[color as keyof typeof colorMap] || colorMap.blue;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100">
       <div className="max-w-6xl mx-auto p-4 md:p-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full mb-6 shadow-lg">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-800 rounded-full mb-6 shadow-lg">
             <FaCheckCircle className="text-3xl text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-purple-800 mb-4">
             Mock Exam Center
           </h1>
           <p className="text-xl text-gray-600">
@@ -223,7 +223,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
         {/* Subject Selection */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100">
           <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-            <FaStar className="mr-3 text-indigo-500" />
+            <FaStar className="mr-3 text-purple-800" />
             Select Subject
           </h2>
 
@@ -300,7 +300,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
         {selectedSubject && getCurrentSubjectConfig()?.available && (
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100">
             <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-              <FaClock className="mr-3 text-indigo-500" />
+              <FaClock className="mr-3 text-purple-800" />
               Select Paper for {getCurrentSubjectConfig()?.name}
             </h2>
 
@@ -316,8 +316,8 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
                     }
                     className={`p-6 rounded-xl border-2 text-left transition-all duration-300 transform hover:scale-105 ${
                       isSelected
-                        ? "border-indigo-500 bg-gradient-to-r from-indigo-50 to-purple-50 shadow-xl scale-105 ring-2 ring-indigo-300"
-                        : "border-gray-300 hover:border-indigo-400 bg-white hover:shadow-lg"
+                        ? "border-purple-800 bg-purple-100 shadow-xl scale-105 ring-2 ring-purple-300"
+                        : "border-gray-300 hover:border-purple-300 bg-white hover:shadow-lg"
                     }`}
                   >
                     <div className="flex justify-between items-start mb-3">
@@ -325,20 +325,20 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
                         {paper.name}
                       </h3>
                       {isSelected && (
-                        <FaCheckCircle className="text-indigo-500 text-xl" />
+                        <FaCheckCircle className="text-purple-800 text-xl" />
                       )}
                     </div>
 
                     <p className="text-gray-600 mb-4">{paper.description}</p>
 
                     <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center text-blue-600">
+                      <div className="flex items-center text-purple-800">
                         <FaClock className="mr-2" />
                         <span className="font-semibold">
                           {paper.duration} minutes
                         </span>
                       </div>
-                      <div className="flex items-center text-green-600">
+                      <div className="flex items-center text-purple-800">
                         <FaStar className="mr-2" />
                         <span className="font-semibold">
                           {paper.totalMarks} marks
@@ -375,7 +375,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
             <div className="text-center">
               <button
                 onClick={handleStartExam}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-xl px-12 py-4 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300"
+                className="bg-purple-800 hover:bg-purple-900 text-white font-bold text-xl px-12 py-4 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300"
               >
                 <FaPlay className="mr-3" />
                 Start {getCurrentSubjectConfig()?.name} -{" "}
@@ -392,7 +392,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
         {/* Instructions */}
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-            <FaBook className="mr-3 text-indigo-500" />
+            <FaBook className="mr-3 text-purple-800" />
             Important Instructions
           </h3>
 

@@ -88,15 +88,15 @@ interface Child {
 const subjectConfig = {
   Math: {
     icon: FaCalculator,
-    color: "from-blue-500 to-blue-600",
-    bgColor: "bg-blue-50",
-    textColor: "text-blue-700",
+    color: "from-purple-800 to-purple-900",
+    bgColor: "bg-purple-100",
+    textColor: "text-purple-800",
   },
   Science: {
     icon: FaFlask,
-    color: "from-green-500 to-green-600",
-    bgColor: "bg-green-50",
-    textColor: "text-green-700",
+    color: "from-purple-800 to-purple-900",
+    bgColor: "bg-purple-100",
+    textColor: "text-purple-800",
   },
   English: {
     icon: FaGlobe,
@@ -106,9 +106,9 @@ const subjectConfig = {
   },
   Chinese: {
     icon: FaLanguage,
-    color: "from-red-500 to-red-600",
-    bgColor: "bg-red-50",
-    textColor: "text-red-700",
+    color: "from-purple-800 to-purple-900",
+    bgColor: "bg-purple-100",
+    textColor: "text-purple-800",
   },
 };
 

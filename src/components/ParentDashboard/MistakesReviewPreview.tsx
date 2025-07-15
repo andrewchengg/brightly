@@ -106,7 +106,7 @@ const MistakesReviewPreview: React.FC<MistakesReviewPreviewProps> = ({
 
     const colors: { [key: string]: string } = {
       Chinese: "bg-red-100 text-red-600",
-      Mathematics: "bg-blue-100 text-blue-600",
+      Mathematics: "bg-purple-100 text-purple-800",
       Science: "bg-green-100 text-green-600",
       English: "bg-purple-100 text-purple-800",
       History: "bg-amber-100 text-amber-600",
@@ -203,16 +203,16 @@ const MistakesReviewPreview: React.FC<MistakesReviewPreviewProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center">
-            <FaExclamationTriangle className="mr-2 text-amber-600" />
+            <FaExclamationTriangle className="mr-2 text-purple-800" />
             Recent Mistakes to Review
           </CardTitle>
           <Link href="/parent/review">
             <Button
               variant="outline"
               size="sm"
-              className="text-amber-600 hover:bg-amber-50"
+              className="text-purple-800 hover:bg-purple-100"
             >
-              Review All
+              View All Mistakes
               <FaArrowRight className="ml-2 w-3 h-3" />
             </Button>
           </Link>

@@ -18,50 +18,54 @@ interface StudentAnswerCreateRequest {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const {
-      practiceSessionId,
-      questionId,
-      submittedAnswer,
-      isCorrect,
-      pointsEarned,
-    } = body;
+    // Handle both single answer and array of answers
+    const answers = Array.isArray(body) ? body : [body];
 
-    if (!practiceSessionId || !questionId) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+    // Validate each answer
+    for (const answer of answers) {
+      const { practiceSessionId, questionId } = answer;
+      if (!practiceSessionId || !questionId) {
+        return NextResponse.json(
+          { error: "Missing required fields in one or more answers" },
+          { status: 400 }
+        );
+      }
     }
 
-    // Use upsert to handle duplicate submissions (overwrite if answer already exists)
-    const studentAnswer = await prisma.studentAnswer.upsert({
-      where: {
-        practiceSessionId_questionId: {
-          practiceSessionId,
-          questionId: parseInt(questionId, 10),
-        },
-      },
-      update: {
-        submittedAnswer,
-        isCorrect: Boolean(isCorrect),
-        pointsEarned: parseInt(pointsEarned, 10) || 0,
-        attemptedAt: new Date(),
-      },
-      create: {
-        practiceSessionId,
-        questionId: parseInt(questionId, 10),
-        submittedAnswer,
-        isCorrect: Boolean(isCorrect),
-        pointsEarned: parseInt(pointsEarned, 10) || 0,
-        attemptedAt: new Date(),
-      },
-    });
+    // Create all answers in a transaction
+    const createdAnswers = await prisma.$transaction(
+      answers.map((answer) => {
+        const { practiceSessionId, questionId, submittedAnswer, isCorrect, pointsEarned } = answer;
+        return prisma.studentAnswer.upsert({
+          where: {
+            practiceSessionId_questionId: {
+              practiceSessionId,
+              questionId: parseInt(questionId.toString(), 10),
+            },
+          },
+          update: {
+            submittedAnswer,
+            isCorrect: Boolean(isCorrect),
+            pointsEarned: parseInt(pointsEarned.toString(), 10) || 0,
+            attemptedAt: new Date(),
+          },
+          create: {
+            practiceSessionId,
+            questionId: parseInt(questionId.toString(), 10),
+            submittedAnswer,
+            isCorrect: Boolean(isCorrect),
+            pointsEarned: parseInt(pointsEarned.toString(), 10) || 0,
+            attemptedAt: new Date(),
+          },
+        });
+      })
+    );
 
-    return NextResponse.json(studentAnswer);
+    return NextResponse.json(createdAnswers);
   } catch (error: any) {
-    console.error("Error saving student answer:", error);
+    console.error("Error saving student answers:", error);
     return NextResponse.json(
-      { error: "Failed to save answer" },
+      { error: "Failed to save answers" },
       { status: 500 }
     );
   } finally {

@@ -159,7 +159,7 @@ const ChildrenSummaryCards: React.FC<ChildrenSummaryCardsProps> = ({
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
                   <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <FaUser className="text-indigo-600" />
+                    <FaUser className="text-purple-800" />
                     {child.name}
                   </CardTitle>
                   <p className="text-sm text-gray-600">
@@ -184,18 +184,18 @@ const ChildrenSummaryCards: React.FC<ChildrenSummaryCardsProps> = ({
 
             <CardContent className="space-y-4">
               {/* Today's Performance */}
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4">
+              <div className="bg-purple-100 rounded-lg p-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                  <FaCalendarDay className="mr-2 text-indigo-600" />
+                  <FaCalendarDay className="mr-2 text-purple-800" />
                   Today's Performance
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="text-center">
                     <div className="flex items-center justify-center mb-1">
-                      <FaClock className="w-3 h-3 text-green-600 mr-1" />
+                      <FaClock className="w-3 h-3 text-purple-800 mr-1" />
                       <span className="text-xs text-gray-600">Study Time</span>
                     </div>
-                    <p className="text-lg font-bold text-green-700">
+                    <p className="text-lg font-bold text-purple-800">
                       {formatTime(child.today.timeSpent)}
                     </p>
                   </div>

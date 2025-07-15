@@ -328,7 +328,7 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
             Add children to your account to see their progress here.
           </p>
           <Link href="/sign-up/parent-child-setup">
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
+            <Button className="bg-purple-800 hover:bg-purple-900">
               Add Your Child
             </Button>
           </Link>
@@ -354,8 +354,8 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
                   <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                      <FaUser className="text-indigo-600" />
+                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                      <FaUser className="text-purple-800" />
                     </div>
                     {child.name}
                   </CardTitle>
@@ -382,17 +382,17 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
             <CardContent className="space-y-6">
               {/* Key Stats Row */}
               <div className="grid grid-cols-4 gap-4">
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <FaClock className="w-4 h-4 text-blue-600 mx-auto mb-1" />
+                <div className="text-center p-3 bg-purple-100 rounded-lg">
+                  <FaClock className="w-4 h-4 text-purple-800 mx-auto mb-1" />
                   <p className="text-xs text-gray-600">Today</p>
-                  <p className="text-sm font-bold text-blue-700">
+                  <p className="text-sm font-bold text-purple-800">
                     {formatTime(child.today.timeSpent)}
                   </p>
                 </div>
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <FaQuestionCircle className="w-4 h-4 text-green-600 mx-auto mb-1" />
+                <div className="text-center p-3 bg-purple-100 rounded-lg">
+                  <FaQuestionCircle className="w-4 h-4 text-purple-800 mx-auto mb-1" />
                   <p className="text-xs text-gray-600">Questions</p>
-                  <p className="text-sm font-bold text-green-700">
+                  <p className="text-sm font-bold text-purple-800">
                     {child.today.questionsAnswered}
                   </p>
                 </div>
@@ -403,10 +403,10 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
                     {child.today.accuracy}%
                   </p>
                 </div>
-                <div className="text-center p-3 bg-amber-50 rounded-lg">
-                  <FaTrophy className="w-4 h-4 text-amber-600 mx-auto mb-1" />
+                <div className="text-center p-3 bg-purple-100 rounded-lg">
+                  <FaTrophy className="w-4 h-4 text-purple-800 mx-auto mb-1" />
                   <p className="text-xs text-gray-600">XP Today</p>
-                  <p className="text-sm font-bold text-amber-700">
+                  <p className="text-sm font-bold text-purple-800">
                     {child.today.xpEarned}
                   </p>
                 </div>
@@ -415,7 +415,7 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
               {/* Practice Activity */}
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <FaPlay className="text-indigo-600" />
+                  <FaPlay className="text-purple-800" />
                   Practice Activity
                   {dateRange && (
                     <span className="text-xs text-gray-500 ml-2">
@@ -449,8 +449,8 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
                       <Area
                         type="monotone"
                         dataKey="questions"
-                        stroke="#6366f1"
-                        fill="#6366f1"
+                        stroke="#7e22ce"
+                        fill="#7e22ce"
                         fillOpacity={0.3}
                         strokeWidth={2}
                       />
@@ -462,7 +462,7 @@ const ChildrenOverviewWithCharts: React.FC<ChildrenOverviewWithChartsProps> = ({
               {/* Subject Breakdown */}
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <FaBookOpen className="text-indigo-600" />
+                  <FaBookOpen className="text-purple-800" />
                   Subject Performance
                 </h4>
                 <div className="flex items-center gap-4">
