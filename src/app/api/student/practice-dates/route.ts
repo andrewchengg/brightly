@@ -1,31 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { PrismaClient, PracticeSessionStatus } from "@/generated/prisma";
-import { cookies } from "next/headers";
+import { PracticeSessionStatus } from "@/generated/prisma";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-const prisma = new PrismaClient();
-
 export async function GET(request: NextRequest) {
   try {
+    console.log("🔐 Practice dates API - Starting authentication check...");
     const supabase = createClient();
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
+    console.log("🔐 Auth result:", { user: user?.id, error: authError });
+
     if (!user) {
+      console.log("❌ No user found - returning 401");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get student ID from user
-    const student = await prisma.student.findFirst({
-      where: { email: user.email! },
-    });
-
-    if (!student) {
-      return NextResponse.json({ error: "Student not found" }, { status: 404 });
-    }
+    console.log("✅ User authenticated:", user.id);
 
     // Get URL params for date range (optional)
     const url = new URL(request.url);
@@ -37,7 +33,7 @@ export async function GET(request: NextRequest) {
     defaultStartDate.setMonth(defaultStartDate.getMonth() - 6);
 
     const whereClause: any = {
-      studentId: student.id,
+      studentId: user.id,
       status: PracticeSessionStatus.COMPLETED,
     };
 

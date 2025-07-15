@@ -211,8 +211,13 @@ const ModularParentDashboard: React.FC = () => {
               >
                 <Icon className="w-5 h-5 text-gray-900" />
                 <div className="text-left">
-                  <p className="font-bold text-gray-900 text-lg">{tab.label}</p>
-                  <p className="text-xs font-bold text-gray-900">
+
+                  <p className="font-semibold">{tab.label}</p>
+                  <p
+                    className={`text-xs ${
+                      activeTab === tab.id ? "text-purple-900" : "text-gray-800"
+                    }`}
+                  >
                     {tab.description}
                   </p>
                 </div>

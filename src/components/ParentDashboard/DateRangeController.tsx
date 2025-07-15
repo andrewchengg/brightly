@@ -35,9 +35,12 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
     
     switch (period) {
       case "7d":
-        // For 7d period, display the actual 7-day range including today
+        // Convert UTC dates back to local time for display
+        const localStartDate = new Date(startDate.getTime() + (8 * 60 * 60 * 1000));
+        const localEndDate = new Date(endDate.getTime() + (8 * 60 * 60 * 1000));
+        
         return {
-          main: `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+          main: `${localStartDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${localEndDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
           subtitle: "7-day period"
         };
       case "30d":
@@ -64,7 +67,7 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
   };
 
   const navigateTime = (direction: "prev" | "next") => {
-    const { startDate, period } = currentRange;
+    const { startDate, endDate, period } = currentRange;
     let newStartDate: Date;
     let newEndDate: Date;
 
@@ -72,14 +75,23 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
 
     switch (period) {
       case "7d":
-        // Set end date to end of today at 23:59:59.999
-        newEndDate = new Date();
+        // Convert UTC dates back to local time for calculation
+        const localStartDate = new Date(startDate.getTime() + (8 * 60 * 60 * 1000));
+        const localEndDate = new Date(endDate.getTime() + (8 * 60 * 60 * 1000));
+        
+        // Move the local range by 7 days in the specified direction
+        newStartDate = new Date(localStartDate);
+        newStartDate.setDate(localStartDate.getDate() + (7 * multiplier));
+        newStartDate.setHours(0, 0, 0, 0);
+        
+        // Calculate end date as 6 days after start date (for 7 days total)
+        newEndDate = new Date(newStartDate);
+        newEndDate.setDate(newStartDate.getDate() + 6);
         newEndDate.setHours(23, 59, 59, 999);
         
-        // Set start date to 6 days before end date at 00:00:00.000 (for 7 days total including today)
-        newStartDate = new Date(newEndDate);
-        newStartDate.setDate(newEndDate.getDate() - 6);
-        newStartDate.setHours(0, 0, 0, 0);
+        // Convert back to UTC to match the hook's timezone handling
+        newStartDate = new Date(newStartDate.getTime() - (8 * 60 * 60 * 1000));
+        newEndDate = new Date(newEndDate.getTime() - (8 * 60 * 60 * 1000));
         break;
       case "30d":
         newStartDate = new Date(startDate);
@@ -119,10 +131,17 @@ const DateRangeController: React.FC<DateRangeControllerProps> = ({
         endDate = new Date(today);
         endDate.setHours(23, 59, 59, 999);
         
-        // Set start date to 6 days before end date at 00:00:00.000 (for 7 days total including today)
-        startDate = new Date(endDate);
-        startDate.setDate(endDate.getDate() - 6);
+        // Set start date to 6 days before today at 00:00:00.000 (for 7 days total including today)
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 6);
         startDate.setHours(0, 0, 0, 0);
+        
+        // Convert to UTC to match the hook's timezone handling
+        const utcEndDate = new Date(endDate.getTime() - (8 * 60 * 60 * 1000));
+        const utcStartDate = new Date(startDate.getTime() - (8 * 60 * 60 * 1000));
+        
+        endDate = utcEndDate;
+        startDate = utcStartDate;
         break;
       case "30d":
         startDate = new Date(today.getFullYear(), today.getMonth(), 1);

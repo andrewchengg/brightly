@@ -15,6 +15,10 @@ export async function GET(
         name: true,
         xpPoints: true,
         img: true,
+        currentStreak: true,
+        longestStreak: true,
+        lastActivityDate: true,
+        initialSetupComplete: true,
       },
     });
 
@@ -29,6 +33,11 @@ export async function GET(
       name: student.name,
       level,
       img: student.img,
+      xpPoints: student.xpPoints,
+      currentStreak: student.currentStreak,
+      longestStreak: student.longestStreak,
+      lastActivityDate: student.lastActivityDate,
+      initialSetupComplete: student.initialSetupComplete,
     });
   } catch (error) {
     console.error("Error fetching student:", error);

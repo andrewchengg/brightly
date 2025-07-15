@@ -367,15 +367,11 @@ const DetailedChildrenPerformance: React.FC<
           return (
             <Button
               key={child.id}
-              variant={
-                selectedChild === child.id ||
-                (!selectedChild && child.id === childrenStats[0].id)
-                  ? "default"
-                  : "outline"
-              }
-              size="sm"
+
+
+              variant={selectedChild === child.id || (!selectedChild && child.id === childrenStats[0].id) ? "default" : "outline"}
               onClick={() => setSelectedChild(child.id)}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 h-20"
             >
               <FaUser className="w-3 h-3" />
               <div className="flex items-center justify-between">
