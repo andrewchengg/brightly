@@ -4,7 +4,7 @@ import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Brightly | AI Tutor for PSLE",
-  description: "Next.js School Management System",
+  description: "AI Tutor for PSLE",
   icons: {
     icon: "/brightlyB.png",
     shortcut: "/brightlyB.png",

@@ -1691,12 +1691,6 @@ export default function RandomPractice() {
               >
                 <FaChartBar className="mr-2" /> View All Results
               </Button>
-              <Button
-                onClick={completeSessionAndStartNew}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700"
-              >
-                <FaRocket className="mr-2" /> Start New Random Practice
-              </Button>
             </div>
           </div>
         </div>
