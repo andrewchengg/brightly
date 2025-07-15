@@ -280,13 +280,15 @@ export default function PracticePage() {
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {inProgressSessions.map((session) => (
-                    <ResumeSessionCard
-                      key={session.id}
-                      session={session}
-                      onResume={() => handleResumeSession(session)}
-                    />
-                  ))}
+                  {inProgressSessions
+                    .filter((session) => session.type !== "MOCK_EXAM")
+                    .map((session) => (
+                      <ResumeSessionCard
+                        key={session.id}
+                        session={session}
+                        onResume={() => handleResumeSession(session)}
+                      />
+                    ))}
                 </CardContent>
               </Card>
             ) : null}
