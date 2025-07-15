@@ -47,9 +47,13 @@ export default function SignUpPage() {
   const router = useRouter();
   const supabase = createClient();
   const [currentStep, setCurrentStep] = useState(1);
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [slideDirection, setSlideDirection] = useState<"left" | "right" | null>(
+    null
+  );
   const [isAnimating, setIsAnimating] = useState(false);
-  const [animationDirection, setAnimationDirection] = useState<'forward' | 'backward' | null>(null);
+  const [animationDirection, setAnimationDirection] = useState<
+    "forward" | "backward" | null
+  >(null);
   const [referralSource, setReferralSource] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -60,8 +64,8 @@ export default function SignUpPage() {
   const handleNext = () => {
     if (currentStep < steps.length && !isAnimating) {
       setIsAnimating(true);
-      setAnimationDirection('forward');
-      setSlideDirection('left');
+      setAnimationDirection("forward");
+      setSlideDirection("left");
       setTimeout(() => {
         setCurrentStep(currentStep + 1);
         setSlideDirection(null);
@@ -76,8 +80,8 @@ export default function SignUpPage() {
   const handleBack = () => {
     if (currentStep > 1 && !isAnimating) {
       setIsAnimating(true);
-      setAnimationDirection('backward');
-      setSlideDirection('right');
+      setAnimationDirection("backward");
+      setSlideDirection("right");
       setTimeout(() => {
         setCurrentStep(currentStep - 1);
         setSlideDirection(null);
@@ -121,7 +125,9 @@ export default function SignUpPage() {
             {
               id: signUpResponseData.user.id,
               name: name,
-              username: email.split('@')[0] || `parent${Date.now().toString().slice(-5)}`,
+              username:
+                email.split("@")[0] ||
+                `parent${Date.now().toString().slice(-5)}`,
               email: email,
               referralSource: referralSource,
               createdAt: new Date().toISOString(),
@@ -132,7 +138,9 @@ export default function SignUpPage() {
 
           if (parentDbError) {
             console.error("Error saving parent details to DB:", parentDbError);
-            setError(`Account created, but failed to save profile: ${parentDbError.message}`);
+            setError(
+              `Account created, but failed to save profile: ${parentDbError.message}`
+            );
             setIsLoading(false);
             return;
           }
@@ -143,7 +151,9 @@ export default function SignUpPage() {
           );
         }
       } else {
-        setError("Account creation may have been initiated, but user details not returned. Please check your email or try again.");
+        setError(
+          "Account creation may have been initiated, but user details not returned. Please check your email or try again."
+        );
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");
@@ -186,7 +196,9 @@ export default function SignUpPage() {
         setIsLoading(false);
       }
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred with Google sign-up");
+      setError(
+        err.message || "An unexpected error occurred with Google sign-up"
+      );
       console.error("Google Sign up error:", err);
       setIsLoading(false);
     }
@@ -239,7 +251,7 @@ export default function SignUpPage() {
                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
               />
             </div>
-            
+
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200"></div>
@@ -415,62 +427,59 @@ export default function SignUpPage() {
   `;
 
   // Add this right after the styles constant
-  if (typeof document !== 'undefined') {
+  if (typeof document !== "undefined") {
     const styleSheet = document.createElement("style");
     styleSheet.textContent = styles;
-    if (!document.head.querySelector('style[data-sign-up-animations]')) {
-      styleSheet.setAttribute('data-sign-up-animations', 'true');
+    if (!document.head.querySelector("style[data-sign-up-animations]")) {
+      styleSheet.setAttribute("data-sign-up-animations", "true");
       document.head.appendChild(styleSheet);
     }
   }
 
-      return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        {/* Navigation */}
-        <nav className="fixed w-full bg-white/80 backdrop-blur-md shadow-sm z-50 border-b border-gray-100 animate-fade-in">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16 items-center">
-              <div className="flex-shrink-0">
-                <Link
-                  href="/"
-                  className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Navigation */}
+      <nav className="fixed w-full bg-white/80 backdrop-blur-md shadow-sm z-50 border-b border-gray-100 animate-fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <div className="flex-shrink-0">
+              <Link href="/" className="text-2xl font-bold text-purple-700">
+                Brightly
+              </Link>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Link
+                href="/"
+                className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center"
+              >
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  Brightly
-                </Link>
-              </div>
-              <div className="flex items-center space-x-4">
-                <Link
-                  href="/"
-                  className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center"
-                >
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                    />
-                  </svg>
-                  Back to Home
-                </Link>
-                <Link
-                  href="/sign-in"
-                  className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                >
-                  Sign In
-                </Link>
-              </div>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  />
+                </svg>
+                Back to Home
+              </Link>
+              <Link
+                href="/sign-in"
+                className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+              >
+                Sign In
+              </Link>
             </div>
           </div>
-        </nav>
+        </div>
+      </nav>
 
-        <div className="flex items-center justify-center min-h-screen pt-16">
-          <div className="p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl w-full max-w-md border border-gray-100 animate-fade-in-up">
+      <div className="flex items-center justify-center min-h-screen pt-16">
+        <div className="p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl w-full max-w-md border border-gray-100 animate-fade-in-up">
           {/* Progress bar */}
           <div className="mb-8">
             <div className="flex justify-between mb-2">
@@ -485,65 +494,103 @@ export default function SignUpPage() {
             </div>
           </div>
 
-                      <div className={`${
-              slideDirection === 'left' ? 'animate-slide-left' : 
-              slideDirection === 'right' ? 'animate-slide-right' : 
-              slideDirection === null && isAnimating && animationDirection === 'forward' ? 'animate-slide-in-left' :
-              slideDirection === null && isAnimating && animationDirection === 'backward' ? 'animate-slide-in-right' :
-              ''
-            }`}>
-              {/* Step content */}
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {steps[currentStep - 1].title}
-                </h1>
-                <p className="text-gray-600">{steps[currentStep - 1].description}</p>
-              </div>
-
-              <form onSubmit={currentStep === steps.length ? handleSignUp : (e) => { e.preventDefault(); handleNext(); }} className="space-y-6">
-                {renderStepContent()}
-
-                {error && (
-                  <div className="text-red-600 text-sm text-center">{error}</div>
-                )}
-
-                <div className="flex justify-between pt-4">
-                  {currentStep > 1 && (
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="px-6 py-3 text-gray-600 hover:text-blue-600 font-medium transition-colors duration-200"
-                      disabled={isAnimating}
-                    >
-                      Back
-                    </button>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={!isStepValid() || isLoading || isAnimating}
-                    className={`ml-auto px-8 py-3 rounded-xl font-medium transition-all duration-200 ${
-                      isStepValid() && !isAnimating
-                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg transform hover:scale-105"
-                        : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    }`}
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </span>
-                    ) : currentStep === steps.length ? (
-                      "Get Started"
-                    ) : (
-                      "Continue"
-                    )}
-                  </button>
-                </div>
-              </form>
+          <div
+            className={`${
+              slideDirection === "left"
+                ? "animate-slide-left"
+                : slideDirection === "right"
+                ? "animate-slide-right"
+                : slideDirection === null &&
+                  isAnimating &&
+                  animationDirection === "forward"
+                ? "animate-slide-in-left"
+                : slideDirection === null &&
+                  isAnimating &&
+                  animationDirection === "backward"
+                ? "animate-slide-in-right"
+                : ""
+            }`}
+          >
+            {/* Step content */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {steps[currentStep - 1].title}
+              </h1>
+              <p className="text-gray-600">
+                {steps[currentStep - 1].description}
+              </p>
             </div>
+
+            <form
+              onSubmit={
+                currentStep === steps.length
+                  ? handleSignUp
+                  : (e) => {
+                      e.preventDefault();
+                      handleNext();
+                    }
+              }
+              className="space-y-6"
+            >
+              {renderStepContent()}
+
+              {error && (
+                <div className="text-red-600 text-sm text-center">{error}</div>
+              )}
+
+              <div className="flex justify-between pt-4">
+                {currentStep > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="px-6 py-3 text-gray-600 hover:text-blue-600 font-medium transition-colors duration-200"
+                    disabled={isAnimating}
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={!isStepValid() || isLoading || isAnimating}
+                  className={`ml-auto px-8 py-3 rounded-xl font-medium transition-all duration-200 ${
+                    isStepValid() && !isAnimating
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg transform hover:scale-105"
+                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  }`}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : currentStep === steps.length ? (
+                    "Get Started"
+                  ) : (
+                    "Continue"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>

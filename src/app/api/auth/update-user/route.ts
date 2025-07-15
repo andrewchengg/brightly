@@ -6,32 +6,36 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    // SECURITY FIX: Verify admin access before allowing user updates
+    // SECURITY FIX: Allow self-update or admin update
     const auth = await getAuthenticatedUser();
+    const { userId, email, username, name, role, password, metadata } =
+      await request.json();
 
-    if (!auth || !auth.isAdmin) {
+    if (
+      !auth ||
+      // Not admin and not updating self
+      (!auth.isAdmin && auth.user.id !== userId)
+    ) {
       return NextResponse.json(
-        { error: { message: "Unauthorized: Admin access required" } },
+        { error: { message: "Unauthorized" } },
         { status: 403 }
       );
     }
 
+    // Prevent non-admins from changing their own role
+    if (!auth.isAdmin && role && role !== auth.role) {
+      return NextResponse.json(
+        { error: { message: "Cannot modify your own role" } },
+        { status: 400 }
+      );
+    }
+
     const supabaseAdmin = createAdminClient();
-    const { userId, email, username, name, role, password, metadata } =
-      await request.json();
 
     // Validate request
     if (!userId) {
       return NextResponse.json(
         { error: { message: "User ID is required" } },
-        { status: 400 }
-      );
-    }
-
-    // Prevent self-role modification for safety
-    if (userId === auth.user.id && role && role !== auth.role) {
-      return NextResponse.json(
-        { error: { message: "Cannot modify your own role" } },
         { status: 400 }
       );
     }

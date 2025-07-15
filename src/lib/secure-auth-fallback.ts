@@ -35,12 +35,7 @@ export async function getFallbackUserRole(
       error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError || !user) {
-      console.log("[FALLBACK_ROLE] No user found or auth error:", authError);
-      return null;
-    }
-
-    console.log("[FALLBACK_ROLE] Checking role for user:", user.id);
+    if (authError || !user) return null;
 
     // Try database lookup first
     try {
@@ -50,10 +45,7 @@ export async function getFallbackUserRole(
         .select("id")
         .eq("id", user.id)
         .single();
-      if (admin) {
-        console.log("[FALLBACK_ROLE] User is admin");
-        return "admin";
-      }
+      if (admin) return "admin";
 
       // Check Teacher table
       const { data: teacher } = await supabase
@@ -61,10 +53,7 @@ export async function getFallbackUserRole(
         .select("id")
         .eq("id", user.id)
         .single();
-      if (teacher) {
-        console.log("[FALLBACK_ROLE] User is teacher");
-        return "teacher";
-      }
+      if (teacher) return "teacher";
 
       // Check Parent table
       const { data: parent } = await supabase
@@ -72,10 +61,7 @@ export async function getFallbackUserRole(
         .select("id")
         .eq("id", user.id)
         .single();
-      if (parent) {
-        console.log("[FALLBACK_ROLE] User is parent");
-        return "parent";
-      }
+      if (parent) return "parent";
 
       // Check Student table
       const { data: student } = await supabase
@@ -83,50 +69,27 @@ export async function getFallbackUserRole(
         .select("id")
         .eq("id", user.id)
         .single();
-      if (student) {
-        console.log("[FALLBACK_ROLE] User is student");
-        return "student";
-      }
+      if (student) return "student";
 
-      console.log(
-        "[FALLBACK_ROLE] User not found in any table, defaulting to student"
-      );
       return "student";
     } catch (dbError) {
-      console.error(
-        "Database lookup failed in middleware, using fallback:",
-        dbError
-      );
-
       // FALLBACK: Use metadata only if DB fails AND only for non-admin roles
       // Admin roles must always be verified via database
       const metadataRole = user.user_metadata?.role as string | undefined;
-      console.log(
-        "[FALLBACK_ROLE] Using metadata fallback, role:",
-        metadataRole
-      );
 
       // Never trust metadata for admin - require database verification
       if (metadataRole === "admin") {
-        console.warn(
-          "Admin role in metadata rejected - database verification required"
-        );
         return "student"; // Safe default
       }
 
       // Allow other roles as fallback but log for monitoring
       if (metadataRole === "teacher" || metadataRole === "parent") {
-        console.warn(
-          `Using metadata fallback for role: ${metadataRole}. User: ${user.id}`
-        );
         return metadataRole as UserRole;
       }
 
-      console.log("[FALLBACK_ROLE] Defaulting to student role");
       return "student"; // Safe default
     }
   } catch (error) {
-    console.error("Complete auth failure in middleware:", error);
     return null;
   }
 }
