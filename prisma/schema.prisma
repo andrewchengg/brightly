@@ -36,6 +36,7 @@ model Student {
   lastActivityDate     DateTime?
   longestStreak        Int                       @default(0)
   xpPoints             Int                       @default(0)
+  walkthroughComplete  Boolean                   @default(false)
   attendance           Attendance[]
   chatSessions         ChatSession[]
   events               Event[]

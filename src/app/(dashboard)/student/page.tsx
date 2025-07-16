@@ -14,6 +14,7 @@ import XPBar from "@/components/XPBar";
 import StudentWalkthrough from "@/components/StudentWalkthrough";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 // Lazy load heavy components
 const StudentCalendar = dynamic(() => import("@/components/StudentCalendar"), {
@@ -49,6 +50,7 @@ interface Student {
   lastActivityDate: Date | null;
   level: number;
   initialSetupComplete: boolean;
+  walkthroughComplete: boolean;
 }
 
 function getTaskPath(task: AssignedTask): string {
@@ -90,6 +92,7 @@ export default function StudentPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [isCompletingSetup, setIsCompletingSetup] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -115,7 +118,7 @@ export default function StudentPage() {
           setStudent(studentData);
           
           // Show walkthrough if initial setup is not complete
-          if (!studentData.initialSetupComplete) {
+          if (!studentData.walkthroughComplete) {
             setShowWalkthrough(true);
           }
         }
@@ -137,17 +140,25 @@ export default function StudentPage() {
   const handleWalkthroughComplete = async () => {
     setIsCompletingSetup(true);
     try {
-      const response = await fetch("/api/student/complete-setup", {
+      console.log('Dashboard: Completing walkthrough...');
+      const response = await fetch("/api/student/complete-walkthrough", {
         method: "POST",
       });
 
+      console.log('Dashboard: Response status:', response.status);
+      console.log('Dashboard: Response ok:', response.ok);
+
       if (response.ok) {
         const data = await response.json();
-        setStudent(prev => prev ? { ...prev, initialSetupComplete: true } : null);
+        console.log('Dashboard: Response data:', data);
+        setStudent(prev => prev ? { ...prev, walkthroughComplete: true } : null);
         setShowWalkthrough(false);
+        console.log('Dashboard: Walkthrough completed successfully');
+      } else {
+        console.error('Dashboard: Failed to complete walkthrough');
       }
     } catch (error) {
-      console.error("Error completing setup:", error);
+      console.error("Error completing walkthrough:", error);
     } finally {
       setIsCompletingSetup(false);
     }
@@ -156,17 +167,25 @@ export default function StudentPage() {
   const handleWalkthroughSkip = async () => {
     setIsCompletingSetup(true);
     try {
-      const response = await fetch("/api/student/complete-setup", {
+      console.log('Dashboard: Skipping walkthrough...');
+      const response = await fetch("/api/student/complete-walkthrough", {
         method: "POST",
       });
 
+      console.log('Dashboard: Response status:', response.status);
+      console.log('Dashboard: Response ok:', response.ok);
+
       if (response.ok) {
         const data = await response.json();
-        setStudent(prev => prev ? { ...prev, initialSetupComplete: true } : null);
+        console.log('Dashboard: Response data:', data);
+        setStudent(prev => prev ? { ...prev, walkthroughComplete: true } : null);
         setShowWalkthrough(false);
+        console.log('Dashboard: Walkthrough skipped successfully');
+      } else {
+        console.error('Dashboard: Failed to skip walkthrough');
       }
     } catch (error) {
-      console.error("Error completing setup:", error);
+      console.error("Error completing walkthrough:", error);
     } finally {
       setIsCompletingSetup(false);
     }

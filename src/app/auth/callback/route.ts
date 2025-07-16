@@ -93,7 +93,7 @@ export async function GET(request: Request) {
       } else if (userRole === 'student') {
         const { data: existingStudent, error: studentCheckError } = await supabase
           .from('Student')
-          .select('id, initialSetupComplete')
+          .select('id, initialSetupComplete, walkthroughComplete')
           .eq('id', user.id)
           .single();
           
@@ -113,6 +113,7 @@ export async function GET(request: Request) {
             name, 
             email: user.email, 
             initialSetupComplete: false, 
+            walkthroughComplete: false,
             schoolLevel: 1,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -123,9 +124,16 @@ export async function GET(request: Request) {
             return NextResponse.redirect(`${origin}/auth/auth-code-error`);
           }
           
-          finalRedirectPath = '/student/complete-setup';
+          // New student, redirect to dashboard to show walkthrough first
+          finalRedirectPath = '/student';
         } else if (!existingStudent.initialSetupComplete) {
-          finalRedirectPath = '/student/complete-setup';
+          if (!existingStudent.walkthroughComplete) {
+            // If walkthrough is not complete, redirect to dashboard to show walkthrough first
+            finalRedirectPath = '/student';
+          } else {
+            // Walkthrough complete but setup not complete, go to setup
+            finalRedirectPath = '/student/complete-setup';
+          }
         } else {
           finalRedirectPath = '/student'; 
         }

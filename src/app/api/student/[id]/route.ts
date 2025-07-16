@@ -19,6 +19,7 @@ export async function GET(
         longestStreak: true,
         lastActivityDate: true,
         initialSetupComplete: true,
+        walkthroughComplete: true,
       },
     });
 
@@ -38,6 +39,7 @@ export async function GET(
       longestStreak: student.longestStreak,
       lastActivityDate: student.lastActivityDate,
       initialSetupComplete: student.initialSetupComplete,
+      walkthroughComplete: student.walkthroughComplete,
     });
   } catch (error) {
     console.error("Error fetching student:", error);

@@ -103,6 +103,7 @@ interface StudentWalkthroughProps {
 export default function StudentWalkthrough({ isOpen, onComplete, onSkip }: StudentWalkthroughProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetElement, setTargetElement] = useState<HTMLElement | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -130,11 +131,57 @@ export default function StudentWalkthrough({ isOpen, onComplete, onSkip }: Stude
     return () => clearTimeout(timer);
   }, [currentStep, isOpen]);
 
-  const handleNext = () => {
+  const updateWalkthroughStatus = async () => {
+    try {
+      setIsUpdating(true);
+      console.log('Attempting to update walkthrough status...');
+      
+      const response = await fetch('/api/student/complete-walkthrough', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error:', errorText);
+        throw new Error(`Failed to update walkthrough status: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('API Response data:', data);
+      
+      // Check if the response has the expected structure
+      if (data.success || data.student?.walkthroughComplete) {
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error updating walkthrough status:', error);
+      return false;
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleNext = async () => {
     if (currentStep < walkthroughSteps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      onComplete();
+      // Complete the walkthrough
+      const success = await updateWalkthroughStatus();
+      if (success) {
+        onComplete();
+      } else {
+        // Even if the API call fails, we should still close the walkthrough
+        // to avoid blocking the user
+        onComplete();
+      }
     }
   };
 
@@ -144,8 +191,15 @@ export default function StudentWalkthrough({ isOpen, onComplete, onSkip }: Stude
     }
   };
 
-  const handleSkip = () => {
-    onSkip();
+  const handleSkip = async () => {
+    // Mark walkthrough as complete even when skipped
+    const success = await updateWalkthroughStatus();
+    if (success) {
+      onSkip();
+    } else {
+      // Even if the API call fails, we should still close the walkthrough
+      onSkip();
+    }
   };
 
   if (!isOpen) return null;
@@ -208,6 +262,7 @@ export default function StudentWalkthrough({ isOpen, onComplete, onSkip }: Stude
           <button
             onClick={handleSkip}
             className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            disabled={isUpdating}
           >
             <FaTimes className="w-4 h-4 text-gray-500" />
           </button>
@@ -242,7 +297,7 @@ export default function StudentWalkthrough({ isOpen, onComplete, onSkip }: Stude
               <Button
                 variant="outline"
                 onClick={handlePrevious}
-                disabled={currentStep === 0}
+                disabled={currentStep === 0 || isUpdating}
                 className="flex items-center gap-2"
               >
                 <FaArrowLeft className="w-3 h-3" />
@@ -254,15 +309,17 @@ export default function StudentWalkthrough({ isOpen, onComplete, onSkip }: Stude
                   variant="outline"
                   onClick={handleSkip}
                   className="text-gray-600"
+                  disabled={isUpdating}
                 >
                   Skip Tour
                 </Button>
                 <Button
                   onClick={handleNext}
                   className="bg-purple-600 hover:bg-purple-700 flex items-center gap-2"
+                  disabled={isUpdating}
                 >
-                  {isLastStep ? "Get Started" : "Next"}
-                  {!isLastStep && <FaArrowRight className="w-3 h-3" />}
+                  {isUpdating ? "Saving..." : (isLastStep ? "Get Started" : "Next")}
+                  {!isLastStep && !isUpdating && <FaArrowRight className="w-3 h-3" />}
                 </Button>
               </div>
             </div>

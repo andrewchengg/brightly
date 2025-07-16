@@ -329,6 +329,7 @@ function ParentChildSetupContent() {
         schoolLevel: schoolLevelNumber,
         schoolName: data.childSchoolName || null,
         initialSetupComplete: false,
+        walkthroughComplete: false,
         currentStreak: 0,
         level: 1,
         longestStreak: 0,
@@ -374,7 +375,7 @@ function ParentChildSetupContent() {
 
   const handleCopyToClipboard = () => {
     if (generatedChildUsername && generatedChildPin) {
-      const textToCopy = `Child's Login Details:\nUsername: ${generatedChildUsername}\nTemporary PIN: ${generatedChildPin}\n\nInstruct your child to go to /student/complete-setup to complete their profile and set a new password.`;
+      const textToCopy = `Child's Login Details:\nUsername: ${generatedChildUsername}\nTemporary PIN: ${generatedChildPin}\n\nInstruct your child to sign in and they will be guided through a walkthrough of the platform before completing their profile setup.`;
       navigator.clipboard
         .writeText(textToCopy)
         .then(() => {

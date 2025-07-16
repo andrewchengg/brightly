@@ -68,7 +68,7 @@ export default function StudentCompleteSetupPage() {
 
         const { data: student, error: studentError } = await supabase
           .from('Student')
-          .select('id, initialSetupComplete, email')
+          .select('id, initialSetupComplete, walkthroughComplete, email')
           .eq('id', session.user.id)
           .single();
 
@@ -80,8 +80,16 @@ export default function StudentCompleteSetupPage() {
 
         if (student) {
           if (student.initialSetupComplete) {
-            router.push('/student');
+            // If initial setup is complete, check if walkthrough is needed
+            if (!student.walkthroughComplete) {
+              // If walkthrough is not complete, redirect to dashboard to show walkthrough first
+              router.push('/student');
+            } else {
+              // Both setup and walkthrough are complete, redirect to dashboard
+              router.push('/student');
+            }
           } else {
+            // Initial setup is not complete, show the setup form
             setCompleteProfileValue("email", student.email || session.user.email || "");
             setStep('completeProfile');
           }
@@ -132,7 +140,7 @@ export default function StudentCompleteSetupPage() {
 
         const { data: student, error: studentError } = await supabase
             .from('Student')
-            .select('id, initialSetupComplete, email')
+            .select('id, initialSetupComplete, walkthroughComplete, email')
             .eq('id', sessionData.user.id)
             .single();
 
@@ -144,11 +152,23 @@ export default function StudentCompleteSetupPage() {
         }
 
         if (student && student.initialSetupComplete) {
-            router.push('/student');
-        } else {
+            // If initial setup is complete, check if walkthrough is needed
+            if (!student.walkthroughComplete) {
+              // If walkthrough is not complete, redirect to dashboard to show walkthrough first
+              router.push('/student');
+            } else {
+              // Both setup and walkthrough are complete, redirect to dashboard
+              router.push('/student');
+            }
+        } else if (student) {
+            // Initial setup is not complete, show the setup form
             setCompleteProfileValue("email", student?.email || sessionData.user.email || "");
             setStep('completeProfile');
             resetInitialLoginForm();
+        } else {
+            setPageError("Failed to retrieve your profile after login.");
+            setIsSubmitting(false);
+            setStep('error');
         }
       } else {
         setPageError("Login did not return user data. Please try again.");

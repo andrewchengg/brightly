@@ -21,25 +21,22 @@ export default function StudentSetupCheck() {
           return;
         }
 
-        // Check if user is a student by querying the Student table directly
-        const { data: student, error: studentError } = await supabase
-          .from("Student")
-          .select("initialSetupComplete")
-          .eq("id", session.user.id)
+        // Check if student has completed setup
+        const { data: student } = await supabase
+          .from('Student')
+          .select('initialSetupComplete, walkthroughComplete')
+          .eq('id', session.user.id)
           .single();
 
-        if (studentError && studentError.code !== "PGRST116") {
-          setIsChecking(false);
-          return;
-        }
-
-        if (!student) {
-          setIsChecking(false);
-          return;
-        }
-
-        if (student.initialSetupComplete === false) {
-          router.push("/student/complete-setup");
+        if (student && student.initialSetupComplete === false) {
+          if (student.walkthroughComplete === false) {
+            // If walkthrough is not complete, redirect to dashboard to show walkthrough first
+            router.push('/student');
+          } else {
+            // Walkthrough complete but setup not complete, go to setup
+            console.log('Student setup not complete, redirecting to setup page');
+            router.push('/student/complete-setup');
+          }
         } else {
           setIsChecking(false);
         }
