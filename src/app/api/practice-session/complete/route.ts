@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
       sessionId,
       correctAnswers,
       xpEarned,
-      totalMarksEarned,
-      totalPossibleMarks,
+      totalMarksEarned: reqTotalMarksEarned,
+      totalPossibleMarks: reqTotalPossibleMarks,
     } = await request.json();
 
     if (!sessionId) {
@@ -63,6 +63,24 @@ export async function POST(request: NextRequest) {
       (endTime.getTime() - existingSession.startTime.getTime()) / 1000
     );
 
+    // Calculate marks if not provided
+    let totalMarksEarned = reqTotalMarksEarned;
+    let totalPossibleMarks = reqTotalPossibleMarks;
+    if (totalMarksEarned == null || totalPossibleMarks == null) {
+      // Fetch student answers and calculate
+      const answers = await prisma.studentAnswer.findMany({
+        where: { practiceSessionId: sessionId },
+        include: { question: true },
+      });
+      totalMarksEarned = answers
+        .filter((a) => a.isCorrect)
+        .reduce((sum, a) => sum + (a.question?.marks || 0), 0);
+      totalPossibleMarks = answers.reduce(
+        (sum, a) => sum + (a.question?.marks || 0),
+        0
+      );
+    }
+
     // Update the practice session as completed
     const updatedSession = await prisma.practiceSession.update({
       where: {
@@ -74,8 +92,8 @@ export async function POST(request: NextRequest) {
         endTime: endTime,
         durationSeconds: durationSeconds,
         correctAnswers: correctAnswers || 0,
-        totalMarksEarned: totalMarksEarned || 0,
-        totalPossibleMarks: totalPossibleMarks || 0,
+        totalMarksEarned,
+        totalPossibleMarks,
         xpEarned: xpEarned || 0,
       },
       include: {

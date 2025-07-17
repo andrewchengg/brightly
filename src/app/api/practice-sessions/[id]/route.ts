@@ -177,10 +177,32 @@ export async function PATCH(
       updateData.durationSeconds = Number(durationSeconds);
     if (correctAnswers !== undefined)
       updateData.correctAnswers = Number(correctAnswers);
-    if (totalMarksEarned !== undefined)
-      updateData.totalMarksEarned = Number(totalMarksEarned);
-    if (totalPossibleMarks !== undefined)
-      updateData.totalPossibleMarks = Number(totalPossibleMarks);
+
+    // If status is being set to COMPLETED, ensure marks fields are set
+    let patchTotalMarksEarned = totalMarksEarned;
+    let patchTotalPossibleMarks = totalPossibleMarks;
+    if (
+      status === PracticeSessionStatus.COMPLETED &&
+      (patchTotalMarksEarned == null || patchTotalPossibleMarks == null)
+    ) {
+      // Fetch student answers and calculate
+      const answers = await prisma.studentAnswer.findMany({
+        where: { practiceSessionId },
+        include: { question: true },
+      });
+      patchTotalMarksEarned = answers
+        .filter((a) => a.isCorrect)
+        .reduce((sum, a) => sum + (a.question?.marks || 0), 0);
+      patchTotalPossibleMarks = answers.reduce(
+        (sum, a) => sum + (a.question?.marks || 0),
+        0
+      );
+    }
+
+    if (patchTotalMarksEarned !== undefined)
+      updateData.totalMarksEarned = patchTotalMarksEarned;
+    if (patchTotalPossibleMarks !== undefined)
+      updateData.totalPossibleMarks = patchTotalPossibleMarks;
     if (xpEarned !== undefined) updateData.xpEarned = Number(xpEarned);
 
     // Crucially, handle totalQuestions if it's part of the PATCH payload
