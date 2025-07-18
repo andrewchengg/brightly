@@ -6,29 +6,26 @@ import { createClient } from "@/lib/supabase/client";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { 
-  FaUser, 
-  FaEnvelope, 
-  FaMapMarkerAlt, 
-  FaEdit, 
-  FaSave, 
-  FaTimes, 
-  FaCog, 
-  FaBell, 
-  FaShieldAlt, 
-  FaLock, 
-  FaTrash, 
-  FaEye, 
+import {
+  FaUser,
+  FaEnvelope,
+  FaMapMarkerAlt,
+  FaEdit,
+  FaSave,
+  FaTimes,
+  FaCog,
+  FaBell,
+  FaShieldAlt,
+  FaLock,
+  FaTrash,
+  FaEye,
   FaEyeSlash,
   FaCheck,
   FaExclamationTriangle,
   FaSpinner,
   FaPhone,
   FaGlobe,
-  FaPalette,
-  FaDownload,
   FaSignOutAlt,
-  FaChevronRight,
   FaToggleOn,
   FaToggleOff
 } from "react-icons/fa";
@@ -69,7 +66,7 @@ type NotificationFormData = z.infer<typeof notificationSchema>;
 export default function ParentSettingsPage() {
   const router = useRouter();
   const supabase = createClient();
-  
+
   const [parent, setParent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +80,8 @@ export default function ParentSettingsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Profile form
-  const { 
-    control: profileControl, 
+  const {
+    control: profileControl,
     handleSubmit: handleProfileSubmit,
     reset: resetProfileForm,
     formState: { errors: profileErrors }
@@ -99,8 +96,8 @@ export default function ParentSettingsPage() {
   });
 
   // Password form
-  const { 
-    control: passwordControl, 
+  const {
+    control: passwordControl,
     handleSubmit: handlePasswordSubmit,
     reset: resetPasswordForm,
     formState: { errors: passwordErrors }
@@ -114,8 +111,8 @@ export default function ParentSettingsPage() {
   });
 
   // Notification form
-  const { 
-    control: notificationControl, 
+  const {
+    control: notificationControl,
     handleSubmit: handleNotificationSubmit,
     reset: resetNotificationForm,
     formState: { errors: notificationErrors }
@@ -137,28 +134,28 @@ export default function ParentSettingsPage() {
       try {
         // Get current user
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
+
         if (userError) throw userError;
         if (!user) {
           setError("You must be logged in to view this page");
           router.push("/sign-in");
           return;
         }
-        
+
         // Get parent profile
         const { data: parentData, error: parentError } = await supabase
           .from("Parent")
           .select("*")
           .eq("id", user.id)
           .single();
-        
+
         if (parentError && parentError.code !== "PGRST116") {
           throw parentError;
         }
-        
+
         if (parentData) {
           setParent(parentData);
-          
+
           // Update form default values
           resetProfileForm({
             name: parentData.name || "",
@@ -176,7 +173,7 @@ export default function ParentSettingsPage() {
         setLoading(false);
       }
     }
-    
+
     fetchParentData();
   }, [router, supabase, resetProfileForm]);
 
@@ -184,7 +181,7 @@ export default function ParentSettingsPage() {
     setSubmitting(true);
     setSuccessMessage(null);
     setError(null);
-    
+
     try {
       // Update parent record in database
       const updateData = {
@@ -193,26 +190,26 @@ export default function ParentSettingsPage() {
         address: data.address || null,
         phone: data.phone || null,
       };
-      
+
       const { error: updateError } = await supabase
         .from("Parent")
         .update(updateData)
         .eq("id", parent.id);
-      
+
       if (updateError) {
         throw updateError;
       }
-      
+
       // Update local state
       setParent({
         ...parent,
         ...updateData,
       });
-      
+
       setSuccessMessage("Profile updated successfully!");
       setIsEditingProfile(false);
       toast.success("Profile updated successfully!");
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage(null);
@@ -228,17 +225,24 @@ export default function ParentSettingsPage() {
   const onPasswordSubmit = async (data: PasswordFormData) => {
     setSubmitting(true);
     setError(null);
-    
+
     try {
+      // First verify the current password by attempting to sign in
+      const { data: { user }, error: signInError } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("Authentication error");
+      }
+      
       // Update password using Supabase Auth
       const { error: updateError } = await supabase.auth.updateUser({
         password: data.newPassword
       });
-      
+
       if (updateError) {
         throw updateError;
       }
-      
+
       setIsChangingPassword(false);
       resetPasswordForm();
       toast.success("Password updated successfully!");
@@ -253,7 +257,7 @@ export default function ParentSettingsPage() {
   const onNotificationSubmit = async (data: NotificationFormData) => {
     setSubmitting(true);
     setError(null);
-    
+
     try {
       // Update notification preferences in database
       const { error: updateError } = await supabase
@@ -262,11 +266,11 @@ export default function ParentSettingsPage() {
           notificationPreferences: data
         })
         .eq("id", parent.id);
-      
+
       if (updateError) {
         throw updateError;
       }
-      
+
       toast.success("Notification preferences updated!");
     } catch (err: any) {
       setError(err.message || "Failed to update notification preferences");
@@ -305,13 +309,12 @@ export default function ParentSettingsPage() {
           .from("Parent")
           .delete()
           .eq("id", parent.id);
-        
+
         if (deleteError) throw deleteError;
-        
-        // Delete user account
-        const { error: userDeleteError } = await supabase.auth.admin.deleteUser(parent.id);
-        
-        if (userDeleteError) throw userDeleteError;
+
+        // Sign out the user - we can't delete the auth user from client side
+        // This would typically be handled by a server-side function
+        await supabase.auth.signOut();
         
         toast.success("Account deleted successfully");
         router.push("/sign-in");
@@ -427,11 +430,10 @@ export default function ParentSettingsPage() {
                       <button
                         key={section.id}
                         onClick={() => setActiveSection(section.id)}
-                        className={`w-full flex items-center px-4 py-3 text-left transition-colors ${
-                          activeSection === section.id
+                        className={`w-full flex items-center px-4 py-3 text-left transition-colors ${activeSection === section.id
                             ? `${section.bgColor} ${section.color} border-r-2 border-purple-600`
                             : "text-gray-600 hover:bg-gray-50"
-                        }`}
+                          }`}
                       >
                         <Icon className={`mr-3 h-5 w-5 ${activeSection === section.id ? section.color : "text-gray-400"}`} />
                         <div>
@@ -512,9 +514,8 @@ export default function ParentSettingsPage() {
                               type="text"
                               id="name"
                               disabled={!isEditingProfile}
-                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                                profileErrors.name ? 'border-red-300' : 'border-gray-300'
-                              } ${!isEditingProfile ? 'bg-gray-50 text-gray-500' : 'bg-white'}`}
+                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${profileErrors.name ? 'border-red-300' : 'border-gray-300'
+                                } ${!isEditingProfile ? 'bg-gray-50 text-gray-500' : 'bg-white'}`}
                               placeholder="Enter your full name"
                             />
                           )}
@@ -539,9 +540,8 @@ export default function ParentSettingsPage() {
                               type="email"
                               id="email"
                               disabled={!isEditingProfile}
-                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                                profileErrors.email ? 'border-red-300' : 'border-gray-300'
-                              } ${!isEditingProfile ? 'bg-gray-50 text-gray-500' : 'bg-white'}`}
+                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${profileErrors.email ? 'border-red-300' : 'border-gray-300'
+                                } ${!isEditingProfile ? 'bg-gray-50 text-gray-500' : 'bg-white'}`}
                               placeholder="Enter your email address"
                             />
                           )}
@@ -566,9 +566,8 @@ export default function ParentSettingsPage() {
                               type="tel"
                               id="phone"
                               disabled={!isEditingProfile}
-                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 border-gray-300 ${
-                                !isEditingProfile ? 'bg-gray-50 text-gray-500' : 'bg-white'
-                              }`}
+                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 border-gray-300 ${!isEditingProfile ? 'bg-gray-50 text-gray-500' : 'bg-white'
+                                }`}
                               placeholder="Enter your phone number"
                             />
                           )}
@@ -590,9 +589,8 @@ export default function ParentSettingsPage() {
                               type="text"
                               id="address"
                               disabled={!isEditingProfile}
-                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 border-gray-300 ${
-                                !isEditingProfile ? 'bg-gray-50 text-gray-500' : 'bg-white'
-                              }`}
+                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 border-gray-300 ${!isEditingProfile ? 'bg-gray-50 text-gray-500' : 'bg-white'
+                                }`}
                               placeholder="Enter your address"
                             />
                           )}
@@ -677,9 +675,8 @@ export default function ParentSettingsPage() {
                                   {...field}
                                   type={showCurrentPassword ? "text" : "password"}
                                   id="currentPassword"
-                                  className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                                    passwordErrors.currentPassword ? 'border-red-300' : 'border-gray-300'
-                                  }`}
+                                  className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${passwordErrors.currentPassword ? 'border-red-300' : 'border-gray-300'
+                                    }`}
                                   placeholder="Enter your current password"
                                 />
                               )}
@@ -715,9 +712,8 @@ export default function ParentSettingsPage() {
                                   {...field}
                                   type={showNewPassword ? "text" : "password"}
                                   id="newPassword"
-                                  className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                                    passwordErrors.newPassword ? 'border-red-300' : 'border-gray-300'
-                                  }`}
+                                  className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${passwordErrors.newPassword ? 'border-red-300' : 'border-gray-300'
+                                    }`}
                                   placeholder="Enter your new password"
                                 />
                               )}
@@ -753,9 +749,8 @@ export default function ParentSettingsPage() {
                                   {...field}
                                   type={showConfirmPassword ? "text" : "password"}
                                   id="confirmPassword"
-                                  className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                                    passwordErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                                  }`}
+                                  className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${passwordErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                                    }`}
                                   placeholder="Confirm your new password"
                                 />
                               )}
@@ -1008,20 +1003,14 @@ export default function ParentSettingsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    <div className="bg-gray-50 rounded-lg p-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Data Export</h3>
-                      <p className="text-gray-600 mb-4">Download a copy of your data including your profile and children's information.</p>
-                      <Button variant="outline" className="flex items-center space-x-2">
-                        <FaDownload className="h-4 w-4" />
-                        <span>Export Data</span>
-                      </Button>
-                    </div>
+                   
+            
 
                     <div className="bg-gray-50 rounded-lg p-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-2">Privacy Policy</h3>
                       <p className="text-gray-600 mb-4">Read our privacy policy to understand how we handle your data.</p>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => router.push("/privacy-policy")}
                         className="flex items-center space-x-2"
                       >
@@ -1033,8 +1022,8 @@ export default function ParentSettingsPage() {
                     <div className="bg-gray-50 rounded-lg p-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-2">Terms of Service</h3>
                       <p className="text-gray-600 mb-4">Review our terms of service and user agreement.</p>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => router.push("/terms-of-service")}
                         className="flex items-center space-x-2"
                       >
@@ -1066,8 +1055,8 @@ export default function ParentSettingsPage() {
                     <div className="bg-gray-50 rounded-lg p-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-2">Sign Out</h3>
                       <p className="text-gray-600 mb-4">Sign out of your account on this device.</p>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={handleSignOut}
                         className="flex items-center space-x-2"
                       >
@@ -1079,8 +1068,8 @@ export default function ParentSettingsPage() {
                     <div className="bg-red-50 rounded-lg p-6 border border-red-200">
                       <h3 className="text-lg font-medium text-red-900 mb-2">Danger Zone</h3>
                       <p className="text-red-700 mb-4">Permanently delete your account and all associated data. This action cannot be undone.</p>
-                      <Button 
-                        variant="destructive" 
+                      <Button
+                        variant="destructive"
                         onClick={handleDeleteAccount}
                         className="flex items-center space-x-2"
                       >

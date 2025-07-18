@@ -203,8 +203,14 @@ const menuItems = [
       {
         icon: FaCog,
         label: "Settings",
+        href: "/parent/settings",
+        visible: ["parent"],
+      },
+      {
+        icon: FaCog,
+        label: "Settings",
         href: "/settings",
-        visible: ["admin", "teacher", "parent"],
+        visible: ["admin", "teacher"],
       },
       {
         icon: FaSignOutAlt,

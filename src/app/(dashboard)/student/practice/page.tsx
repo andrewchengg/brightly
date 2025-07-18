@@ -66,7 +66,7 @@ const subjects = [
   {
     id: 1,
     name: "Math",
-    subtitle: "AQA GCSE",
+    subtitle: "",
     icon: LuCalculator,
     topicsCount: 12,
     bgColor: "bg-gradient-to-br from-purple-100 to-purple-100",
@@ -80,7 +80,7 @@ const subjects = [
   {
     id: 4,
     name: "Chinese",
-    subtitle: "Mandarin Language",
+    subtitle: "",
     icon: FaGlobe,
     topicsCount: 6,
     bgColor: "bg-gradient-to-br from-amber-100 via-orange-50 to-red-100",
@@ -94,7 +94,7 @@ const subjects = [
   {
     id: 2,
     name: "Science",
-    subtitle: "Physics, Chemistry & Biology",
+    subtitle: "",
     icon: FaFlask,
     topicsCount: 8,
     bgColor: "bg-gradient-to-br from-gray-100 via-gray-50 to-slate-100",
@@ -109,7 +109,7 @@ const subjects = [
   {
     id: 3,
     name: "English",
-    subtitle: "Language & Literature",
+    subtitle: "",
     icon: FaBook,
     topicsCount: 10,
     bgColor: "bg-gradient-to-br from-gray-100 via-gray-50 to-slate-100",
