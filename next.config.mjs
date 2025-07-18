@@ -48,6 +48,15 @@ const nextConfig = {
   },
   // Configure output for standalone deployment
   output: "standalone",
+  // Set to true to enable static export
+  // This will disable server components in the build
+  // which is appropriate for deployment to static hosting environments
+  // like Render's static sites
+  staticPageGenerationTimeout: 180,
+  experimental: {
+    // Allow more time for static rendering
+    serverComponentsExternalPackages: ["canvas"],
+  },
 };
 
 export default nextConfig;

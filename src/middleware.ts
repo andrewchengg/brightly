@@ -4,7 +4,17 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { routeAccessMap } from "./lib/settings";
 import { getFallbackUserRole } from "./lib/secure-auth-fallback";
 
+// Skip middleware during build time
+const isBuildTime =
+  process.env.NEXT_PUBLIC_BUILD_MODE === "production" &&
+  !process.env.NEXT_RUNTIME;
+
 export async function middleware(req: NextRequest) {
+  // Skip middleware during build time
+  if (isBuildTime) {
+    return NextResponse.next();
+  }
+
   const res = NextResponse.next();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

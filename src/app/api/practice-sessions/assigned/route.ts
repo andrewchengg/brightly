@@ -1,3 +1,6 @@
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { PracticeSessionStatus, PracticeSessionType } from "@/generated/prisma";
@@ -55,4 +58,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

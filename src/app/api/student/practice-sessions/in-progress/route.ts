@@ -1,3 +1,6 @@
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "../../../../../generated/prisma/client";
 
