@@ -72,12 +72,13 @@ export async function GET(
   try {
     console.log(`API: Fetching Question Group with ID: ${questionGroupId}`);
 
+    // First, get the question group to check what subject the questions belong to
     const questionGroupData = await prisma.questionGroup.findUnique({
       where: { id: questionGroupId },
       include: {
         questions: {
-          where: { productionReady: true }, // Only fetch production-ready questions for students
-          orderBy: { questionNumberOnPage: "asc" }, // Or some other logical order
+          // Get a sample question to determine the subject
+          take: 1,
           include: {
             topic: {
               select: { id: true, name: true, subjectId: true },
@@ -98,18 +99,64 @@ export async function GET(
       );
     }
 
-    if (
-      !questionGroupData.questions ||
-      questionGroupData.questions.length === 0
-    ) {
-      console.warn(
-        `API: Question Group ${questionGroupId} has no production-ready questions.`
+    // Determine if this is a Chinese question group
+    const isChineseGroup =
+      questionGroupData.questions.length > 0 &&
+      questionGroupData.questions[0].topic?.subjectId === 4;
+
+    // Build the where clause based on subject
+    const questionsWhere: any = {};
+
+    if (isChineseGroup) {
+      // For Chinese questions, allow productionReady = false
+      console.log(
+        `API: Chinese question group detected, allowing productionReady = false`
       );
+    } else {
+      // For other subjects, only show production-ready questions
+      questionsWhere.productionReady = true;
+    }
+
+    // Now fetch the complete question group data with appropriate filtering
+    const completeQuestionGroupData = await prisma.questionGroup.findUnique({
+      where: { id: questionGroupId },
+      include: {
+        questions: {
+          where: questionsWhere,
+          orderBy: { questionNumberOnPage: "asc" }, // Or some other logical order
+          include: {
+            topic: {
+              select: { id: true, name: true, subjectId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!completeQuestionGroupData) {
+      return NextResponse.json(
+        {
+          error: {
+            message: `Question Group with ID ${questionGroupId} not found.`,
+          },
+        },
+        { status: 404 }
+      );
+    }
+
+    if (
+      !completeQuestionGroupData.questions ||
+      completeQuestionGroupData.questions.length === 0
+    ) {
+      const warningMsg = isChineseGroup
+        ? `Question Group ${questionGroupId} has no Chinese questions available.`
+        : `Question Group ${questionGroupId} has no production-ready questions.`;
+      console.warn(`API: ${warningMsg}`);
       // You might still want to return the group info if it has a passage, even with no questions yet
       // return NextResponse.json({ error: { message: `No questions found for Question Group ID ${questionGroupId}.` } }, { status: 404 });
     }
 
-    const formattedQuestions = questionGroupData.questions.map((q) => {
+    const formattedQuestions = completeQuestionGroupData.questions.map((q) => {
       let clientCorrectAnswer = q.correctAnswer;
       if (typeof q.correctAnswer === "string") {
         try {
@@ -145,12 +192,12 @@ export async function GET(
     const responsePayload = {
       questionGroup: {
         // Send necessary group info
-        id: questionGroupData.id,
-        name: questionGroupData.name,
-        description: questionGroupData.description, // This is the passage text
-        audioUrl: questionGroupData.audioUrl,
-        sourceYear: questionGroupData.sourceYear,
-        sourceAssessmentType: questionGroupData.sourceAssessmentType,
+        id: completeQuestionGroupData.id,
+        name: completeQuestionGroupData.name,
+        description: completeQuestionGroupData.description, // This is the passage text
+        audioUrl: completeQuestionGroupData.audioUrl,
+        sourceYear: completeQuestionGroupData.sourceYear,
+        sourceAssessmentType: completeQuestionGroupData.sourceAssessmentType,
       },
       questions: formattedQuestions,
     };

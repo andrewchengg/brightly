@@ -1996,12 +1996,6 @@ export default function TopicalPracticePage() {
               >
                 <FaChartBar className="mr-2" /> View All Results
               </Button>
-              <Button
-                onClick={restartTopicalPractice}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700"
-              >
-                <FaRocket className="mr-2" /> Practice This Topic Again
-              </Button>
             </div>
           </div>
         </div>

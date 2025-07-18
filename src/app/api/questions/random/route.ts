@@ -83,14 +83,34 @@ export async function GET(request: Request) {
     const subjectIdParam = searchParams.get("subjectId");
 
     // Build where clause with strict validation
-    const whereClause: any = {
-      productionReady: true, // Always filter for production ready questions
-    };
+    const whereClause: any = {};
+
+    // Check if we need to determine the subject from the topic
+    let isChineseSubject = false;
 
     if (topicIdParam) {
       const topicId = parseInt(topicIdParam, 10);
       if (!isNaN(topicId)) {
         whereClause.topicId = topicId;
+
+        // If only topicId is provided, we need to check which subject this topic belongs to
+        if (!subjectIdParam) {
+          try {
+            const topic = await prisma.topic.findUnique({
+              where: { id: topicId },
+              select: { subjectId: true, name: true },
+            });
+
+            if (topic) {
+              isChineseSubject = topic.subjectId === 4;
+              console.log(
+                `API: Topic ${topicId} (${topic.name}) belongs to subject ${topic.subjectId}, isChineseSubject: ${isChineseSubject}`
+              );
+            }
+          } catch (error) {
+            console.error("API: Error checking topic subject:", error);
+          }
+        }
       } else {
         console.warn("API: Invalid topicId received:", topicIdParam);
       }
@@ -100,9 +120,21 @@ export async function GET(request: Request) {
       const subjectId = parseInt(subjectIdParam, 10);
       if (!isNaN(subjectId)) {
         whereClause.subjectId = subjectId;
+        isChineseSubject = subjectId === 4;
       } else {
         console.warn("API: Invalid subjectId received:", subjectIdParam);
       }
+    }
+
+    // Apply productionReady filter based on subject
+    if (isChineseSubject) {
+      // For Chinese, don't filter by productionReady (allow both true and false)
+      console.log(
+        "API: Allowing Chinese questions with productionReady = false"
+      );
+    } else {
+      // For other subjects, only show production-ready questions
+      whereClause.productionReady = true;
     }
 
     // Fetch ALL questions matching the criteria from the database first
@@ -126,6 +158,10 @@ export async function GET(request: Request) {
     });
 
     if (allMatchingQuestions.length === 0) {
+      console.log(
+        "API: No questions found with whereClause:",
+        JSON.stringify(whereClause, null, 2)
+      );
       return NextResponse.json(
         { error: { message: "No questions found matching the criteria" } },
         { status: 404 }

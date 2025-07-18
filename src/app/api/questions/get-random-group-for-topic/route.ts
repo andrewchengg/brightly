@@ -27,13 +27,40 @@ export async function GET(request: NextRequest) {
   try {
     console.log(`API: Finding a question group for topicId: ${topicId}`);
 
+    // First, check if this topic belongs to Chinese (subjectId 4)
+    const topic = await prisma.topic.findUnique({
+      where: { id: topicId },
+      select: { subjectId: true, name: true },
+    });
+
+    if (!topic) {
+      return NextResponse.json(
+        { error: { message: `Topic with ID ${topicId} not found.` } },
+        { status: 404 }
+      );
+    }
+
+    const isChineseTopic = topic.subjectId === 4;
+
+    // Build where clause based on subject
+    const whereClause: any = {
+      topicId: topicId,
+      questionGroupId: { not: null },
+    };
+
+    if (isChineseTopic) {
+      // For Chinese topics, allow questions with productionReady = false
+      console.log(
+        `API: Chinese topic detected (${topic.name}), allowing productionReady = false`
+      );
+    } else {
+      // For other subjects, only fetch production-ready questions
+      whereClause.productionReady = true;
+    }
+
     // Find questions belonging to this topic that also have a questionGroupId
     const questionsInTopicWithGroup = await prisma.question.findMany({
-      where: {
-        topicId: topicId,
-        questionGroupId: { not: null },
-        productionReady: true, // Only fetch production-ready questions for math practice
-      },
+      where: whereClause,
       select: {
         questionGroupId: true,
       },
@@ -41,10 +68,14 @@ export async function GET(request: NextRequest) {
     });
 
     if (!questionsInTopicWithGroup || questionsInTopicWithGroup.length === 0) {
+      const errorMsg = isChineseTopic
+        ? `No question groups found with Chinese questions for topic ID ${topicId}.`
+        : `No question groups found with production-ready questions for topic ID ${topicId}.`;
+
       return NextResponse.json(
         {
           error: {
-            message: `No question groups found with production-ready questions for topic ID ${topicId}.`,
+            message: errorMsg,
           },
         },
         { status: 404 }

@@ -36,7 +36,7 @@ import {
   FaRegListAlt,
 } from "react-icons/fa";
 
-import PassageDisplay from "@/components/Practice/PassageDisplay";
+import PassageDisplay from "@/components/Practice/ChinesePassageDisplay";
 import ConfettiComponent from "@/components/Confetti";
 import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import {
@@ -976,6 +976,12 @@ export default function ClozePassagePracticePage() {
           totalQuestions: questions.length,
           score: score,
           correctAnswers: questionResults.filter((r) => r.correct).length,
+          totalMarksEarned: score,
+          totalPossibleMarks: questions.reduce(
+            (sum, q) => sum + (q.marks || 0),
+            0
+          ),
+          xpEarned: 0,
         }}
       />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm sticky top-0 z-10">
@@ -1002,14 +1008,14 @@ export default function ClozePassagePracticePage() {
           }}
         >
           <PassageDisplay
-            passageTitle={passageTitle}
-            passageContent={passageContent}
+            title={passageTitle}
+            content={passageContent || ""}
+            audioUrl={null}
             questions={questions}
             answeredQuestions={answeredQuestions}
             onAnswerSelect={handleInlineAnswerSelect}
             submitted={sessionFinalized}
             questionResults={questionResults}
-            onAddTextToAIContext={addTextToAI}
           />
           {noQuestionsAndNoPassage && (
             <p className="text-center text-gray-500 py-10">
@@ -1074,14 +1080,6 @@ export default function ClozePassagePracticePage() {
                 >
                   <FaChartBar className="mr-2" />
                   View Detailed Summary
-                </Button>
-                <Button
-                  onClick={restartPractice}
-                  variant="outline"
-                  className="border-green-600 text-green-700 hover:bg-green-50"
-                >
-                  <FaRedo className="mr-2" />
-                  Practice Again
                 </Button>
               </div>
             </div>
