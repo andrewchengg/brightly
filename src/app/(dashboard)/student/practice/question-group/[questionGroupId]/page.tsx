@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
 import {
@@ -126,8 +126,10 @@ interface PracticeProgress {
 export default function QuestionGroupPracticePage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const questionGroupIdParam = params.questionGroupId as string;
   const numericQuestionGroupId = parseInt(questionGroupIdParam, 10);
+  const existingSessionId = searchParams.get("sessionId");
 
   const [passageTitle, setPassageTitle] = useState<string>("");
   const [passageContent, setPassageContent] = useState<string | null>(null); // Initialize as null
@@ -428,6 +430,137 @@ export default function QuestionGroupPracticePage() {
     localStorageKey,
   ]);
 
+  const loadExistingSession = useCallback(async () => {
+    if (
+      !userId ||
+      !numericQuestionGroupId ||
+      isNaN(numericQuestionGroupId) ||
+      !existingSessionId
+    ) {
+      setError("Invalid session ID or user information missing.");
+      return;
+    }
+
+    if (localStorageKey) safeStorage.removeItem(localStorageKey, "local");
+    setLoading("resuming-session");
+    setError(null);
+    setPassageTitle("");
+    setPassageContent(null); // Reset to null initially
+    setPassageAudioUrl(null);
+    setQuestions([]);
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setAnsweredQuestions({});
+    setQuestionResults([]);
+    setSessionFinalized(false);
+    setAiMessage(null);
+    setChatHistory([]);
+    setCurrentPracticeSessionId(null);
+    setCurrentSubjectId(null);
+
+    try {
+      // First, get the session details to verify it's valid
+      const sessionResponse = await fetch(
+        `/api/practice-sessions/${existingSessionId}`
+      );
+      if (!sessionResponse.ok) {
+        throw new Error("Session not found or access denied");
+      }
+      const sessionData = await sessionResponse.json();
+
+      // Verify this session belongs to the current question group
+      if (sessionData.basedOnQuestionGroupId !== numericQuestionGroupId) {
+        throw new Error("Session does not match the current question group");
+      }
+
+      // Get the questions for this session
+      const questionsResponse = await fetch(
+        `/api/practice-session?sessionId=${existingSessionId}`
+      );
+      if (!questionsResponse.ok) {
+        throw new Error("Failed to load session questions");
+      }
+      const questionsData = await questionsResponse.json();
+
+      // Get the question group details
+      const groupResponse = await fetch(
+        `/api/questions/question-group/${numericQuestionGroupId}`
+      );
+      if (!groupResponse.ok) {
+        throw new Error("Failed to load question group details");
+      }
+      const groupData = await groupResponse.json();
+
+      console.log("📱 DEBUG: Loading from existing session:", {
+        sessionId: existingSessionId,
+        questionsCount: questionsData.questions?.length || 0,
+        questionGroupId: numericQuestionGroupId,
+        sessionType: sessionData.type,
+      });
+
+      // Set the session data
+      setCurrentPracticeSessionId(existingSessionId);
+      setCurrentSubjectId(sessionData.subjectId);
+      setPassageTitle(groupData.questionGroup?.name || "Passage Practice");
+      setPassageContent(groupData.questionGroup?.description || null);
+      setPassageAudioUrl(groupData.questionGroup?.audioUrl || null);
+      setQuestions(questionsData.questions || []);
+
+      // Calculate progress from student answers
+      const answeredQuestions: Record<number, string | Record<string, string>> =
+        {};
+      let currentQuestionIndex = 0;
+      let score = 0;
+      const questionResults: LocalStorageQuestionGroupPracticeProgress["questionResults"] =
+        [];
+
+      questionsData.questions?.forEach((question: any, index: number) => {
+        if (
+          question.submittedAnswer !== null &&
+          question.submittedAnswer !== undefined
+        ) {
+          answeredQuestions[question.id] = question.submittedAnswer;
+          currentQuestionIndex = index + 1; // Move to next question
+          if (question.isCorrect) {
+            score += question.pointsAwarded || 10;
+          }
+
+          questionResults.push({
+            id: question.id,
+            correct: question.isCorrect || false,
+            question: question.text,
+            userAnswer: question.submittedAnswer,
+            correctAnswer: question.correctAnswer,
+          });
+        }
+      });
+
+      setAnsweredQuestions(answeredQuestions);
+      setCurrentQuestionIndex(currentQuestionIndex);
+      setScore(score);
+      setQuestionResults(questionResults);
+      setSessionFinalized(false);
+
+      const shouldShowSummary =
+        currentQuestionIndex >= (questionsData.questions?.length || 0) &&
+        (questionsData.questions?.length || 0) > 0;
+
+      if (shouldShowSummary) {
+        console.log(
+          "📋 DEBUG: Setting showSummary to true based on existing session"
+        );
+        setShowSummary(true);
+      }
+    } catch (error: any) {
+      setError(`Failed to resume practice session: ${error.message}`);
+      setPassageTitle("Error Loading");
+      setPassageContent("Could not load passage content.");
+      setQuestions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, numericQuestionGroupId, existingSessionId, localStorageKey]);
+
   useEffect(() => {
     if (
       !userId ||
@@ -440,9 +573,14 @@ export default function QuestionGroupPracticePage() {
         numericQuestionGroupId &&
         !isNaN(numericQuestionGroupId) &&
         loading !== "fetching-group"
-      ) {
+      )
         setLoading(true);
-      }
+      return;
+    }
+
+    // If there's an existing session ID from URL, load that instead of localStorage
+    if (existingSessionId) {
+      loadExistingSession();
       return;
     }
 
@@ -519,6 +657,8 @@ export default function QuestionGroupPracticePage() {
     numericQuestionGroupId,
     fetchQuestionGroupAndStartSession,
     localStorageKey,
+    existingSessionId,
+    loadExistingSession,
   ]);
 
   useEffect(() => {

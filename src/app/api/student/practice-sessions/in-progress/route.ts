@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         totalQuestions: true,
         correctAnswers: true,
         totalMarksEarned: true,
+        basedOnQuestionGroupId: true, // Add this field for question group practice
         studentAnswers: {
           select: {
             id: true,
@@ -80,6 +81,7 @@ export async function GET(request: NextRequest) {
         correctAnswers: correctAnswers, // Use calculated value instead of stored value
         totalMarksEarned: session.totalMarksEarned,
         answeredQuestions: answeredQuestions, // Add this field for better progress tracking
+        basedOnQuestionGroupId: session.basedOnQuestionGroupId, // Include for question group practice
       };
     });
 

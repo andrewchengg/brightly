@@ -128,6 +128,9 @@ export default function ReadingComprehensionPassagePracticePage() {
   const questionGroupIdParam = params.questionGroupId as string;
   const numericQuestionGroupId = parseInt(questionGroupIdParam, 10);
 
+  // Default marks per question for reading comprehension
+  const DEFAULT_MARKS_PER_QUESTION = 2;
+
   // State variables (most are the same as the generic QuestionGroupPracticePage)
   const [passageTitle, setPassageTitle] = useState<string>("");
   const [passageContent, setPassageContent] = useState<string | null>(null);
@@ -607,10 +610,13 @@ export default function ReadingComprehensionPassagePracticePage() {
       const correctCount = questionResults.filter((r) => r.correct).length;
       const totalMarksEarned = questionResults.reduce((acc, result) => {
         const question = questions.find((q) => q.id === result.id);
-        return acc + (result.correct ? question?.marks || 1 : 0);
+        return (
+          acc +
+          (result.correct ? question?.marks || DEFAULT_MARKS_PER_QUESTION : 0)
+        );
       }, 0);
       const totalPossibleMarks = questions.reduce(
-        (acc, q) => acc + (q.marks || 1),
+        (acc, q) => acc + (q.marks || DEFAULT_MARKS_PER_QUESTION),
         0
       );
 
@@ -739,7 +745,9 @@ export default function ReadingComprehensionPassagePracticePage() {
         [currentQuestion.id]: userAns,
       }));
       setIsAnswerCorrect(isCorr);
-      const points = isCorr ? currentQuestion.marks || 0 : 0; // Use marks field only
+      const points = isCorr
+        ? currentQuestion.marks || DEFAULT_MARKS_PER_QUESTION
+        : 0; // Use marks field with default
       setQuestionResults((prevResults) => {
         /* ... same logic to update results ... */
         const newResult = {
@@ -903,7 +911,7 @@ export default function ReadingComprehensionPassagePracticePage() {
   }
   if (showSummary) {
     const totalPossibleScore = questions.reduce(
-      (acc, q) => acc + (q.marks || 0),
+      (acc, q) => acc + (q.marks || DEFAULT_MARKS_PER_QUESTION),
       0
     );
     const percentageCorrect =

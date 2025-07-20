@@ -60,6 +60,7 @@ interface InProgressSession {
   correctAnswers: number | null;
   totalMarksEarned: number | null;
   answeredQuestions?: number; // Add this field for better progress tracking
+  basedOnQuestionGroupId?: number; // Add this field for question group practice
 }
 
 // Define the subjects we want to display
@@ -182,6 +183,7 @@ export default function PracticePage() {
             totalQuestions: s.totalQuestions,
             status: s.status,
             startTime: s.startTime,
+            basedOnQuestionGroupId: s.basedOnQuestionGroupId, // Add this line
           })) || [],
       });
 
@@ -229,6 +231,26 @@ export default function PracticePage() {
       router.push(
         `/student/practice/topic/${session.topicId}?sessionId=${session.id}`
       );
+    } else if (session.type === "QUESTION_GROUP_PRACTICE") {
+      // For question group practice, we need to get the questionGroupId from the session
+      // Since we don't have it in the session data, we'll need to fetch it or store it
+      console.log(
+        "🎯 DEBUG: Navigating to question group practice:",
+        `/student/practice/question-group/${session.basedOnQuestionGroupId}?sessionId=${session.id}`
+      );
+      if (session.basedOnQuestionGroupId) {
+        router.push(
+          `/student/practice/question-group/${session.basedOnQuestionGroupId}?sessionId=${session.id}`
+        );
+      } else {
+        // Fallback to random practice if we can't determine the question group
+        console.log(
+          "⚠️ DEBUG: No questionGroupId found, falling back to random practice"
+        );
+        router.push(
+          `/student/practice/random?sessionId=${session.id}&subjectId=${session.subjectId}`
+        );
+      }
     } else if (session.type === "PRACTICE") {
       console.log(
         "🎯 DEBUG: Navigating to random practice:",
@@ -667,6 +689,8 @@ function ResumeSessionCard({ session, onResume }: ResumeSessionCardProps) {
         return "Topic Practice";
       case "PRACTICE":
         return "Random Practice";
+      case "QUESTION_GROUP_PRACTICE":
+        return "Passage Practice";
       case "WEEKLY_CHALLENGE":
         return "Weekly Challenge";
       default:
