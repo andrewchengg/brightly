@@ -13,8 +13,11 @@ import {
   DifficultyLevel,
 } from "@/generated/prisma";
 import safeStorage from "@/lib/safeStorage";
+import { soundEffects } from "@/lib/soundEffects";
 import { useSupabaseUser } from "@/lib/hooks/auth";
 import LevelUpNotification from "@/components/LevelUpNotification";
+import ConfettiComponent from "@/components/Confetti";
+import { triggerQuestRefresh } from "@/lib/quest-refresh";
 import {
   FaLightbulb,
   FaArrowLeft,
@@ -157,6 +160,7 @@ export default function ReadingComprehensionPassagePracticePage() {
   const [currentTopicId, setCurrentTopicId] = useState<number | null>(null);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
   const [progress, setProgress] = useState<ProgressState>({
     currentQuestion: 0,
     totalQuestions: 0,
@@ -333,13 +337,26 @@ export default function ReadingComprehensionPassagePracticePage() {
             setCurrentPracticeSessionId(progress.practiceSessionId);
             setCurrentSubjectId(progress.subjectId || null);
             setSessionFinalized(false);
-            if (
+            const shouldShowSummary =
               (progress.currentQuestionIndex || 0) >=
                 (progress.questions?.length || 0) &&
-              (progress.questions?.length || 0) > 0
-            ) {
+              (progress.questions?.length || 0) > 0;
+
+            console.log("📱 DEBUG: Loading from localStorage:", {
+              currentQuestionIndex: progress.currentQuestionIndex,
+              questionsLength: progress.questions?.length,
+              shouldShowSummary,
+              sessionId: progress.practiceSessionId,
+              sessionFinalized: false, // Always false as we fixed the bug
+            });
+
+            if (shouldShowSummary) {
+              console.log(
+                "📋 DEBUG: Setting showSummary to true based on localStorage"
+              );
               setShowSummary(true);
-              setSessionFinalized(true);
+              // Don't set sessionFinalized here - let the API call handle it
+              // setSessionFinalized(true);
             }
             resumableSessionFound = true;
           } else {
@@ -424,13 +441,99 @@ export default function ReadingComprehensionPassagePracticePage() {
   }, [currentQuestionIndex, questions, answeredQuestions]);
 
   // --- Core Logic Callbacks (awardXPAndStreak, saveStudentAnswerToDb, finalizePracticeSessionInDb) ---
-  // These can be largely shared or put into a custom hook `usePracticeSessionManagement`
   const awardXPAndStreak = useCallback(
     async (xpToAdd: number) => {
-      /* ... same general logic ... */ return null;
+      console.log("🎖️ DEBUG: awardXPAndStreak called with:", {
+        xpToAdd,
+        userId,
+        sessionFinalized,
+        shouldProceed: userId && !sessionFinalized && xpToAdd >= 0,
+      });
+
+      if (!userId || sessionFinalized || xpToAdd < 0) {
+        console.log("🚫 DEBUG: Early return from awardXPAndStreak:", {
+          hasUserId: !!userId,
+          sessionFinalized,
+          xpToAdd,
+        });
+        return null;
+      }
+
+      let levelUpDetails = null;
+
+      try {
+        if (xpToAdd > 0) {
+          console.log("💰 DEBUG: Awarding XP via API");
+          const xpResponse = await fetch("/api/user/award-xp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              xpAmount: xpToAdd,
+              activityType: "reading_comprehension_completion",
+            }),
+          });
+
+          console.log("📥 DEBUG: XP API response:", {
+            status: xpResponse.status,
+            ok: xpResponse.ok,
+          });
+
+          if (xpResponse.ok) {
+            const xpData = await xpResponse.json();
+            console.log("✅ DEBUG: XP awarded successfully:", xpData);
+            toast.success(`+${xpData.awarded || xpToAdd} XP earned!`);
+            if (xpData.leveledUp) {
+              levelUpDetails = {
+                newLevel: xpData.level,
+                previousLevel: xpData.previousLevel,
+              };
+              console.log("🎉 DEBUG: Level up detected:", levelUpDetails);
+            }
+          } else {
+            const errorData = await xpResponse
+              .json()
+              .catch(() => ({ error: "Failed to award XP" }));
+            console.warn("⚠️ DEBUG: XP awarding failed:", errorData);
+            toast.warn(
+              `Could not award XP: ${errorData.error || xpResponse.statusText}`
+            );
+          }
+        }
+
+        console.log("🔥 DEBUG: Updating streak");
+        const streakResponse = await fetch("/api/user/update-streak", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            activityType: "reading_comprehension_completion",
+          }),
+        });
+
+        console.log("📈 DEBUG: Streak API response:", {
+          status: streakResponse.status,
+          ok: streakResponse.ok,
+        });
+
+        if (streakResponse.ok) {
+          const streakData = await streakResponse.json();
+          console.log("✅ DEBUG: Streak updated:", streakData);
+        } else {
+          console.warn("⚠️ DEBUG: Streak update failed");
+        }
+      } catch (error) {
+        console.error("❌ DEBUG: Error in awardXPAndStreak:", error);
+        toast.error("An error occurred while updating your progress.");
+      }
+
+      console.log(
+        "🎯 DEBUG: awardXPAndStreak completed with result:",
+        levelUpDetails
+      );
+      return levelUpDetails;
     },
     [userId, sessionFinalized]
   );
+
   const saveStudentAnswerToDb = useCallback(
     async (
       question: QuestionClient,
@@ -438,22 +541,193 @@ export default function ReadingComprehensionPassagePracticePage() {
       isCorrect: boolean,
       points: number
     ) => {
-      /* ... same ... */
+      if (!currentPracticeSessionId) {
+        toast.error("Error saving: No active session.");
+        return;
+      }
+      try {
+        const response = await fetch("/api/student-answers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            practiceSessionId: currentPracticeSessionId,
+            questionId: question.id,
+            submittedAnswer: userAnswer,
+            isCorrect,
+            pointsEarned: points,
+            attemptedAt: new Date().toISOString(),
+          }),
+        });
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || "Failed to save answer");
+        }
+      } catch (err: any) {
+        toast.error(`Answer save failed: ${err.message}`);
+      }
     },
     [currentPracticeSessionId]
   );
+
   const finalizePracticeSessionInDb = useCallback(async () => {
-    /* ... same ... */
+    console.log(
+      "🎯 DEBUG: finalizePracticeSessionInDb called with conditions:",
+      {
+        currentPracticeSessionId,
+        userId,
+        sessionFinalized,
+        localStorageKey,
+        showSummary,
+        questionsLength: questions.length,
+        currentQuestionIndex,
+        questionResults: questionResults.length,
+      }
+    );
+
+    if (
+      !currentPracticeSessionId ||
+      !userId ||
+      sessionFinalized ||
+      !localStorageKey
+    ) {
+      console.log("🚫 DEBUG: Early return from finalizePracticeSessionInDb:", {
+        hasSessionId: !!currentPracticeSessionId,
+        hasUserId: !!userId,
+        sessionFinalized,
+        hasLocalStorageKey: !!localStorageKey,
+      });
+      return;
+    }
+
+    console.log("✅ DEBUG: Proceeding with session finalization");
+    setLoading("submitting");
+
+    try {
+      const calculatedScore = score;
+      const correctCount = questionResults.filter((r) => r.correct).length;
+      const totalMarksEarned = questionResults.reduce((acc, result) => {
+        const question = questions.find((q) => q.id === result.id);
+        return acc + (result.correct ? question?.marks || 1 : 0);
+      }, 0);
+      const totalPossibleMarks = questions.reduce(
+        (acc, q) => acc + (q.marks || 1),
+        0
+      );
+
+      console.log("📊 DEBUG: Calculated session stats:", {
+        calculatedScore,
+        correctCount,
+        totalMarksEarned,
+        totalPossibleMarks,
+        sessionId: currentPracticeSessionId,
+      });
+
+      const requestBody = {
+        sessionId: currentPracticeSessionId,
+        score: calculatedScore,
+        correctAnswers: correctCount,
+        xpEarned: calculatedScore,
+        totalMarksEarned,
+        totalPossibleMarks,
+      };
+
+      console.log("📤 DEBUG: Sending completion request:", requestBody);
+
+      const response = await fetch(`/api/practice-session/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log("📥 DEBUG: Completion API response:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        console.error("❌ DEBUG: API error response:", errData);
+        throw new Error(errData.error || "Failed to finalize session");
+      }
+
+      const data = await response.json();
+      console.log("✅ DEBUG: Session completion successful:", data);
+
+      setSessionFinalized(true);
+      console.log("🎉 DEBUG: Session marked as finalized");
+
+      // Trigger confetti for session completion
+      setShowConfetti(true);
+
+      const levelUpInfo = await awardXPAndStreak(calculatedScore);
+      console.log("🎖️ DEBUG: XP and streak awarded:", levelUpInfo);
+
+      if (levelUpInfo) {
+        setNewLevel(levelUpInfo.newLevel);
+        setShowLevelUp(true);
+        soundEffects.playLevelUpSound();
+      }
+
+      safeStorage.removeItem(localStorageKey, "local");
+      console.log("🗑️ DEBUG: LocalStorage cleared");
+
+      toast.success("Reading comprehension completed and results saved!");
+
+      // Refresh quest progress after completion
+      triggerQuestRefresh();
+      console.log("🎯 DEBUG: Quest refresh triggered");
+    } catch (err: any) {
+      console.error("❌ DEBUG: Session finalization error:", err);
+      toast.error(`Session finalization error: ${err.message}`);
+    } finally {
+      setLoading(false);
+      console.log("🏁 DEBUG: finalizePracticeSessionInDb completed");
+    }
   }, [
     currentPracticeSessionId,
     userId,
     score,
     questionResults,
+    questions,
     awardXPAndStreak,
     sessionFinalized,
     localStorageKey,
     setNewLevel,
     setShowLevelUp,
+  ]);
+
+  // Auto-finalize when summary is shown but session isn't finalized
+  useEffect(() => {
+    console.log("🔍 DEBUG: Auto-finalization useEffect triggered with:", {
+      showSummary,
+      sessionFinalized,
+      currentPracticeSessionId,
+      questionsLength: questions.length,
+      shouldAutoFinalize:
+        showSummary &&
+        !sessionFinalized &&
+        currentPracticeSessionId &&
+        questions.length > 0,
+    });
+
+    if (
+      showSummary &&
+      !sessionFinalized &&
+      currentPracticeSessionId &&
+      questions.length > 0
+    ) {
+      console.log(
+        "🎯 DEBUG: Auto-finalizing session because summary is shown but session not finalized"
+      );
+      finalizePracticeSessionInDb();
+    }
+  }, [
+    showSummary,
+    sessionFinalized,
+    currentPracticeSessionId,
+    questions.length,
+    finalizePracticeSessionInDb,
   ]);
 
   // --- Answer Submission for Cloze (MCQ) ---
@@ -465,7 +739,7 @@ export default function ReadingComprehensionPassagePracticePage() {
         [currentQuestion.id]: userAns,
       }));
       setIsAnswerCorrect(isCorr);
-      const points = isCorr ? (currentQuestion.marks || 0) : 0; // Use marks field only
+      const points = isCorr ? currentQuestion.marks || 0 : 0; // Use marks field only
       setQuestionResults((prevResults) => {
         /* ... same logic to update results ... */
         const newResult = {
@@ -513,6 +787,12 @@ export default function ReadingComprehensionPassagePracticePage() {
         ? correctOption.text
         : `ID: ${currentQuestion.correctAnswer}`;
 
+      // Trigger confetti and sound for correct answers
+      if (isCorrect) {
+        setShowConfetti(true);
+        soundEffects.playSuccessSound();
+      }
+
       handleSubmitAnswerForCloze(optionId, isCorrect);
     },
     [currentQuestion, selectedAnswer, handleSubmitAnswerForCloze]
@@ -524,6 +804,8 @@ export default function ReadingComprehensionPassagePracticePage() {
     setSelectedAnswer(null);
     if (questions.length === 0) {
       setShowSummary(true);
+      // Trigger confetti when showing results (session completion)
+      setShowConfetti(true);
       await finalizePracticeSessionInDb();
       return;
     }
@@ -531,6 +813,8 @@ export default function ReadingComprehensionPassagePracticePage() {
       setCurrentQuestionIndex((prevIndex) => prevIndex + 1);
     else {
       setShowSummary(true);
+      // Trigger confetti when showing results (session completion)
+      setShowConfetti(true);
       await finalizePracticeSessionInDb();
     }
   }, [currentQuestionIndex, questions.length, finalizePracticeSessionInDb]);
@@ -635,6 +919,10 @@ export default function ReadingComprehensionPassagePracticePage() {
             onClose={() => setShowLevelUp(false)}
           />
         )}
+        <ConfettiComponent
+          trigger={showConfetti}
+          onComplete={() => setShowConfetti(false)}
+        />
         <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
           <div className="p-6 md:p-8 bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-center">
             <FaBookReader className="text-5xl mx-auto mb-4 opacity-80" />
@@ -816,6 +1104,10 @@ export default function ReadingComprehensionPassagePracticePage() {
           onClose={() => setShowLevelUp(false)}
         />
       )}
+      <ConfettiComponent
+        trigger={showConfetti}
+        onComplete={() => setShowConfetti(false)}
+      />
       <div className="flex items-center h-14 border-b px-4 bg-white shadow-sm sticky top-0 z-10">
         <button
           onClick={exitToSubjectPractice}

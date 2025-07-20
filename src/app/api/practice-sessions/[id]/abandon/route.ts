@@ -11,12 +11,15 @@ export async function POST(
     const { id: sessionId } = params;
     const { reason, timestamp } = await request.json();
 
-    // Mark session as abandoned (using PAUSED status, server cleanup will handle)
+    console.log(`🗑️ Abandoning session ${sessionId} - Reason: ${reason}`);
+
+    // Mark session as abandoned (proper ABANDONED status)
     await prisma.practiceSession.update({
       where: { id: sessionId },
       data: {
-        status: "PAUSED", // Mark as paused, server cleanup will delete these
+        status: "ABANDONED", // Properly mark as abandoned
         endTime: new Date(timestamp),
+        abandonedAt: new Date(timestamp),
         updatedAt: new Date(timestamp),
       },
     });

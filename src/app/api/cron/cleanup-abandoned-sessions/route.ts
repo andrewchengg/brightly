@@ -15,7 +15,8 @@ export async function GET() {
       where: {
         OR: [
           { status: "IN_PROGRESS" },
-          { status: "PAUSED" }, // Include abandoned sessions
+          { status: "PAUSED" }, // Legacy abandoned sessions
+          { status: "ABANDONED" }, // New abandoned sessions
         ],
         startTime: {
           lt: cutoffTime,
@@ -45,6 +46,12 @@ export async function GET() {
 
     // Filter sessions that haven't had activity in the last 2 hours
     const trulyOrphanedSessions = orphanedSessions.filter((session) => {
+      // ABANDONED sessions can be cleaned up immediately
+      if (session.status === "ABANDONED") {
+        return true;
+      }
+
+      // For PAUSED (legacy) and IN_PROGRESS sessions, check activity
       if (session.studentAnswers.length === 0) {
         return true; // No answers at all, definitely orphaned
       }

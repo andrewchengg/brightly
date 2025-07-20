@@ -54,7 +54,8 @@ import ExitPracticeDialog from "@/components/ExitPracticeDialog";
 import ClozeQuestionOptions from "@/components/Practice/ClozeQuestionOptions";
 import { triggerQuestRefresh } from "@/lib/quest-refresh";
 import { DifficultyLevel } from "@/generated/prisma";
-import { cleanupPracticeSession } from "@/lib/session-management";
+import { useUngracefulExitDetection } from "@/lib/ungraceful-exit-handler";
+import { gracefulSessionExit } from "@/lib/session-management-v2";
 
 // Interfaces (similar to TopicalPracticePage)
 interface OptionClient {
@@ -173,6 +174,33 @@ export default function QuestionGroupPracticePage() {
   const [newLevel, setNewLevel] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const [sessionDeleted, setSessionDeleted] = useState(false);
+
+  // Delete session function for consistency
+  const deleteSession = useCallback(
+    async (sessionId: string, reason: string) => {
+      if (sessionDeleted) return;
+
+      console.log(
+        `🗑️ DEBUG: Deleting session ${sessionId} - Reason: ${reason}`
+      );
+      setSessionDeleted(true);
+
+      try {
+        await fetch(`/api/practice-sessions/${sessionId}/abandon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reason,
+            timestamp: new Date().toISOString(),
+          }),
+        });
+      } catch (error) {
+        console.warn("Failed to abandon session:", error);
+      }
+    },
+    [sessionDeleted]
+  );
 
   // Mobile detection state
   const [isMobile, setIsMobile] = useState(false);
@@ -187,6 +215,29 @@ export default function QuestionGroupPracticePage() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  // Enhanced session management with ungraceful exit detection
+  const ungracefulExitHandler = useUngracefulExitDetection(
+    currentPracticeSessionId,
+    !sessionFinalized
+  );
+
+  // Session heartbeat to track activity
+  // useSessionHeartbeat(currentPracticeSessionId); // Uncomment if needed
+
+  // Handle component unmount - just log, don't abandon session immediately
+  useEffect(() => {
+    return () => {
+      if (currentPracticeSessionId && !sessionFinalized) {
+        // Don't call gracefulSessionExit here - let users resume the session
+        // UngracefulExitHandler will handle timeout-based abandonment
+        console.log(
+          "🗑️ DEBUG: Component unmount - session will be handled by ungraceful exit detection:",
+          currentPracticeSessionId
+        );
+      }
+    };
+  }, [currentPracticeSessionId, sessionFinalized]);
 
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -211,61 +262,6 @@ export default function QuestionGroupPracticePage() {
       setUserId(authUser?.id || null);
     }
   }, [authUser, authUserIsLoaded]);
-
-  // Delete session when user closes window or navigates away (only if not completed)
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (currentPracticeSessionId && !sessionFinalized) {
-        console.log(
-          "🗑️ DEBUG: Window closing - deleting incomplete session:",
-          currentPracticeSessionId
-        );
-        // Use sendBeacon for reliable cleanup during page unload
-        navigator.sendBeacon(
-          `/api/practice-sessions/${currentPracticeSessionId}`,
-          JSON.stringify({ method: "DELETE" })
-        );
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
-        console.log(
-          "🗑️ DEBUG: Page hidden - deleting incomplete session:",
-          currentPracticeSessionId
-        );
-        // User switched tabs or minimized - clean up session
-        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-          method: "DELETE",
-        }).catch((err) => {
-          console.warn("Failed to delete session on visibility change:", err);
-        });
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      // Final cleanup on component unmount - only delete if not completed
-      if (currentPracticeSessionId && !sessionFinalized) {
-        console.log(
-          "🗑️ DEBUG: Component unmount - deleting incomplete session:",
-          currentPracticeSessionId
-        );
-        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-          method: "DELETE",
-        }).catch(() => {});
-      } else if (currentPracticeSessionId && sessionFinalized) {
-        console.log(
-          "✅ DEBUG: Component unmount - keeping completed session:",
-          currentPracticeSessionId
-        );
-      }
-    };
-  }, [currentPracticeSessionId, sessionFinalized]);
 
   const createNewQuestionGroupPracticeSession = useCallback(
     async (fetchedQuestions: QuestionClient[], groupData: QuestionGroup) => {
@@ -400,6 +396,15 @@ export default function QuestionGroupPracticePage() {
         fetchedQuestions,
         data.questionGroup
       );
+
+      console.log("🆕 DEBUG: New session created:", {
+        sessionId: newSessionId,
+        questionsCount: fetchedQuestions.length,
+        questionGroupId: numericQuestionGroupId,
+        passageTitle: data.questionGroup.name,
+        hasPassageContent: !!data.questionGroup.description,
+      });
+
       if (!newSessionId) {
         setError(
           "Fetched content but failed to start a new practice session in the database."
@@ -471,13 +476,27 @@ export default function QuestionGroupPracticePage() {
             setCurrentPracticeSessionId(progress.practiceSessionId);
             setCurrentSubjectId(progress.subjectId || null);
             setSessionFinalized(false);
-            if (
+
+            const shouldShowSummary =
               (progress.currentQuestionIndex || 0) >=
                 (progress.questions?.length || 0) &&
-              (progress.questions?.length || 0) > 0
-            ) {
+              (progress.questions?.length || 0) > 0;
+
+            console.log("📱 DEBUG: Loading from localStorage:", {
+              currentQuestionIndex: progress.currentQuestionIndex,
+              questionsLength: progress.questions?.length,
+              shouldShowSummary,
+              sessionId: progress.practiceSessionId,
+              sessionFinalized: false, // Always false as we fixed the bug
+            });
+
+            if (shouldShowSummary) {
+              console.log(
+                "📋 DEBUG: Setting showSummary to true based on localStorage"
+              );
               setShowSummary(true);
-              setSessionFinalized(true);
+              // Don't set sessionFinalized here - let the API call handle it
+              // setSessionFinalized(true);
             }
             resumableSessionFound = true;
           } else {
@@ -589,10 +608,27 @@ export default function QuestionGroupPracticePage() {
 
   const awardXPAndStreak = useCallback(
     async (xpToAdd: number) => {
-      if (!userId || sessionFinalized || xpToAdd < 0) return null;
+      console.log("🎖️ DEBUG: awardXPAndStreak called with:", {
+        xpToAdd,
+        userId,
+        sessionFinalized,
+        shouldProceed: userId && !sessionFinalized && xpToAdd >= 0,
+      });
+
+      if (!userId || sessionFinalized || xpToAdd < 0) {
+        console.log("🚫 DEBUG: Early return from awardXPAndStreak:", {
+          hasUserId: !!userId,
+          sessionFinalized,
+          xpToAdd,
+        });
+        return null;
+      }
+
       let levelUpDetails = null;
+
       try {
         if (xpToAdd > 0) {
+          console.log("💰 DEBUG: Awarding XP via API");
           const xpResponse = await fetch("/api/user/award-xp", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -601,31 +637,61 @@ export default function QuestionGroupPracticePage() {
               activityType: "question_group_completion",
             }),
           });
+
+          console.log("📥 DEBUG: XP API response:", {
+            status: xpResponse.status,
+            ok: xpResponse.ok,
+          });
+
           if (xpResponse.ok) {
             const xpData = await xpResponse.json();
+            console.log("✅ DEBUG: XP awarded successfully:", xpData);
             toast.success(`+${xpData.awarded || xpToAdd} XP earned!`);
-            if (xpData.leveledUp)
+            if (xpData.leveledUp) {
               levelUpDetails = {
                 newLevel: xpData.level,
                 previousLevel: xpData.previousLevel,
               };
+              console.log("🎉 DEBUG: Level up detected:", levelUpDetails);
+            }
           } else {
             const errorData = await xpResponse
               .json()
               .catch(() => ({ error: "Failed to award XP" }));
+            console.warn("⚠️ DEBUG: XP awarding failed:", errorData);
             toast.warn(
               `Could not award XP: ${errorData.error || xpResponse.statusText}`
             );
           }
         }
-        await fetch("/api/user/update-streak", {
+
+        console.log("🔥 DEBUG: Updating streak");
+        const streakResponse = await fetch("/api/user/update-streak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ activityType: "question_group_completion" }),
         });
+
+        console.log("📈 DEBUG: Streak API response:", {
+          status: streakResponse.status,
+          ok: streakResponse.ok,
+        });
+
+        if (streakResponse.ok) {
+          const streakData = await streakResponse.json();
+          console.log("✅ DEBUG: Streak updated:", streakData);
+        } else {
+          console.warn("⚠️ DEBUG: Streak update failed");
+        }
       } catch (error) {
+        console.error("❌ DEBUG: Error in awardXPAndStreak:", error);
         toast.error("An error occurred while updating your progress.");
       }
+
+      console.log(
+        "🎯 DEBUG: awardXPAndStreak completed with result:",
+        levelUpDetails
+      );
       return levelUpDetails;
     },
     [userId, sessionFinalized]
@@ -667,14 +733,38 @@ export default function QuestionGroupPracticePage() {
   );
 
   const finalizePracticeSessionInDb = useCallback(async () => {
+    console.log(
+      "🎯 DEBUG: finalizePracticeSessionInDb called with conditions:",
+      {
+        currentPracticeSessionId,
+        userId,
+        sessionFinalized,
+        localStorageKey,
+        showSummary,
+        questionsLength: questions.length,
+        currentQuestionIndex,
+        questionResults: questionResults.length,
+      }
+    );
+
     if (
       !currentPracticeSessionId ||
       !userId ||
       sessionFinalized ||
       !localStorageKey
-    )
+    ) {
+      console.log("🚫 DEBUG: Early return from finalizePracticeSessionInDb:", {
+        hasSessionId: !!currentPracticeSessionId,
+        hasUserId: !!userId,
+        sessionFinalized,
+        hasLocalStorageKey: !!localStorageKey,
+      });
       return;
+    }
+
+    console.log("✅ DEBUG: Proceeding with session finalization");
     setLoading("submitting");
+
     try {
       const calculatedScore = score;
       const correctCount = questionResults.filter((r) => r.correct).length;
@@ -687,47 +777,83 @@ export default function QuestionGroupPracticePage() {
         0
       );
 
+      console.log("📊 DEBUG: Calculated session stats:", {
+        calculatedScore,
+        correctCount,
+        totalMarksEarned,
+        totalPossibleMarks,
+        sessionId: currentPracticeSessionId,
+      });
+
+      const requestBody = {
+        sessionId: currentPracticeSessionId,
+        score: calculatedScore,
+        correctAnswers: correctCount,
+        xpEarned: calculatedScore,
+        totalMarksEarned,
+        totalPossibleMarks,
+      };
+
+      console.log("📤 DEBUG: Sending completion request:", requestBody);
+
       const response = await fetch(`/api/practice-session/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: currentPracticeSessionId,
-          score: calculatedScore,
-          correctAnswers: correctCount,
-          xpEarned: calculatedScore,
-          totalMarksEarned,
-          totalPossibleMarks,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log("📥 DEBUG: Completion API response:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+      });
+
       if (!response.ok) {
         const errData = await response.json();
+        console.error("❌ DEBUG: API error response:", errData);
         throw new Error(errData.error || "Failed to finalize session");
       }
 
       const data = await response.json();
+      console.log("✅ DEBUG: Session completion successful:", data);
+
       const { session } = data;
 
       setSessionFinalized(true);
+      console.log("🎉 DEBUG: Session marked as finalized");
+
+      // Notify ungraceful exit handler that session is completed
+      if (ungracefulExitHandler) {
+        ungracefulExitHandler.markAsCompleted();
+        console.log("🚪 DEBUG: Ungraceful exit handler notified");
+      }
 
       // Trigger confetti for session completion
       setShowConfetti(true);
 
       const levelUpInfo = await awardXPAndStreak(calculatedScore);
+      console.log("🎖️ DEBUG: XP and streak awarded:", levelUpInfo);
+
       if (levelUpInfo) {
         setNewLevel(levelUpInfo.newLevel);
         setShowLevelUp(true);
         soundEffects.playLevelUpSound();
       }
+
       safeStorage.removeItem(localStorageKey, "local");
+      console.log("🗑️ DEBUG: LocalStorage cleared");
+
       toast.success("Practice completed and results saved!");
 
       // Refresh quest progress after completion
       triggerQuestRefresh();
+      console.log("🎯 DEBUG: Quest refresh triggered");
     } catch (err: any) {
+      console.error("❌ DEBUG: Session finalization error:", err);
       toast.error(`Session finalization error: ${err.message}`);
-      console.error("Session finalization error:", err);
     } finally {
       setLoading(false);
+      console.log("🏁 DEBUG: finalizePracticeSessionInDb completed");
     }
   }, [
     currentPracticeSessionId,
@@ -740,6 +866,40 @@ export default function QuestionGroupPracticePage() {
     localStorageKey,
     setNewLevel,
     setShowLevelUp,
+    ungracefulExitHandler,
+  ]);
+
+  // Auto-finalize when summary is shown but session isn't finalized
+  useEffect(() => {
+    console.log("🔍 DEBUG: Auto-finalization useEffect triggered with:", {
+      showSummary,
+      sessionFinalized,
+      currentPracticeSessionId,
+      questionsLength: questions.length,
+      shouldAutoFinalize:
+        showSummary &&
+        !sessionFinalized &&
+        currentPracticeSessionId &&
+        questions.length > 0,
+    });
+
+    if (
+      showSummary &&
+      !sessionFinalized &&
+      currentPracticeSessionId &&
+      questions.length > 0
+    ) {
+      console.log(
+        "🎯 DEBUG: Auto-finalizing session because summary is shown but session not finalized"
+      );
+      finalizePracticeSessionInDb();
+    }
+  }, [
+    showSummary,
+    sessionFinalized,
+    currentPracticeSessionId,
+    questions.length,
+    finalizePracticeSessionInDb,
   ]);
 
   const handleSubmitAnswer = useCallback(
@@ -898,26 +1058,44 @@ export default function QuestionGroupPracticePage() {
   }, [currentQuestion, selectedAnswer, multiPartAnswers, handleSubmitAnswer]);
 
   const handleNextQuestion = useCallback(async () => {
+    console.log("➡️ DEBUG: handleNextQuestion called with:", {
+      currentQuestionIndex,
+      questionsLength: questions.length,
+      isLastQuestion: currentQuestionIndex >= questions.length - 1,
+      hasQuestions: questions.length > 0,
+    });
+
     setShowHint(false);
     setAiMessage(null);
     setSelectedAnswer(null);
     setTextAnswer("");
     setMultiPartAnswers({});
     setMultiPartResults({});
+
     if (questions.length === 0) {
+      console.log("📋 DEBUG: No questions, going to summary");
       // If no questions, go directly to summary
       setShowSummary(true);
       // Trigger confetti when showing results (session completion)
       setShowConfetti(true);
+      console.log(
+        "🎯 DEBUG: Calling finalizePracticeSessionInDb for no questions case"
+      );
       await finalizePracticeSessionInDb();
       return;
     }
+
     if (currentQuestionIndex < questions.length - 1) {
+      console.log("⏭️ DEBUG: Moving to next question");
       setCurrentQuestionIndex((prevIndex) => prevIndex + 1);
     } else {
+      console.log("🏁 DEBUG: Last question reached, showing summary");
       setShowSummary(true);
       // Trigger confetti when showing results (session completion)
       setShowConfetti(true);
+      console.log(
+        "🎯 DEBUG: Calling finalizePracticeSessionInDb for last question"
+      );
       await finalizePracticeSessionInDb();
     }
   }, [currentQuestionIndex, questions.length, finalizePracticeSessionInDb]);
@@ -931,30 +1109,31 @@ export default function QuestionGroupPracticePage() {
 
   const handleExitConfirm = useCallback(() => {
     console.log(
-      "🚪 DEBUG: User confirmed exit - checking session status and navigating"
+      "🚪 DEBUG: User confirmed exit - abandoning incomplete session and navigating"
     );
 
-    // Only delete session if it's not completed
+    // Force abandon session if it's not completed (explicit user exit)
     if (currentPracticeSessionId && !sessionFinalized) {
       console.log(
-        "🗑️ DEBUG: Deleting incomplete session:",
+        "🗑️ DEBUG: Force abandoning incomplete session:",
         currentPracticeSessionId
       );
-      fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-        method: "DELETE",
-      }).catch((err) => {
-        console.warn("Failed to delete practice session:", err);
+      gracefulSessionExit(
+        currentPracticeSessionId,
+        localStorageKey || undefined,
+        true // forceAbandon
+      ).catch((err) => {
+        console.warn("Failed to abandon practice session:", err);
       });
     } else if (currentPracticeSessionId && sessionFinalized) {
       console.log(
         "✅ DEBUG: Keeping completed session:",
         currentPracticeSessionId
       );
-    }
-
-    // Clear localStorage
-    if (localStorageKey) {
-      safeStorage.removeItem(localStorageKey, "local");
+      // Clear localStorage for completed sessions
+      if (localStorageKey) {
+        safeStorage.removeItem(localStorageKey, "local");
+      }
     }
 
     // Navigate away

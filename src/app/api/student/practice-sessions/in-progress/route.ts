@@ -18,13 +18,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Find all resumable sessions for the student (IN_PROGRESS and PAUSED)
+    // Find all resumable sessions for the student (only IN_PROGRESS, not PAUSED)
+    // PAUSED sessions are typically abandoned sessions and should not be resumable
     const inProgressSessions = await prisma.practiceSession.findMany({
       where: {
         studentId,
-        status: {
-          in: ["IN_PROGRESS", "PAUSED"],
-        },
+        status: "IN_PROGRESS", // Only include truly in-progress sessions
       },
       select: {
         id: true,

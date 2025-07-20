@@ -148,6 +148,7 @@ export default function ClozePassagePracticePage() {
   const [currentPracticeSessionId, setCurrentPracticeSessionId] = useState<
     string | null
   >(null);
+  const [sessionDeleted, setSessionDeleted] = useState(false); // Add flag to prevent multiple deletions
   const { user: authUser, isLoaded: authUserIsLoaded } = useSupabaseUser();
   const [userId, setUserId] = useState<string | null>(null);
   const [currentSubjectId, setCurrentSubjectId] = useState<number | null>(null);
@@ -164,6 +165,30 @@ export default function ClozePassagePracticePage() {
   const localStorageKey = userId
     ? `clozeInlinePracticeProgress_${userId}_${numericQuestionGroupId}`
     : null;
+
+  // Centralized session deletion function to prevent multiple deletions
+  const deleteSession = useCallback(
+    async (sessionId: string, reason: string) => {
+      if (sessionDeleted || sessionFinalized) {
+        console.log(
+          `🚫 Session deletion skipped (${reason}): Already deleted or finalized`
+        );
+        return;
+      }
+
+      console.log(`🗑️ Deleting session (${reason}):`, sessionId);
+      setSessionDeleted(true);
+
+      try {
+        await fetch(`/api/practice-sessions/${sessionId}`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.warn(`Failed to delete session (${reason}):`, error);
+      }
+    },
+    [sessionDeleted, sessionFinalized]
+  );
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [progress, setProgress] = useState<ProgressState>({
@@ -189,8 +214,10 @@ export default function ClozePassagePracticePage() {
 
   // Delete session when user closes window or navigates away (only if not completed)
   useEffect(() => {
+    if (!currentPracticeSessionId) return;
+
     const handleBeforeUnload = () => {
-      if (currentPracticeSessionId && !sessionFinalized) {
+      if (currentPracticeSessionId && !sessionFinalized && !sessionDeleted) {
         console.log(
           "🗑️ DEBUG: Window closing - deleting incomplete session:",
           currentPracticeSessionId
@@ -204,17 +231,18 @@ export default function ClozePassagePracticePage() {
     };
 
     const handleVisibilityChange = () => {
-      if (document.hidden && currentPracticeSessionId && !sessionFinalized) {
+      if (
+        document.hidden &&
+        currentPracticeSessionId &&
+        !sessionFinalized &&
+        !sessionDeleted
+      ) {
         console.log(
           "🗑️ DEBUG: Page hidden - deleting incomplete session:",
           currentPracticeSessionId
         );
         // User switched tabs or minimized - clean up session
-        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-          method: "DELETE",
-        }).catch((err) => {
-          console.warn("Failed to delete session on visibility change:", err);
-        });
+        deleteSession(currentPracticeSessionId, "visibility change");
       }
     };
 
@@ -225,14 +253,12 @@ export default function ClozePassagePracticePage() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       // Final cleanup on component unmount - only delete if not completed
-      if (currentPracticeSessionId && !sessionFinalized) {
+      if (currentPracticeSessionId && !sessionFinalized && !sessionDeleted) {
         console.log(
           "🗑️ DEBUG: Component unmount - deleting incomplete session:",
           currentPracticeSessionId
         );
-        fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-          method: "DELETE",
-        }).catch(() => {});
+        deleteSession(currentPracticeSessionId, "component unmount");
       } else if (currentPracticeSessionId && sessionFinalized) {
         console.log(
           "✅ DEBUG: Component unmount - keeping completed session:",
@@ -240,7 +266,12 @@ export default function ClozePassagePracticePage() {
         );
       }
     };
-  }, [currentPracticeSessionId, sessionFinalized]);
+  }, [
+    currentPracticeSessionId,
+    sessionFinalized,
+    sessionDeleted,
+    deleteSession,
+  ]);
 
   const createNewSession = useCallback(
     async (fetchedQuestions: QuestionClient[], groupData: QuestionGroup) => {
@@ -250,6 +281,7 @@ export default function ClozePassagePracticePage() {
       }
       const firstQSubjectId = fetchedQuestions[0]?.topic?.subjectId;
       setCurrentSubjectId(firstQSubjectId || null);
+      setSessionDeleted(false); // Reset deletion flag for new session
       try {
         const response = await fetch("/api/practice-session", {
           method: "POST",
@@ -298,6 +330,7 @@ export default function ClozePassagePracticePage() {
     setSessionFinalized(false);
     setCurrentPracticeSessionId(null);
     setCurrentSubjectId(null);
+    setSessionDeleted(false); // Reset deletion flag when starting new session
     try {
       const response = await fetch(
         `/api/questions/question-group/${numericQuestionGroupId}`
@@ -648,12 +681,8 @@ export default function ClozePassagePracticePage() {
     );
 
     // Delete session immediately
-    if (currentPracticeSessionId) {
-      fetch(`/api/practice-sessions/${currentPracticeSessionId}`, {
-        method: "DELETE",
-      }).catch((err) => {
-        console.warn("Failed to delete practice session:", err);
-      });
+    if (currentPracticeSessionId && !sessionDeleted) {
+      deleteSession(currentPracticeSessionId, "user exit");
     }
 
     // Clear localStorage
@@ -661,13 +690,15 @@ export default function ClozePassagePracticePage() {
       safeStorage.removeItem(localStorageKey, "local");
     }
 
-    // Navigate away
-    if (currentSubjectId) {
-      router.push(`/student/practice/subject/${currentSubjectId}`);
-    } else {
-      router.push("/student/practice/subject/4");
-    }
-  }, [currentSubjectId, router, currentPracticeSessionId, localStorageKey]);
+    // Navigate back
+    router.push("/student/practice");
+  }, [
+    currentPracticeSessionId,
+    sessionDeleted,
+    deleteSession,
+    localStorageKey,
+    router,
+  ]);
 
   const exitToSubjectPractice = useCallback(() => {
     setShowExitDialog(true);
