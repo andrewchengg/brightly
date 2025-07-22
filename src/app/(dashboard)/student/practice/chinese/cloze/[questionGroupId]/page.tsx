@@ -127,6 +127,9 @@ export default function ClozePassagePracticePage() {
   const questionGroupIdParam = params.questionGroupId as string;
   const numericQuestionGroupId = parseInt(questionGroupIdParam, 10);
 
+  // Default marks per question for cloze passages
+  const DEFAULT_MARKS_PER_QUESTION = 2;
+
   // State variables
   const [passageTitle, setPassageTitle] = useState<string>("");
   const [passageContent, setPassageContent] = useState<string | null>(null);
@@ -551,7 +554,30 @@ export default function ClozePassagePracticePage() {
       isCorrect: boolean,
       points: number
     ) => {
-      /* ... same logic ... */
+      if (!currentPracticeSessionId) {
+        toast.error("Error saving: No active session.");
+        return;
+      }
+      try {
+        const response = await fetch("/api/student-answers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            practiceSessionId: currentPracticeSessionId,
+            questionId: question.id,
+            submittedAnswer: userAnswer,
+            isCorrect,
+            pointsEarned: points,
+            attemptedAt: new Date().toISOString(),
+          }),
+        });
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || "Failed to save answer");
+        }
+      } catch (err: any) {
+        toast.error(`Answer save failed: ${err.message}`);
+      }
     },
     [currentPracticeSessionId]
   );
@@ -569,7 +595,8 @@ export default function ClozePassagePracticePage() {
         (sum, r) =>
           sum +
           (r.correct
-            ? questions.find((q) => q.id === r.id)?.pointsAwarded || 2
+            ? questions.find((q) => q.id === r.id)?.marks ||
+              DEFAULT_MARKS_PER_QUESTION
             : 0),
         0
       );
@@ -639,7 +666,7 @@ export default function ClozePassagePracticePage() {
           String(q.correctAnswer ?? "").toLowerCase() ===
           userAnswerId.toLowerCase();
         if (isCorrect) {
-          points = q.marks || 0;
+          points = q.marks || DEFAULT_MARKS_PER_QUESTION;
           calculatedScore += points;
         }
       }
@@ -783,7 +810,7 @@ export default function ClozePassagePracticePage() {
   }
   if (showSummary) {
     const totalPossibleScore = questions.reduce(
-      (acc, q) => acc + (q.marks || 0),
+      (acc, q) => acc + (q.marks || DEFAULT_MARKS_PER_QUESTION),
       0
     );
     const percentageCorrect =

@@ -213,17 +213,24 @@ function ParentChildSetupContent() {
   }, [currentStep, setValue]);
 
   const onSubmit = async (data: FormData) => {
+    console.log("🚀 [DEBUG] onSubmit called with data:", data);
+    console.log("🚀 [DEBUG] isLoading state:", isLoading);
+    console.log("🚀 [DEBUG] parentAuthUser:", parentAuthUser);
+
     if (!parentAuthUser || !parentAuthUser.email) {
+      console.log("❌ [DEBUG] Parent auth user missing");
       setFormError("Parent session or email not found. Please log in again.");
       return;
     }
 
     // Ensure childEmail is provided due to schema change
     if (!data.childEmail || !data.childEmail.trim()) {
+      console.log("❌ [DEBUG] Child email missing");
       setFormError("Child's email address is required.");
       return;
     }
 
+    console.log("🔄 [DEBUG] Setting isLoading to true");
     setIsLoading(true);
     setFormError(null);
     setSuccessMessage(null);
@@ -252,6 +259,15 @@ function ParentChildSetupContent() {
         data.childUsername || generateUsername(data.childFullName);
       const childAuthEmail = data.childEmail;
 
+      console.log("📝 [DEBUG] Generated child credentials:", {
+        childPin,
+        childUsername,
+        childAuthEmail,
+        childFullName: data.childFullName,
+        parentId: parentId,
+      });
+
+      console.log("🌐 [DEBUG] Making API call to create-child-user...");
       const childAuthUserResponse = await fetch("/api/auth/create-child-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -264,30 +280,57 @@ function ParentChildSetupContent() {
         }),
       });
 
+      console.log(
+        "📡 [DEBUG] API Response status:",
+        childAuthUserResponse.status
+      );
+
+      // Read the response body only once
+      const childAuthUserResponseText = await childAuthUserResponse.text();
+      console.log(
+        "📄 [DEBUG] Response text length:",
+        childAuthUserResponseText.length
+      );
+      console.log(
+        "📄 [DEBUG] Response text preview:",
+        childAuthUserResponseText.substring(0, 200)
+      );
+
       if (!childAuthUserResponse.ok) {
-        const errorText = await childAuthUserResponse.text();
-        const errorMessage = `Failed to create child auth user (${childAuthUserResponse.status}): ${errorText}`;
+        console.log(
+          "❌ [DEBUG] API call failed with status:",
+          childAuthUserResponse.status
+        );
+        const errorMessage = `Failed to create child auth user (${childAuthUserResponse.status}): ${childAuthUserResponseText}`;
         setFormError(errorMessage);
         return;
       }
 
-      const childAuthUserResponseText = await childAuthUserResponse.text();
       if (
         !childAuthUserResponseText ||
         childAuthUserResponseText.trim() === ""
       ) {
+        console.log("❌ [DEBUG] Empty response from API");
         const error = "Empty response from child user creation API.";
         setFormError(error);
         return;
       }
 
+      console.log("✅ [DEBUG] Parsing JSON response...");
       const childAuthUserResult = JSON.parse(childAuthUserResponseText);
+      console.log("✅ [DEBUG] Parsed result:", childAuthUserResult);
       const childAuthUser = childAuthUserResult.user;
 
       if (!childAuthUser || !childAuthUser.id) {
+        console.log("❌ [DEBUG] No child user ID in response");
         setFormError("Failed to retrieve child user ID after creation.");
         return;
       }
+
+      console.log(
+        "✅ [DEBUG] Child auth user created with ID:",
+        childAuthUser.id
+      );
 
       // Ensure schoolLevel is a proper number
       const schoolLevelNumber =
@@ -338,15 +381,20 @@ function ParentChildSetupContent() {
         updatedAt: currentTimestamp,
       };
 
+      console.log("💾 [DEBUG] Inserting student data:", studentData);
       const { error: studentInsertError, data: insertedStudent } =
         await supabase.from("Student").insert(studentData).select();
 
       if (studentInsertError) {
+        console.log("❌ [DEBUG] Student insert failed:", studentInsertError);
         setFormError(
           `Failed to save student details: ${studentInsertError.message}. Child auth account may need manual cleanup if issue persists.`
         );
         return;
       }
+
+      console.log("✅ [DEBUG] Student inserted successfully:", insertedStudent);
+      console.log("🎉 [DEBUG] Setting success state...");
 
       setGeneratedChildUsername(childUsername);
       setGeneratedChildPin(childPin);
@@ -354,6 +402,8 @@ function ParentChildSetupContent() {
       setSuccessMessage(
         "Child account created successfully! Please share the credentials below with your child."
       );
+
+      console.log("🔄 [DEBUG] Resetting form...");
       reset({
         parentFullName: data.parentFullName,
         parentEmail: data.parentEmail,
@@ -364,11 +414,17 @@ function ParentChildSetupContent() {
         childSchoolLevel: "",
         childSchoolName: "",
       });
+
+      console.log("✅ [DEBUG] Form submission completed successfully!");
     } catch (error: any) {
+      console.log("❌ [DEBUG] Caught error in onSubmit:", error);
+      console.log("❌ [DEBUG] Error message:", error.message);
+      console.log("❌ [DEBUG] Error stack:", error.stack);
       setFormError(
         error.message || "An unexpected error occurred during child setup."
       );
     } finally {
+      console.log("🔄 [DEBUG] Setting isLoading to false in finally block");
       setIsLoading(false);
     }
   };
@@ -764,7 +820,12 @@ function ParentChildSetupContent() {
                 Back
               </Button>
               <Button
-                onClick={handleSubmit(onSubmit)}
+                onClick={(e) => {
+                  console.log("🖱️ [DEBUG] Create Account button clicked");
+                  console.log("🖱️ [DEBUG] Button disabled state:", isLoading);
+                  console.log("🖱️ [DEBUG] Event:", e);
+                  handleSubmit(onSubmit)(e);
+                }}
                 className="w-full"
                 disabled={isLoading}
               >

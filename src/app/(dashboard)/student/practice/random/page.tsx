@@ -558,7 +558,28 @@ export default function RandomPractice() {
         throw new Error("Failed to fetch resumable sessions");
       }
       const data = await response.json();
-      return data.sessions || [];
+
+      // Filter out sessions that were created very recently (within last 2 seconds)
+      // This helps prevent race conditions where a session was just created
+      const now = new Date();
+      const recentSessions = (data.sessions || []).filter((session: any) => {
+        const sessionStartTime = new Date(session.startTime);
+        const timeDiff = now.getTime() - sessionStartTime.getTime();
+        const isRecent = timeDiff < 2000; // 2 seconds
+
+        if (isRecent) {
+          console.log("🔍 DEBUG: Filtering out recent session:", {
+            sessionId: session.id,
+            sessionStartTime: session.startTime,
+            timeDiffMs: timeDiff,
+            isRecent,
+          });
+        }
+
+        return !isRecent;
+      });
+
+      return recentSessions;
     } catch (err: any) {
       return [];
     }
@@ -594,7 +615,12 @@ export default function RandomPractice() {
     try {
       for (const session of resumableSessions) {
         await fetch(`/api/practice-sessions/${session.id}/abandon`, {
-          method: "PATCH",
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reason: "User started new session",
+            timestamp: new Date().toISOString(),
+          }),
         });
       }
     } catch (err) {

@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { FaCheck, FaTimes, FaQuestionCircle } from 'react-icons/fa';
-import { QuestionClient } from '@/app/(dashboard)/student/practice/chinese/cloze/[questionGroupId]/page';
+import React, { useState } from "react";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { FaCheck, FaTimes, FaQuestionCircle } from "react-icons/fa";
+import { QuestionClient } from "@/app/(dashboard)/student/practice/chinese/cloze/[questionGroupId]/page";
 
 interface ChinesePassageDisplayProps {
   title: string;
@@ -24,7 +30,9 @@ const ChinesePassageDisplay: React.FC<ChinesePassageDisplayProps> = ({
   submitted,
   questionResults,
 }) => {
-  const [showingExplanation, setShowingExplanation] = useState<number | null>(null);
+  const [showingExplanation, setShowingExplanation] = useState<number | null>(
+    null
+  );
 
   if (!content) {
     return <p className="text-center py-8">No passage content available.</p>;
@@ -64,7 +72,9 @@ const ChinesePassageDisplay: React.FC<ChinesePassageDisplayProps> = ({
       const question = questionsMap.get(blankIdentifier);
 
       if (question && question.options) {
-        const selectedValue = answeredQuestions[question.id] as string | undefined;
+        const selectedValue = answeredQuestions[question.id] as
+          | string
+          | undefined;
         const resultForThisQuestion = submitted
           ? questionResults.find((r) => r.id === question.id)
           : undefined;
@@ -139,60 +149,69 @@ const ChinesePassageDisplay: React.FC<ChinesePassageDisplayProps> = ({
             {submitted &&
               showingExplanation === question.id &&
               (correctOption || question.explanation) && (
-                <div className="absolute top-full left-0 mt-3 w-96 p-5 bg-white border border-gray-200 rounded-xl shadow-xl z-20">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center text-base font-semibold text-gray-700">
-                      <FaQuestionCircle className="mr-2 text-blue-500 text-lg" />
-                      {blankIdentifier} Details
-                    </div>
-                    <button
-                      onClick={() => setShowingExplanation(null)}
-                      className="text-gray-400 hover:text-gray-600 text-xl"
-                    >
-                      ×
-                    </button>
-                  </div>
-
-                  {/* Show correct answer */}
-                  {correctOption && (
-                    <div className="mb-3 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
-                      <div className="text-sm font-semibold text-green-800 mb-2">
-                        Correct Answer:
+                <>
+                  {/* Backdrop */}
+                  <div
+                    className="fixed inset-0 bg-black bg-opacity-50 z-[9998]"
+                    onClick={() => setShowingExplanation(null)}
+                  />
+                  {/* Popup */}
+                  <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 p-5 bg-white border border-gray-200 rounded-xl shadow-xl z-[9999]">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center text-base font-semibold text-gray-700">
+                        <FaQuestionCircle className="mr-2 text-blue-500 text-lg" />
+                        {blankIdentifier} Details
                       </div>
-                      <div className="text-base text-green-700">
-                        {correctOption.text}
-                      </div>
+                      <button
+                        onClick={() => setShowingExplanation(null)}
+                        className="text-gray-400 hover:text-gray-600 text-xl"
+                      >
+                        ×
+                      </button>
                     </div>
-                  )}
 
-                  {/* Show user's answer if incorrect */}
-                  {submitted &&
-                    resultForThisQuestion &&
-                    !resultForThisQuestion.correct &&
-                    selectedValue && (
-                      <div className="mb-3 p-3 bg-red-50 rounded-lg border-l-4 border-red-400">
-                        <div className="text-sm font-semibold text-red-800 mb-2">
-                          Your Answer:
+                    {/* Show correct answer */}
+                    {correctOption && (
+                      <div className="mb-3 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
+                        <div className="text-sm font-semibold text-green-800 mb-2">
+                          Correct Answer:
                         </div>
-                        <div className="text-base text-red-700">
-                          {question.options.find((o) => o.id === selectedValue)
-                            ?.text || selectedValue}
+                        <div className="text-base text-green-700">
+                          {correctOption.text}
                         </div>
                       </div>
                     )}
 
-                  {/* Show explanation */}
-                  {question.explanation && (
-                    <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-                      <div className="text-sm font-semibold text-blue-800 mb-2">
-                        Explanation:
+                    {/* Show user's answer if incorrect */}
+                    {submitted &&
+                      resultForThisQuestion &&
+                      !resultForThisQuestion.correct &&
+                      selectedValue && (
+                        <div className="mb-3 p-3 bg-red-50 rounded-lg border-l-4 border-red-400">
+                          <div className="text-sm font-semibold text-red-800 mb-2">
+                            Your Answer:
+                          </div>
+                          <div className="text-base text-red-700">
+                            {question.options.find(
+                              (o) => o.id === selectedValue
+                            )?.text || selectedValue}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Show explanation */}
+                    {question.explanation && (
+                      <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                        <div className="text-sm font-semibold text-blue-800 mb-2">
+                          Explanation:
+                        </div>
+                        <div className="text-base text-blue-700 leading-relaxed">
+                          {question.explanation}
+                        </div>
                       </div>
-                      <div className="text-base text-blue-700 leading-relaxed">
-                        {question.explanation}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                </>
               )}
 
             {/* Simple hover tooltip for quick reference */}
@@ -226,9 +245,7 @@ const ChinesePassageDisplay: React.FC<ChinesePassageDisplayProps> = ({
 
   return (
     <div className="p-4 bg-indigo-50 border-l-4 border-indigo-400 rounded-r-md shadow">
-      <h2 className="text-lg font-semibold text-indigo-800 mb-2">
-        {title}
-      </h2>
+      <h2 className="text-lg font-semibold text-indigo-800 mb-2">{title}</h2>
       <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap max-h-[calc(100vh-350px)] overflow-y-auto custom-scrollbar pr-2">
         {renderInteractivePassage()}
       </div>
@@ -244,4 +261,4 @@ const ChinesePassageDisplay: React.FC<ChinesePassageDisplayProps> = ({
   );
 };
 
-export default ChinesePassageDisplay; 
+export default ChinesePassageDisplay;

@@ -330,6 +330,7 @@ export default function TopicalPracticePage() {
   const [isClient, setIsClient] = useState(false);
   const [showContinueDialog, setShowContinueDialog] = useState(false);
   const [resumableSessions, setResumableSessions] = useState<any[]>([]);
+  const [isStartingNewSession, setIsStartingNewSession] = useState(false);
 
   // Set client state when component mounts
   useEffect(() => {
@@ -527,6 +528,16 @@ export default function TopicalPracticePage() {
 
       const subjectIdForSession = currentTopic.subjectId;
 
+      console.log("🔍 DEBUG: Creating TOPICAL practice session:", {
+        userId,
+        topicId: numericTopicId,
+        topicName: currentTopic.name,
+        subjectId: subjectIdForSession,
+        questionsCount: fetchedQuestions.length,
+        sessionType: PracticeSessionType.TOPIC_QUIZ,
+        sessionStatus: PracticeSessionStatus.IN_PROGRESS,
+      });
+
       try {
         const response = await fetch("/api/practice-session", {
           method: "POST",
@@ -553,9 +564,28 @@ export default function TopicalPracticePage() {
           );
         }
         const sessionData = await response.json();
+
+        console.log(
+          "✅ DEBUG: TOPICAL practice session created successfully:",
+          {
+            sessionId: sessionData.id,
+            sessionTitle: sessionData.title,
+            sessionType: sessionData.type,
+            sessionStatus: sessionData.status,
+            topicId: sessionData.topicId,
+            subjectId: sessionData.subjectId,
+          }
+        );
+
         setCurrentPracticeSessionId(sessionData.id);
         return sessionData.id;
       } catch (err: any) {
+        console.error("❌ DEBUG: Failed to create TOPICAL practice session:", {
+          error: err.message,
+          userId,
+          topicId: numericTopicId,
+          topicName: currentTopic.name,
+        });
         setError(`Could not start a new practice session: ${err.message}`);
         return null;
       }
@@ -564,59 +594,88 @@ export default function TopicalPracticePage() {
   );
 
   // Check for existing resumable sessions
-  const checkForResumableSessions = useCallback(async (): Promise<any[]> => {
-    if (!userId) return [];
+  const checkForResumableSessions = useCallback(
+    async (skipCleanup: boolean = false): Promise<any[]> => {
+      if (!userId) return [];
 
-    try {
-      const response = await fetch(
-        `/api/student/practice-sessions/in-progress?studentId=${userId}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch resumable sessions");
-      }
-      const data = await response.json();
-
-      // Separate sessions into resumable and empty ones
-      const resumableSessions: any[] = [];
-      const emptySessions: any[] = [];
-
-      (data.sessions || []).forEach((session: any) => {
-        const hasProgress =
-          session.correctAnswers > 0 || session.totalMarksEarned > 0;
-        const isCurrentTopic = session.topicId === numericTopicId;
-
-        if (isCurrentTopic) {
-          if (hasProgress) {
-            resumableSessions.push(session);
-          } else {
-            emptySessions.push(session);
-          }
+      try {
+        const response = await fetch(
+          `/api/student/practice-sessions/in-progress?studentId=${userId}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch resumable sessions");
         }
-      });
+        const data = await response.json();
 
-      // Automatically abandon empty sessions
-      if (emptySessions.length > 0) {
-        for (const emptySession of emptySessions) {
-          try {
-            await fetch(`/api/practice-sessions/${emptySession.id}/abandon`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reason: "Auto-cleanup: No progress made",
-                timestamp: new Date().toISOString(),
-              }),
+        console.log("🔍 DEBUG: All in-progress sessions:", {
+          totalSessions: data.sessions?.length || 0,
+          sessions:
+            data.sessions?.map((s: any) => ({
+              id: s.id,
+              type: s.type,
+              title: s.title,
+              topicId: s.topicId,
+              currentTopicId: numericTopicId,
+              hasProgress: s.correctAnswers > 0 || s.totalMarksEarned > 0,
+              startTime: s.startTime,
+            })) || [],
+        });
+
+        // Filter sessions for current topic only
+        const topicSessions = (data.sessions || []).filter((session: any) => {
+          const isCurrentTopic = session.topicId === numericTopicId;
+          console.log("🔍 DEBUG: Topic filtering:", {
+            sessionId: session.id,
+            sessionTopicId: session.topicId,
+            currentTopicId: numericTopicId,
+            isCurrentTopic,
+            sessionType: session.type,
+          });
+          return isCurrentTopic;
+        });
+
+        // Filter out sessions that were created very recently (within last 2 seconds)
+        // This helps prevent race conditions where a session was just created
+        const now = new Date();
+        const recentSessions = topicSessions.filter((session: any) => {
+          const sessionStartTime = new Date(session.startTime);
+          const timeDiff = now.getTime() - sessionStartTime.getTime();
+          const isRecent = timeDiff < 2000; // 2 seconds
+
+          if (isRecent) {
+            console.log("🔍 DEBUG: Filtering out recent session:", {
+              sessionId: session.id,
+              sessionStartTime: session.startTime,
+              timeDiffMs: timeDiff,
+              isRecent,
             });
-          } catch (err) {
-            // Silently continue if abandonment fails
           }
-        }
-      }
 
-      return resumableSessions;
-    } catch (err: any) {
-      return [];
-    }
-  }, [userId, numericTopicId]);
+          return !isRecent;
+        });
+
+        console.log(
+          "🔍 DEBUG: Sessions for current topic (excluding recent):",
+          {
+            topicSessionsCount: recentSessions.length,
+            topicSessions: recentSessions.map((s: any) => ({
+              id: s.id,
+              title: s.title,
+              type: s.type,
+              hasProgress: s.correctAnswers > 0 || s.totalMarksEarned > 0,
+            })),
+          }
+        );
+
+        // Return filtered sessions for this topic
+        return recentSessions;
+      } catch (err: any) {
+        console.error("❌ DEBUG: Error in checkForResumableSessions:", err);
+        return [];
+      }
+    },
+    [userId, numericTopicId]
+  );
 
   // Handle continue existing session
   const handleContinueSession = useCallback(
@@ -657,10 +716,13 @@ export default function TopicalPracticePage() {
       return;
     }
 
+    console.log("🚀 DEBUG: Starting new topical practice session creation");
+
     if (localStorageKey) safeStorage.removeItem(localStorageKey, "local");
     setLoading(true);
     setIsCreatingSession(true);
     isCreatingSessionRef.current = true;
+    setIsStartingNewSession(true); // Flag to prevent continue dialog
     setError(null);
     setCurrentQuestionIndex(0);
     setScore(0);
@@ -694,6 +756,10 @@ export default function TopicalPracticePage() {
 
       const newSessionId = await createNewTopicalPracticeSession(data);
       if (newSessionId) {
+        console.log(
+          "✅ DEBUG: New topical session created successfully:",
+          newSessionId
+        );
         setQuestions(data);
       } else {
         setError(
@@ -711,6 +777,7 @@ export default function TopicalPracticePage() {
       setLoading(false);
       setIsCreatingSession(false);
       isCreatingSessionRef.current = false;
+      setIsStartingNewSession(false); // Reset the flag
     }
   }, [
     userId,
@@ -724,11 +791,27 @@ export default function TopicalPracticePage() {
 
   // Handle start new session (abandon existing ones)
   const handleStartNewSession = useCallback(async () => {
-    setShowContinueDialog(false);
+    console.log("🔄 DEBUG: handleStartNewSession called", {
+      resumableSessionsCount: resumableSessions.length,
+      resumableSessions: resumableSessions.map((s) => ({
+        id: s.id,
+        title: s.title,
+        type: s.type,
+      })),
+    });
 
-    // Mark existing sessions as abandoned
+    setShowContinueDialog(false);
+    setIsStartingNewSession(true); // Set flag to prevent continue dialog
+
+    // Mark existing sessions as abandoned (using POST method)
     try {
       for (const session of resumableSessions) {
+        console.log("🗑️ DEBUG: Abandoning session for new session:", {
+          sessionId: session.id,
+          sessionTitle: session.title,
+          reason: "User started new session",
+        });
+
         await fetch(`/api/practice-sessions/${session.id}/abandon`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -737,15 +820,21 @@ export default function TopicalPracticePage() {
             timestamp: new Date().toISOString(),
           }),
         });
+
+        console.log("✅ DEBUG: Successfully abandoned session:", session.id);
       }
     } catch (err) {
+      console.error("❌ DEBUG: Failed to abandon session:", err);
       // Silently continue if some sessions couldn't be abandoned
     }
 
     // Clear localStorage and create new session
     if (localStorageKey) {
+      console.log("🧹 DEBUG: Clearing localStorage:", localStorageKey);
       safeStorage.removeItem(localStorageKey, "local");
     }
+
+    console.log("🚀 DEBUG: Starting new session creation");
     await fetchTopicalQuestionsAndStartSession();
   }, [
     resumableSessions,
@@ -776,21 +865,41 @@ export default function TopicalPracticePage() {
       if (existingSessionId) {
         const success = await loadExistingSession(existingSessionId);
         if (success) {
-          // Clear any old localStorage for this topic since we're using an existing session
           safeStorage.removeItem(localStorageKey, "local");
         }
         setLoading(false);
         return;
       }
 
-      // Check for database resumable sessions first
-      const existingSessions = await checkForResumableSessions();
+      // Check for database resumable sessions first (skip cleanup during initialization)
+      // But only if we're not explicitly starting a new session
+      if (!isStartingNewSession) {
+        const existingSessions = await checkForResumableSessions(true);
 
-      if (existingSessions.length > 0) {
-        setResumableSessions(existingSessions);
-        setShowContinueDialog(true);
-        setLoading(false);
-        return;
+        if (existingSessions.length > 0) {
+          console.log(
+            "🔍 DEBUG: Found existing sessions, showing continue dialog:",
+            {
+              sessionCount: existingSessions.length,
+              sessions: existingSessions.map((s) => ({
+                id: s.id,
+                title: s.title,
+                type: s.type,
+                topicId: s.topicId,
+              })),
+            }
+          );
+          setResumableSessions(existingSessions);
+          setShowContinueDialog(true);
+          setLoading(false);
+          return;
+        }
+      } else {
+        console.log(
+          "🚀 DEBUG: Skipping continue dialog check - starting new session"
+        );
+        // Add a small delay to ensure any previous session status updates have propagated
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       // Otherwise, check localStorage for resumable session

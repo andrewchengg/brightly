@@ -128,6 +128,9 @@ export default function ReadingComprehensionPassagePracticePage() {
   const questionGroupIdParam = params.questionGroupId as string;
   const numericQuestionGroupId = parseInt(questionGroupIdParam, 10);
 
+  // Default marks per question for reading comprehension
+  const DEFAULT_MARKS_PER_QUESTION = 2;
+
   // State variables (most are the same as the generic QuestionGroupPracticePage)
   const [passageTitle, setPassageTitle] = useState<string>("");
   const [passageContent, setPassageContent] = useState<string | null>(null);
@@ -272,8 +275,9 @@ export default function ReadingComprehensionPassagePracticePage() {
       setPassageContent(data.questionGroup.description || "");
       setPassageTitle(data.questionGroup.name || "Reading Passage");
       const fQ = data.questions || [];
+      // For reading comprehension, it's okay to have no questions (passage review mode)
       if (fQ.length === 0 && !data.questionGroup.description?.trim())
-        throw new Error("No passage or questions found.");
+        throw new Error("No passage content found.");
       setQuestions(fQ);
       if (fQ.length > 0 && fQ[0].topic?.subjectId)
         setCurrentSubjectId(fQ[0].topic.subjectId);
@@ -607,10 +611,13 @@ export default function ReadingComprehensionPassagePracticePage() {
       const correctCount = questionResults.filter((r) => r.correct).length;
       const totalMarksEarned = questionResults.reduce((acc, result) => {
         const question = questions.find((q) => q.id === result.id);
-        return acc + (result.correct ? question?.marks || 1 : 0);
+        return (
+          acc +
+          (result.correct ? question?.marks || DEFAULT_MARKS_PER_QUESTION : 0)
+        );
       }, 0);
       const totalPossibleMarks = questions.reduce(
-        (acc, q) => acc + (q.marks || 1),
+        (acc, q) => acc + (q.marks || DEFAULT_MARKS_PER_QUESTION),
         0
       );
 
@@ -739,7 +746,9 @@ export default function ReadingComprehensionPassagePracticePage() {
         [currentQuestion.id]: userAns,
       }));
       setIsAnswerCorrect(isCorr);
-      const points = isCorr ? currentQuestion.marks || 0 : 0; // Use marks field only
+      const points = isCorr
+        ? currentQuestion.marks || DEFAULT_MARKS_PER_QUESTION
+        : 0; // Use marks field with default
       setQuestionResults((prevResults) => {
         /* ... same logic to update results ... */
         const newResult = {
@@ -903,7 +912,7 @@ export default function ReadingComprehensionPassagePracticePage() {
   }
   if (showSummary) {
     const totalPossibleScore = questions.reduce(
-      (acc, q) => acc + (q.marks || 0),
+      (acc, q) => acc + (q.marks || DEFAULT_MARKS_PER_QUESTION),
       0
     );
     const percentageCorrect =
@@ -1165,6 +1174,19 @@ export default function ReadingComprehensionPassagePracticePage() {
                 onNextQuestion={handleNextQuestion}
                 loading={loading}
               />
+            </div>
+          )}
+          {noQuestionsButPassageExists && (
+            <div className="p-4 md:p-6 bg-white border-t">
+              <div className="text-center text-gray-600">
+                <p className="mb-2">
+                  No questions associated with this passage currently.
+                </p>
+                <p className="text-sm">
+                  You can review the passage content and use the AI assistant
+                  for help.
+                </p>
+              </div>
             </div>
           )}
         </div>
