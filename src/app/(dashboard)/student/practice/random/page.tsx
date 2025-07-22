@@ -308,13 +308,10 @@ export default function RandomPractice() {
     xpEarned: 0,
   });
 
-  // Set subjectId from URL after component mounts (fixes hydration issue)
+  // Ensure subjectId is set from URL if available (e.g., /student/practice/subject/1)
   useEffect(() => {
-    if (urlSubjectId) {
-      const numericSubjectId = parseInt(urlSubjectId, 10);
-      if (!isNaN(numericSubjectId)) {
-        setCurrentSubjectId(numericSubjectId);
-      }
+    if (urlSubjectId && !isNaN(Number(urlSubjectId))) {
+      setCurrentSubjectId(Number(urlSubjectId));
     }
   }, [urlSubjectId]);
 
