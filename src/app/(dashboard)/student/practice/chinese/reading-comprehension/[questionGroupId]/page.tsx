@@ -275,8 +275,9 @@ export default function ReadingComprehensionPassagePracticePage() {
       setPassageContent(data.questionGroup.description || "");
       setPassageTitle(data.questionGroup.name || "Reading Passage");
       const fQ = data.questions || [];
+      // For reading comprehension, it's okay to have no questions (passage review mode)
       if (fQ.length === 0 && !data.questionGroup.description?.trim())
-        throw new Error("No passage or questions found.");
+        throw new Error("No passage content found.");
       setQuestions(fQ);
       if (fQ.length > 0 && fQ[0].topic?.subjectId)
         setCurrentSubjectId(fQ[0].topic.subjectId);
@@ -1173,6 +1174,19 @@ export default function ReadingComprehensionPassagePracticePage() {
                 onNextQuestion={handleNextQuestion}
                 loading={loading}
               />
+            </div>
+          )}
+          {noQuestionsButPassageExists && (
+            <div className="p-4 md:p-6 bg-white border-t">
+              <div className="text-center text-gray-600">
+                <p className="mb-2">
+                  No questions associated with this passage currently.
+                </p>
+                <p className="text-sm">
+                  You can review the passage content and use the AI assistant
+                  for help.
+                </p>
+              </div>
             </div>
           )}
         </div>
