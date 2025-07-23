@@ -399,6 +399,10 @@ function SubjectPracticeContent({
   };
 
   const handleStartRandomPractice = async () => {
+    console.log(
+      "[DEBUG] handleStartRandomPractice called with numericSubjectId:",
+      numericSubjectId
+    );
     // Check for existing in-progress sessions for this subject
     if (user?.id) {
       try {
@@ -412,7 +416,10 @@ function SubjectPracticeContent({
           );
 
           if (subjectSession) {
-            // Redirect to existing session
+            console.log(
+              "[DEBUG] Redirecting to existing session:",
+              subjectSession.id
+            );
             router.push(
               `/student/practice/random?sessionId=${subjectSession.id}`
             );
@@ -425,6 +432,10 @@ function SubjectPracticeContent({
     }
 
     // No existing session found, start new practice
+    console.log(
+      "[DEBUG] Redirecting to new random practice with subjectId:",
+      numericSubjectId
+    );
     router.push(`/student/practice/random?subjectId=${numericSubjectId}`);
   };
 

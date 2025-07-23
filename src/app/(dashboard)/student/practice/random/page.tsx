@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast-manager";
 import {
@@ -253,21 +253,14 @@ function ReportQuestionModal({
 
 export default function RandomPractice() {
   const router = useRouter();
-  const searchParams = new URLSearchParams(
-    typeof window !== "undefined" ? window.location.search : ""
-  );
+  const searchParams = useSearchParams();
   const existingSessionId = searchParams.get("sessionId");
   const urlSubjectId = searchParams.get("subjectId");
 
   // Check if user is accessing the page directly without proper navigation
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const hasValidParams = existingSessionId || urlSubjectId;
-      const isFromValidReferrer = document.referrer.includes('/student/practice') || 
-                                 document.referrer.includes('/mock-exam') ||
-                                 document.referrer.includes('/student/mock-exam') ||
-                                 document.referrer === '';
-      
+    // Add a small delay to ensure URL parameters are fully loaded
+    const checkAccess = () => {
       // Validate session ID format if present
       if (existingSessionId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(existingSessionId)) {
         console.warn("⚠️ DEBUG: Invalid session ID format:", existingSessionId);
@@ -275,13 +268,40 @@ export default function RandomPractice() {
         return;
       }
       
+      // Allow access if:
+      // 1. There's a valid session ID, OR
+      // 2. There's a valid subject ID, OR  
+      // 3. User came from a valid referrer page
+      const hasValidParams = existingSessionId || urlSubjectId;
+      const isFromValidReferrer = document.referrer.includes('/student/practice') || 
+                                 document.referrer.includes('/mock-exam') ||
+                                 document.referrer.includes('/student/mock-exam') ||
+                                 document.referrer === '';
+      
+      console.log("🔍 DEBUG: Access validation");
+      console.log("🔍 DEBUG: existingSessionId:", existingSessionId);
+      console.log("🔍 DEBUG: urlSubjectId:", urlSubjectId);
+      console.log("🔍 DEBUG: hasValidParams:", hasValidParams);
+      console.log("🔍 DEBUG: document.referrer:", document.referrer);
+      console.log("🔍 DEBUG: isFromValidReferrer:", isFromValidReferrer);
+      
+      // Only redirect if user has no valid way to access this page
       if (!hasValidParams && !isFromValidReferrer) {
-        console.log("🔍 DEBUG: User accessing random practice without proper navigation");
-        // Redirect to practice menu if accessed directly
+        console.log("🔍 DEBUG: No valid access method - redirecting to practice menu");
         router.push("/student/practice");
+        return;
       }
+      
+      console.log("🔍 DEBUG: Access granted - continuing with practice session");
+    };
+
+    // Only run the check if we have search params available
+    if (searchParams) {
+      // Add a small delay to handle race conditions
+      const timeoutId = setTimeout(checkAccess, 50);
+      return () => clearTimeout(timeoutId);
     }
-  }, [existingSessionId, urlSubjectId, router]);
+  }, [existingSessionId, urlSubjectId, router, searchParams]);
 
   const [questions, setQuestions] = useState<QuestionClient[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -547,7 +567,7 @@ export default function RandomPractice() {
   );
 
   // Create new practice session in database
-  const createNewPracticeSession = useCallback(async () => {
+  const createNewPracticeSession = useCallback(async (): Promise<{ sessionId: string; questionsCount: number } | null> => {
     if (!userId) {
       setError("User information is missing. Cannot start session.");
       return null;
@@ -597,7 +617,7 @@ export default function RandomPractice() {
 
       const sessionData = await response.json();
       setQuestions(fetchedQuestions);
-      return sessionData.id;
+      return { sessionId: sessionData.id, questionsCount: fetchedQuestions.length };
     } catch (err: any) {
       setError(`Could not start a new practice session: ${err.message}`);
       return null;
@@ -686,18 +706,19 @@ export default function RandomPractice() {
     }
 
     // Create new session
-    const sessionId = await createNewPracticeSession();
-    if (!sessionId) {
+    const sessionResult = await createNewPracticeSession();
+    if (!sessionResult) {
       setError("Failed to create practice session");
       return;
     }
 
+    const { sessionId, questionsCount } = sessionResult;
     setCurrentPracticeSessionId(sessionId);
 
     // Update progress state for new session
     setProgress({
       currentQuestion: 1,
-      totalQuestions: questions.length,
+      totalQuestions: questionsCount,
       score: 0,
       correctAnswers: 0,
       totalMarksEarned: 0,
@@ -815,19 +836,20 @@ export default function RandomPractice() {
       }
 
       // Create new session
-      const sessionId = await createNewPracticeSession();
-      if (!sessionId) {
+      const sessionResult = await createNewPracticeSession();
+      if (!sessionResult) {
         setError("Failed to create practice session");
         setLoading(false);
         return;
       }
 
+      const { sessionId, questionsCount } = sessionResult;
       setCurrentPracticeSessionId(sessionId);
 
-      // Update progress state for new session
+      // Update progress state for new session using the returned questions count
       setProgress({
         currentQuestion: 1,
-        totalQuestions: questions.length,
+        totalQuestions: questionsCount,
         score: 0,
         correctAnswers: 0,
         totalMarksEarned: 0,
@@ -835,24 +857,10 @@ export default function RandomPractice() {
         xpEarned: 0,
       });
 
-      // Ensure questions are loaded
-      if (questions.length === 0) {
-        setError("No questions were loaded for this practice session. Please try again.");
-        setLoading(false);
-        return;
-      }
-
-      // Ensure we have a valid session ID
-      if (!sessionId) {
-        setError("Failed to create practice session. Please try again.");
-        setLoading(false);
-        return;
-      }
-
       // Log successful initialization
       console.log("✅ DEBUG: Practice session initialized successfully:", {
         sessionId,
-        questionsCount: questions.length,
+        questionsCount,
         subjectId: currentSubjectId,
         topicId: currentTopicId
       });
