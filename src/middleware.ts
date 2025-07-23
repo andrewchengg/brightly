@@ -54,6 +54,7 @@ export async function middleware(req: NextRequest) {
     const allowedDuringSetupPaths = [
       "/sign-up/parent-child-setup", // Parent adding first child
       "/student/complete-setup", // Student completing their profile
+      "/student/settings", // Allow student settings page during setup
     ];
 
     const isPublicPath = publicPaths.some((p) => {

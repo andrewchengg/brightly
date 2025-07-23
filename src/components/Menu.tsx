@@ -98,7 +98,7 @@ const studentMenuItems = [
       {
         icon: FaCog,
         label: "Settings",
-        href: "/settings",
+        href: "/student/settings",
         visible: ["student"],
       },
       {

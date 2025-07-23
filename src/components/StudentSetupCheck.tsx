@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function StudentSetupCheck() {
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
   const [isChecking, setIsChecking] = useState(true);
 
@@ -24,17 +25,14 @@ export default function StudentSetupCheck() {
         // Check if student has completed setup
         const { data: student } = await supabase
           .from('Student')
-          .select('initialSetupComplete, walkthroughComplete')
+          .select('id, initialSetupComplete, walkthroughComplete')
           .eq('id', session.user.id)
           .single();
 
         if (student && student.initialSetupComplete === false) {
           if (student.walkthroughComplete === false) {
-            // If walkthrough is not complete, redirect to dashboard to show walkthrough first
             router.push('/student');
           } else {
-            // Walkthrough complete but setup not complete, go to setup
-            console.log('Student setup not complete, redirecting to setup page');
             router.push('/student/complete-setup');
           }
         } else {
@@ -46,7 +44,7 @@ export default function StudentSetupCheck() {
     }
 
     checkSetupStatus();
-  }, [supabase, router]);
+  }, [supabase, router, pathname]);
 
   // Return null - this component just handles redirects
   return null;

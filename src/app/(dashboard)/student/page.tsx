@@ -116,7 +116,6 @@ export default function StudentPage() {
         if (studentResponse.ok) {
           const studentData = await studentResponse.json();
           setStudent(studentData);
-          
           // Show walkthrough if initial setup is not complete
           if (!studentData.walkthroughComplete) {
             setShowWalkthrough(true);

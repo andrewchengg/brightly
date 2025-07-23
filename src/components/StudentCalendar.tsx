@@ -66,11 +66,9 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   // Fetch practice dates from the API
   const fetchPracticeDates = async () => {
     try {
-      console.log("📅 Fetching practice dates...");
       const response = await fetch("/api/student/practice-dates");
       if (response.ok) {
         const data = await response.json();
-        console.log("📊 Practice dates data received:", data);
         
         const datesMap: { [key: string]: any } = {};
         data.practiceDates.forEach((dayData: any) => {
@@ -78,8 +76,6 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
         });
         setPracticeDates(datesMap);
         
-        console.log("📈 Processed practice dates map:", datesMap);
-        console.log(`✅ Loaded ${data.practiceDates.length} practice date entries`);
       } else {
         console.error("❌ Failed to fetch practice dates:", response.status);
       }
@@ -106,32 +102,15 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
         endDate = moment(date).endOf('day').toDate();
       }
 
-      console.log(`📅 Fetching practice sessions for ${view} view:`);
-      console.log(`   Start: ${startDate.toISOString()}`);
-      console.log(`   End: ${endDate.toISOString()}`);
-
       const response = await fetch(
         `/api/student/practice-sessions-calendar?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
       );
       
       if (response.ok) {
         const data = await response.json();
-        console.log("📚 Practice sessions data received:", data);
         
         setPracticeSessions(data.sessionsByDate || {});
         
-        const totalSessions = Object.values(data.sessionsByDate || {}).flat().length;
-        const daysWithSessions = Object.keys(data.sessionsByDate || {}).length;
-        
-        console.log(`✅ Loaded ${totalSessions} practice sessions across ${daysWithSessions} days`);
-        
-        // Log details for each day with sessions
-        Object.entries(data.sessionsByDate || {}).forEach(([date, sessions]: [string, any]) => {
-          console.log(`   📆 ${date}: ${sessions.length} session(s)`);
-          sessions.forEach((session: any) => {
-            console.log(`      - ${session.subject?.name || 'Unknown'} - ${session.topic?.name || 'General'}`);
-          });
-        });
       } else {
         console.error("❌ Failed to fetch practice sessions:", response.status);
       }
@@ -143,7 +122,6 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   // Fetch events from the API
   const fetchEvents = async () => {
     try {
-      console.log("📅 Fetching calendar events...");
       
       // Fetch personal events
       const personalResponse = await fetch("/api/student/events");
@@ -151,7 +129,6 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
 
       if (personalResponse.ok) {
         const personalData = await personalResponse.json();
-        console.log("📝 Personal events data:", personalData);
         personalEvents = personalData.map((event: any) => ({
           id: event.id,
           title: event.title,
@@ -170,7 +147,6 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
 
       if (lessonsResponse.ok) {
         const lessonsData = await lessonsResponse.json();
-        console.log("📚 Lessons data:", lessonsData);
         lessonEvents = lessonsData.map((lesson: any) => ({
           id: lesson.id,
           title: `${lesson.name} - ${lesson.subject?.name || "Subject"}`,
@@ -198,16 +174,10 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
         });
       });
 
-      console.log("🎯 Practice events created:", practiceEvents.length);
-      console.log("📝 Personal events:", personalEvents.length);
-      console.log("📚 Lesson events:", lessonEvents.length);
-
       // Combine all types of events
       const allEvents = [...personalEvents, ...lessonEvents, ...practiceEvents];
       setEvents(allEvents);
       
-      console.log(`✅ Total events loaded: ${allEvents.length}`);
-      console.log("📅 Final events array:", allEvents);
     } catch (error) {
       console.error("❌ Error fetching events:", error);
       toast.error("Failed to load events");
@@ -215,7 +185,6 @@ const StudentCalendar: React.FC<StudentCalendarProps> = ({ className }) => {
   };
 
   useEffect(() => {
-    console.log("🔄 Calendar data refresh triggered - View:", view, "Date:", date);
     fetchEvents();
     fetchPracticeDates();
     fetchPracticeSessions();
