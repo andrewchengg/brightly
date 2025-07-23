@@ -1,7 +1,7 @@
 // src/components/MockExam/MockExamLanding.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import MockExamComponent from "./MockExamComponent";
 import {
   FaCalculator,
@@ -13,6 +13,8 @@ import {
   FaPlay,
   FaLock,
   FaCheckCircle,
+  FaFlag,
+  FaTimes,
 } from "react-icons/fa";
 
 interface PaperConfig {
@@ -87,6 +89,145 @@ const subjectsConfig: SubjectConfig[] = [
   },
 ];
 
+const QUESTION_REPORT_TYPES = [
+  { value: "TECHNICAL_ISSUE", label: "Technical Issue" },
+  { value: "SYSTEM_ERROR", label: "System Error" },
+  { value: "UI_PROBLEM", label: "Interface Problem" },
+  { value: "PERFORMANCE_ISSUE", label: "Performance Issue" },
+  { value: "OTHER", label: "Other" },
+];
+
+function ReportIssueModal({
+  open,
+  onClose,
+  studentId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  studentId: string | null;
+}) {
+  const [reportType, setReportType] = useState(QUESTION_REPORT_TYPES[0].value);
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!studentId) {
+      setError("Missing user info.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/questions/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionId: null, // No specific question for system issues
+          studentId,
+          reportType,
+          description: `[MOCK EXAM SYSTEM] ${description}`,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to submit report");
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to submit report");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) {
+      setReportType(QUESTION_REPORT_TYPES[0].value);
+      setDescription("");
+      setSuccess(false);
+      setError(null);
+    }
+  }, [open]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
+        <button
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+          onClick={onClose}
+        >
+          <FaTimes />
+        </button>
+        <h2 className="text-lg font-bold mb-4 flex items-center">
+          <FaFlag className="mr-2 text-red-500" /> Report System Issue
+        </h2>
+        {success ? (
+          <div className="text-green-600 font-semibold text-center py-4">
+            Thank you! Your report has been submitted.
+            <button
+              className="block mt-4 mx-auto px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Type of Issue
+              </label>
+              <select
+                className="w-full border rounded p-2"
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value)}
+                required
+              >
+                {QUESTION_REPORT_TYPES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Description
+              </label>
+              <textarea
+                className="w-full border rounded p-2 min-h-[80px]"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe the issue you're experiencing..."
+                required
+              />
+            </div>
+            {error && <div className="text-red-600 text-sm">{error}</div>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-60"
+                disabled={submitting}
+              >
+                {submitting ? "Submitting..." : "Submit Report"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface MockExamLandingProps {
   userId: string;
 }
@@ -101,6 +242,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
   );
   const [selectedPaperOption, setSelectedPaperOption] =
     useState<PaperSelection | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   // const router = useRouter();
 
   const handleSubjectSelect = (subjectId: string) => {
@@ -208,7 +350,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100">
       <div className="max-w-6xl mx-auto p-4 md:p-8">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-12 relative">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-800 rounded-full mb-6 shadow-lg">
             <FaCheckCircle className="text-3xl text-white" />
           </div>
@@ -218,6 +360,14 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
           <p className="text-xl text-gray-600">
             Choose your subject and prepare for success
           </p>
+          
+          {/* Report Issue Button */}
+          <button
+            className="absolute top-0 right-0 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
+            onClick={() => setShowReportModal(true)}
+          >
+            <FaFlag className="mr-1" /> Report Issue
+          </button>
         </div>
 
         {/* Subject Selection */}
@@ -453,6 +603,12 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
           </div>
         </div>
       </div>
+
+      <ReportIssueModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        studentId={userId}
+      />
     </div>
   );
 }

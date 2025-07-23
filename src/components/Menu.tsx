@@ -147,12 +147,6 @@ const menuItems = [
         visible: ["parent"],
       },
       {
-        icon: FaRobot,
-        label: "AI Planner",
-        href: "/parent/plan",
-        visible: ["parent"],
-      },
-      {
         icon: FaLightbulb,
         label: "Child Review",
         href: "/parent/review",
@@ -358,7 +352,6 @@ const Menu = () => {
     "Review",
     "Children's Results",
     "Manage Homework",
-    "AI Planner",
     "Child Review",
   ];
   const prioritizedItems = allItems.sort((a, b) => {
@@ -369,10 +362,6 @@ const Menu = () => {
     if (bIndex === -1) return -1;
     return aIndex - bIndex;
   });
-
-  // Split items into main menu (first 8 prioritized) and more items
-  const mainItems = prioritizedItems.slice(0, 8);
-  const moreItems = prioritizedItems.slice(8);
 
   const renderMenuItem = (item: any) => {
     if (item.visible.includes(userRole)) {
@@ -492,43 +481,10 @@ const Menu = () => {
 
   return (
     <div className="mt-2 px-2 w-full max-w-sm">
-      {/* Main menu items */}
+      {/* All menu items */}
       <div className="space-y-0.5">
-        {mainItems.map((item) => renderMenuItem(item))}
+        {prioritizedItems.map((item) => renderMenuItem(item))}
       </div>
-
-      {/* More button and additional items */}
-      {moreItems.length > 0 && (
-        <div className="mt-6">
-          <button
-            onClick={() => setShowMore(!showMore)}
-            className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-slate-50 hover:shadow-sm transition-all duration-300 w-full group border border-transparent hover:border-slate-100 min-h-[48px]"
-          >
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 group-hover:bg-slate-100 transition-all duration-300 shadow-sm">
-              {showMore ? (
-                <FaChevronUp
-                  size={16}
-                  className="text-slate-600 group-hover:text-indigo-600 transition-colors duration-300"
-                />
-              ) : (
-                <FaChevronDown
-                  size={16}
-                  className="text-slate-600 group-hover:text-indigo-600 transition-colors duration-300"
-                />
-              )}
-            </div>
-            <span className="font-semibold text-slate-700 group-hover:text-slate-900 transition-colors duration-300">
-              More
-            </span>
-          </button>
-
-          {showMore && (
-            <div className="space-y-0.5 mt-3 pl-2 border-l-2 border-slate-100">
-              {moreItems.map((item) => renderMenuItem(item))}
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="px-2 py-4 mt-6"></div>
     </div>

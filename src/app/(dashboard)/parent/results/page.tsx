@@ -140,23 +140,9 @@ export default function ParentResultsPage() {
 
   // Function to get performance details based on session type and score
   const getPerformanceDetails = (session: CompletedSession) => {
-    let totalPossible = session.totalPossibleMarks || 0;
-    let scorePercentage = 0;
-
-    // For mock exams, use the predefined total marks based on paper type
-    if (session.type === PrismaPracticeSessionType.MOCK_EXAM && session.title) {
-      const title = session.title.toLowerCase();
-      if (title.includes('paper 1')) {
-        totalPossible = 45; // Paper 1 total marks
-      } else if (title.includes('paper 2')) {
-        totalPossible = 55; // Paper 2 total marks
-      } else if (title.includes('full mock exam')) {
-        totalPossible = 100; // Both papers total marks
-      }
-    }
-
-    // Calculate percentage
-    scorePercentage = totalPossible > 0 ? ((session.totalMarksEarned || 0) / totalPossible) * 100 : 0;
+    // Use the calculated totalPossibleMarks from the API (matching student calculation)
+    const totalPossible = session.totalPossibleMarks || 0;
+    const scorePercentage = totalPossible > 0 ? ((session.totalMarksEarned || 0) / totalPossible) * 100 : 0;
 
     if (scorePercentage >= 80) {
       return {
@@ -270,13 +256,13 @@ export default function ParentResultsPage() {
                   (session) => session.student.id === child.id
                 );
                 const totalXP = childSessions.reduce(
-                  (sum, session) => sum + (session.xpEarned || 0),
+                  (sum, session) => sum + (session.xpEarned ?? 0),
                   0
                 );
                 const avgScore =
                   childSessions.length > 0
                     ? childSessions.reduce(
-                        (sum, session) => sum + (session.totalMarksEarned || 0),
+                        (sum, session) => sum + (session.totalMarksEarned ?? 0),
                         0
                       ) / childSessions.length
                     : 0;
@@ -336,7 +322,7 @@ export default function ParentResultsPage() {
                   </div>
                   <div className="text-2xl font-bold text-gray-800">
                     {completedSessions.reduce(
-                      (sum, session) => sum + (session.xpEarned || 0),
+                      (sum, session) => sum + (session.xpEarned ?? 0),
                       0
                     )}
                   </div>
@@ -487,17 +473,7 @@ export default function ParentResultsPage() {
                             Score
                           </p>
                           <p className={`text-2xl font-bold mt-1 ${performanceDetails.textColor}`}>
-                            {session.totalMarksEarned ?? 0}/{
-                              session.type === PrismaPracticeSessionType.MOCK_EXAM && session.title
-                                ? session.title.toLowerCase().includes('paper 1')
-                                  ? 45
-                                  : session.title.toLowerCase().includes('paper 2')
-                                  ? 55
-                                  : session.title.toLowerCase().includes('full mock exam')
-                                  ? 100
-                                  : session.totalPossibleMarks || 0
-                                : session.totalPossibleMarks || 0
-                            }
+                            {session.totalMarksEarned ?? 0}/{session.totalPossibleMarks ?? 0}
                           </p>
                         </div>
                         <div className="bg-green-50 p-3 rounded-lg text-center">
@@ -515,7 +491,7 @@ export default function ParentResultsPage() {
                           <div className="flex items-center justify-center mt-1">
                             <FaTrophy className="text-amber-500 mr-1" />
                             <p className="text-2xl font-bold text-amber-600">
-                              {session.xpEarned || 0}
+                              {session.xpEarned ?? 0}
                             </p>
                           </div>
                         </div>

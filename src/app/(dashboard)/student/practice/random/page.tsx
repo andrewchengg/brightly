@@ -259,6 +259,30 @@ export default function RandomPractice() {
   const existingSessionId = searchParams.get("sessionId");
   const urlSubjectId = searchParams.get("subjectId");
 
+  // Check if user is accessing the page directly without proper navigation
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hasValidParams = existingSessionId || urlSubjectId;
+      const isFromValidReferrer = document.referrer.includes('/student/practice') || 
+                                 document.referrer.includes('/mock-exam') ||
+                                 document.referrer.includes('/student/mock-exam') ||
+                                 document.referrer === '';
+      
+      // Validate session ID format if present
+      if (existingSessionId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(existingSessionId)) {
+        console.warn("⚠️ DEBUG: Invalid session ID format:", existingSessionId);
+        setError("Invalid session ID format. Please start a new practice session.");
+        return;
+      }
+      
+      if (!hasValidParams && !isFromValidReferrer) {
+        console.log("🔍 DEBUG: User accessing random practice without proper navigation");
+        // Redirect to practice menu if accessed directly
+        router.push("/student/practice");
+      }
+    }
+  }, [existingSessionId, urlSubjectId, router]);
+
   const [questions, setQuestions] = useState<QuestionClient[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -311,9 +335,23 @@ export default function RandomPractice() {
   // Ensure subjectId is set from URL if available (e.g., /student/practice/subject/1)
   useEffect(() => {
     if (urlSubjectId && !isNaN(Number(urlSubjectId))) {
-      setCurrentSubjectId(Number(urlSubjectId));
+      const subjectId = Number(urlSubjectId);
+      // Validate that the subjectId is reasonable (1-100 for now)
+      if (subjectId > 0 && subjectId <= 100) {
+        setCurrentSubjectId(subjectId);
+      } else {
+        console.warn("⚠️ DEBUG: Invalid subjectId in URL:", subjectId);
+        setError("Invalid subject ID. Please select a valid subject.");
+      }
     }
   }, [urlSubjectId]);
+
+  // Reset initialization flag when subjectId changes
+  useEffect(() => {
+    if (currentSubjectId) {
+      initializationAttempted.current = false;
+    }
+  }, [currentSubjectId]);
 
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
@@ -389,7 +427,11 @@ export default function RandomPractice() {
           `/api/student/practice-sessions/${sessionId}`
         );
         if (!response.ok) {
-          throw new Error("Failed to load session");
+          if (response.status === 404) {
+            throw new Error("Session not found. It may have been deleted or expired.");
+          } else {
+            throw new Error("Failed to load session");
+          }
         }
 
         const sessionData: SessionData = await response.json();
@@ -397,6 +439,25 @@ export default function RandomPractice() {
         // Verify session belongs to current user
         if (sessionData.studentId !== userId) {
           throw new Error("Session does not belong to current user");
+        }
+
+        // Check if session is in a valid state for resumption
+        if (sessionData.status !== "IN_PROGRESS") {
+          throw new Error("Session is not in a resumable state");
+        }
+
+        // Check if session has questions
+        if (!sessionData.studentAnswers || sessionData.studentAnswers.length === 0) {
+          throw new Error("Session has no questions and cannot be resumed");
+        }
+
+        // Check if session has valid question data
+        const validQuestions = sessionData.studentAnswers.filter((answer: any) => 
+          answer.question && answer.question.id && answer.question.text
+        );
+        
+        if (validQuestions.length === 0) {
+          throw new Error("Session has no valid questions and cannot be resumed");
         }
 
         // Session should already be IN_PROGRESS when created
@@ -654,9 +715,40 @@ export default function RandomPractice() {
     setLoading(true);
     setError(null);
 
+    // Check if user is coming from mock exam or other practice types
+    const referrer = document.referrer;
+    const isFromMockExam = referrer.includes('/mock-exam') || referrer.includes('/student/mock-exam');
+    
+    if (isFromMockExam) {
+      console.log("🔍 DEBUG: User coming from mock exam, ensuring clean state");
+      // Clean up any existing sessions that might interfere
+      try {
+        const existingSessions = await checkForResumableSessions();
+        for (const session of existingSessions) {
+          await fetch(`/api/practice-sessions/${session.id}/abandon`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reason: "User coming from mock exam",
+              timestamp: new Date().toISOString(),
+            }),
+          });
+        }
+      } catch (err) {
+        console.warn("⚠️ DEBUG: Failed to clean up sessions from mock exam:", err);
+      }
+    }
+
     try {
       // If there's an existing session ID from URL, load that
       if (existingSessionId) {
+        // Validate session ID format before attempting to load
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(existingSessionId)) {
+          setError("Invalid session ID format. Please start a new practice session.");
+          setLoading(false);
+          return;
+        }
+        
         const success = await loadExistingSession(existingSessionId);
         if (!success) {
           setError(
@@ -671,19 +763,55 @@ export default function RandomPractice() {
       const existingSessions = await checkForResumableSessions();
 
       if (existingSessions.length > 0) {
-        setResumableSessions(existingSessions);
-        setShowContinueDialog(true);
-        setLoading(false);
-        return;
+        // Filter out sessions that might be from different practice types
+        const randomPracticeSessions = existingSessions.filter((session: any) => {
+          // Only show sessions that are likely random practice sessions
+          // (no topicId, no basedOnQuestionGroupId, or specific type)
+          return !session.topicId && !session.basedOnQuestionGroupId;
+        });
+
+        if (randomPracticeSessions.length > 0) {
+          setResumableSessions(randomPracticeSessions);
+          setShowContinueDialog(true);
+          setLoading(false);
+          return;
+        } else {
+          // If we have sessions but none are random practice, clean them up
+          console.log("🔍 DEBUG: Cleaning up non-random practice sessions");
+          try {
+            for (const session of existingSessions) {
+              await fetch(`/api/practice-sessions/${session.id}/abandon`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  reason: "Starting new random practice session",
+                  timestamp: new Date().toISOString(),
+                }),
+              });
+            }
+          } catch (err) {
+            console.warn("⚠️ DEBUG: Failed to clean up old sessions:", err);
+          }
+        }
       }
 
       // No existing sessions - check if we should create a new session
       if (!currentSubjectId) {
-        setError(
-          "No practice session to continue. Please start a new practice session."
-        );
-        setLoading(false);
-        return;
+        // Try to get subjectId from resumable sessions as a fallback
+        if (existingSessions.length > 0 && existingSessions[0].subjectId) {
+          console.log("🔍 DEBUG: Using subjectId from resumable session:", existingSessions[0].subjectId);
+          setCurrentSubjectId(existingSessions[0].subjectId);
+          // Continue with creating a new session using this subjectId
+        } else {
+          // If no subjectId is available, redirect to the practice menu
+          // This happens when users come from other pages without a subject context
+          console.log("🔍 DEBUG: No subjectId available, redirecting to practice menu");
+          setError(
+            "Please select a subject to start practicing."
+          );
+          setLoading(false);
+          return;
+        }
       }
 
       // Create new session
@@ -706,8 +834,32 @@ export default function RandomPractice() {
         totalPossibleMarks: 0,
         xpEarned: 0,
       });
+
+      // Ensure questions are loaded
+      if (questions.length === 0) {
+        setError("No questions were loaded for this practice session. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Ensure we have a valid session ID
+      if (!sessionId) {
+        setError("Failed to create practice session. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Log successful initialization
+      console.log("✅ DEBUG: Practice session initialized successfully:", {
+        sessionId,
+        questionsCount: questions.length,
+        subjectId: currentSubjectId,
+        topicId: currentTopicId
+      });
     } catch (err: any) {
       setError(`Failed to initialize practice session: ${err.message}`);
+      // Reset initialization flag on error so user can retry
+      initializationAttempted.current = false;
     } finally {
       setLoading(false);
     }
@@ -768,8 +920,21 @@ export default function RandomPractice() {
     }
 
     initializationAttempted.current = true;
+    
+    // Add a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (loading === true) {
+        console.warn("⚠️ DEBUG: Initialization timeout, resetting");
+        setError("Practice session initialization timed out. Please try again.");
+        setLoading(false);
+        initializationAttempted.current = false;
+      }
+    }, 10000); // 10 second timeout
+
     initializePracticeSession();
-  }, [userId, initializePracticeSession]);
+
+    return () => clearTimeout(timeoutId);
+  }, [userId, initializePracticeSession, loading]);
 
   // Load current question state from answers
   useEffect(() => {
@@ -1534,6 +1699,8 @@ export default function RandomPractice() {
           <p className="text-gray-600 mb-6">
             {isNoSessionError
               ? "Choose a subject below to start practicing, or continue an existing session."
+              : error.includes("Please select a subject")
+              ? "You need to select a subject before starting random practice. Please go back to the practice menu and choose a subject."
               : error}
           </p>
           <div className="flex flex-col gap-3">
@@ -1541,7 +1708,7 @@ export default function RandomPractice() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm w-full"
               onClick={() => router.push("/student/practice")}
             >
-              <FaBookOpen className="mr-2" /> Choose Practice Subject
+              <FaBookOpen className="mr-2" /> {error.includes("Please select a subject") ? "Go to Practice Menu" : "Choose Practice Subject"}
             </Button>
             {!isNoSessionError && (
               <Button

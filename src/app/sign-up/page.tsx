@@ -469,7 +469,7 @@ export default function SignUpPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex-shrink-0">
-              <Link href="/" className="text-2xl font-bold text-purple-700">
+              <Link href="/" className="font-bold text-4xl text-slate-900 tracking-tight hover:text-slate-700 transition-colors duration-300">
                 Brightly
               </Link>
             </div>
