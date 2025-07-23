@@ -169,24 +169,6 @@ export default function PracticePage() {
         throw new Error("Failed to fetch in-progress sessions");
       }
       const data = await response.json();
-
-      console.log("🔍 DEBUG: Fetched in-progress sessions:", {
-        totalSessions: data.sessions?.length || 0,
-        sessions:
-          data.sessions?.map((s: any) => ({
-            id: s.id,
-            type: s.type,
-            title: s.title,
-            topicId: s.topicId,
-            subjectId: s.subjectId,
-            correctAnswers: s.correctAnswers,
-            totalQuestions: s.totalQuestions,
-            status: s.status,
-            startTime: s.startTime,
-            basedOnQuestionGroupId: s.basedOnQuestionGroupId, // Add this line
-          })) || [],
-      });
-
       setInProgressSessions(data.sessions || []);
     } catch (error) {
       console.error("Error fetching in-progress sessions:", error);
@@ -214,56 +196,27 @@ export default function PracticePage() {
 
   // Handle resuming a specific session
   const handleResumeSession = (session: InProgressSession) => {
-    console.log("🔍 DEBUG: handleResumeSession called with:", {
-      sessionId: session.id,
-      sessionType: session.type,
-      topicId: session.topicId,
-      subjectId: session.subjectId,
-      title: session.title,
-    });
-
     // Navigate to the appropriate practice page with session ID
     if (session.type === "TOPIC_QUIZ" && session.topicId) {
-      console.log(
-        "🎯 DEBUG: Navigating to topic practice:",
-        `/student/practice/topic/${session.topicId}?sessionId=${session.id}`
-      );
       router.push(
         `/student/practice/topic/${session.topicId}?sessionId=${session.id}`
       );
     } else if (session.type === "QUESTION_GROUP_PRACTICE") {
-      // For question group practice, we need to get the questionGroupId from the session
-      // Since we don't have it in the session data, we'll need to fetch it or store it
-      console.log(
-        "🎯 DEBUG: Navigating to question group practice:",
-        `/student/practice/question-group/${session.basedOnQuestionGroupId}?sessionId=${session.id}`
-      );
       if (session.basedOnQuestionGroupId) {
         router.push(
           `/student/practice/question-group/${session.basedOnQuestionGroupId}?sessionId=${session.id}`
         );
       } else {
         // Fallback to random practice if we can't determine the question group
-        console.log(
-          "⚠️ DEBUG: No questionGroupId found, falling back to random practice"
-        );
         router.push(
           `/student/practice/random?sessionId=${session.id}&subjectId=${session.subjectId}`
         );
       }
     } else if (session.type === "PRACTICE") {
-      console.log(
-        "🎯 DEBUG: Navigating to random practice:",
-        `/student/practice/random?sessionId=${session.id}&subjectId=${session.subjectId}`
-      );
       router.push(
         `/student/practice/random?sessionId=${session.id}&subjectId=${session.subjectId}`
       );
     } else {
-      console.log(
-        "🎯 DEBUG: Navigating to default random practice:",
-        `/student/practice/random?sessionId=${session.id}&subjectId=${session.subjectId}`
-      );
       // Default to random practice
       router.push(
         `/student/practice/random?sessionId=${session.id}&subjectId=${session.subjectId}`
@@ -299,43 +252,8 @@ export default function PracticePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Resume Practice Section */}
-            {sessionsLoading ? (
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <FaClock className="text-blue-600" />
-                    Resume Practice
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {[1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="bg-white rounded-lg border border-blue-200 p-4 animate-pulse"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded w-24 mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded w-20"></div>
-                          </div>
-                          <div className="h-8 bg-gray-200 rounded w-16"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (() => {
-                console.log("🔍 DEBUG: Resume section visibility check:", {
-                  inProgressSessionsLength: inProgressSessions.length,
-                  sessionsLoading,
-                  shouldShowResume: inProgressSessions.length > 0,
-                });
-                return inProgressSessions.length > 0;
-              })() ? (
+            {/* Resume Practice Section - Only show when not loading and has sessions */}
+            {!sessionsLoading && inProgressSessions.length > 0 && (
               <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -347,29 +265,18 @@ export default function PracticePage() {
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {(() => {
-                    const filteredSessions = inProgressSessions.filter(
-                      (session) => session.type !== "MOCK_EXAM"
-                    );
-
-                    console.log("🔍 DEBUG: Session filtering:", {
-                      totalSessions: inProgressSessions.length,
-                      filteredSessions: filteredSessions.length,
-                      sessionTypes: inProgressSessions.map((s) => s.type),
-                      filteredTypes: filteredSessions.map((s) => s.type),
-                    });
-
-                    return filteredSessions.map((session) => (
+                  {inProgressSessions
+                    .filter((session) => session.type !== "MOCK_EXAM")
+                    .map((session) => (
                       <ResumeSessionCard
                         key={session.id}
                         session={session}
                         onResume={() => handleResumeSession(session)}
                       />
-                    ));
-                  })()}
+                    ))}
                 </CardContent>
               </Card>
-            ) : null}
+            )}
 
             {/* Subject Practice Containers */}
             <div>
