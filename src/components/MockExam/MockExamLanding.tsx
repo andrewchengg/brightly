@@ -242,6 +242,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
   );
   const [selectedPaperOption, setSelectedPaperOption] =
     useState<PaperSelection | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   // const router = useRouter();
 
   const handleSubjectSelect = (subjectId: string) => {
@@ -349,7 +350,7 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100">
       <div className="max-w-6xl mx-auto p-4 md:p-8">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-12 relative">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-800 rounded-full mb-6 shadow-lg">
             <FaCheckCircle className="text-3xl text-white" />
           </div>
@@ -359,6 +360,14 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
           <p className="text-xl text-gray-600">
             Choose your subject and prepare for success
           </p>
+          
+          {/* Report Issue Button */}
+          <button
+            className="absolute top-0 right-0 flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
+            onClick={() => setShowReportModal(true)}
+          >
+            <FaFlag className="mr-1" /> Report Issue
+          </button>
         </div>
 
         {/* Subject Selection */}
@@ -594,6 +603,12 @@ export default function MockExamLanding({ userId }: MockExamLandingProps) {
           </div>
         </div>
       </div>
+
+      <ReportIssueModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        studentId={userId}
+      />
     </div>
   );
 }

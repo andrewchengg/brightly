@@ -19,6 +19,8 @@ import {
 import { toast } from "react-toastify";
 import Image from "next/image";
 import ExplanationFormatter from "@/components/ExplanationFormatter";
+import { FaFlag, FaTimes } from "react-icons/fa";
+import { useSupabaseUser } from "@/lib/hooks/auth";
 
 const MOCK_EXAM_PAPER_CONFIG = {
   mathematics: {
@@ -73,16 +75,161 @@ interface SessionDetails {
   totalPossibleMarksCalculated?: number;
 }
 
+const QUESTION_REPORT_TYPES = [
+  { value: "INCORRECT_ANSWER", label: "Incorrect Answer" },
+  { value: "WRONG_EXPLANATION", label: "Wrong Explanation" },
+  { value: "POOR_FORMATTING", label: "Poor Formatting" },
+  { value: "TECHNICAL_ISSUE", label: "Technical Issue" },
+  { value: "INAPPROPRIATE_CONTENT", label: "Inappropriate Content" },
+  { value: "OTHER", label: "Other" },
+];
+
+function ReportQuestionModal({
+  open,
+  onClose,
+  questionId,
+  studentId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  questionId: number | undefined;
+  studentId: string | null;
+}) {
+  const [reportType, setReportType] = useState(QUESTION_REPORT_TYPES[0].value);
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!questionId || !studentId) {
+      setError("Missing question or user info.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/questions/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionId,
+          studentId,
+          reportType,
+          description,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to submit report");
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to submit report");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) {
+      setReportType(QUESTION_REPORT_TYPES[0].value);
+      setDescription("");
+      setSuccess(false);
+      setError(null);
+    }
+  }, [open]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
+        <button
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+          onClick={onClose}
+        >
+          <FaTimes />
+        </button>
+        <h2 className="text-lg font-bold mb-4 flex items-center">
+          <FaFlag className="mr-2 text-red-500" /> Report Question
+        </h2>
+        {success ? (
+          <div className="text-green-600 font-semibold text-center py-4">
+            Thank you! Your report has been submitted.
+            <button
+              className="block mt-4 mx-auto px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Type of Problem
+              </label>
+              <select
+                className="w-full border rounded p-2"
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value)}
+                required
+              >
+                {QUESTION_REPORT_TYPES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Description
+              </label>
+              <textarea
+                className="w-full border rounded p-2 min-h-[80px]"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe the issue..."
+                required
+              />
+            </div>
+            {error && <div className="text-red-600 text-sm">{error}</div>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-60"
+                disabled={submitting}
+              >
+                {submitting ? "Submitting..." : "Submit Report"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SessionReviewPage() {
   const params = useParams();
   const router = useRouter();
   const sessionId = params.sessionId as string;
+  const { user: authUser, isLoaded: authUserIsLoaded } = useSupabaseUser();
 
   const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(
     null
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedQuestionId, setSelectedQuestionId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -392,10 +539,24 @@ export default function SessionReviewPage() {
               className={`p-4 ${sa.isCorrect ? "bg-green-50" : "bg-red-50"}`}
             >
               <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">
-                  Question {index + 1} ({sa.question.marks}{" "}
-                  {sa.question.marks === 1 ? "mark" : "marks"})
-                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg">
+                    Question {index + 1} ({sa.question.marks}{" "}
+                    {sa.question.marks === 1 ? "mark" : "marks"})
+                  </CardTitle>
+                  {/* Report Button */}
+                  <button
+                    className="flex items-center text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedQuestionId(sa.question.id);
+                      setShowReportModal(true);
+                    }}
+                    title="Report this question"
+                  >
+                    <FaFlag className="mr-1" /> Report
+                  </button>
+                </div>
                 <span
                   className={`px-3 py-1 text-xs font-semibold rounded-full ${
                     sa.isCorrect
@@ -530,6 +691,16 @@ export default function SessionReviewPage() {
           </Card>
         ))}
       </div>
+
+      <ReportQuestionModal
+        open={showReportModal}
+        onClose={() => {
+          setShowReportModal(false);
+          setSelectedQuestionId(undefined);
+        }}
+        questionId={selectedQuestionId}
+        studentId={authUser?.id || null}
+      />
     </div>
   );
 }

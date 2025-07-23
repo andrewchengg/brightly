@@ -145,6 +145,7 @@ export async function PATCH(
       totalPossibleMarks,
       xpEarned,
       totalQuestions,
+      subjectId,
     } = body;
 
     const {
@@ -211,6 +212,14 @@ export async function PATCH(
       updateData.totalQuestions = Number(totalQuestions);
       console.log(
         `API PATCH /practice-sessions: Updating totalQuestions to ${updateData.totalQuestions} for session ${practiceSessionId}`
+      );
+    }
+
+    // Handle subjectId if provided in the PATCH payload
+    if (subjectId !== undefined) {
+      updateData.subjectId = Number(subjectId);
+      console.log(
+        `API PATCH /practice-sessions: Updating subjectId to ${updateData.subjectId} for session ${practiceSessionId}`
       );
     }
 
