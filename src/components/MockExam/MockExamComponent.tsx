@@ -94,6 +94,11 @@ const subjectsConfig: SubjectConfig[] = [
   },
 ];
 
+const SUBJECT_ID_MAP: Record<string, number> = {
+  mathematics: 1, // Update this if your Mathematics subject ID is different
+  // Add other subjects as needed
+};
+
 interface MockExamComponentProps {
   userId: string;
   examDurationMinutes: number;
@@ -366,7 +371,8 @@ export default function MockExamComponent({
               totalQuestions: finalTotalQuestions,
               xpEarned: earnedXP,
               totalMarksEarned: finalScore,
-              totalPossibleMarks: totalPossibleMarks
+              totalPossibleMarks: totalPossibleMarks,
+              subjectId: SUBJECT_ID_MAP[subjectId] || 1 // Always set subjectId, fallback to 1 (Mathematics)
             }),
           });
 
@@ -524,7 +530,8 @@ export default function MockExamComponent({
           totalQuestions: finalTotalQuestions,
           xpEarned: earnedXP,
           totalMarksEarned: finalScore,
-          totalPossibleMarks: totalPossibleMarks
+          totalPossibleMarks: totalPossibleMarks,
+          subjectId: SUBJECT_ID_MAP[subjectId] || 1 // Always set subjectId, fallback to 1 (Mathematics)
         }),
       });
 
