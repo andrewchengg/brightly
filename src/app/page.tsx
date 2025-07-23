@@ -156,26 +156,7 @@ const Homepage = () => {
                 Brightly
               </h1>
             </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <button
-                onClick={() => scrollToSection("features")}
-                className="text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
-              >
-                Features
-              </button>
-              <button
-                onClick={() => scrollToSection("pricing")}
-                className="text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
-              >
-                Pricing
-              </button>
-              <button
-                onClick={() => scrollToSection("about")}
-                className="text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
-              >
-                About
-              </button>
-            </div>
+
             <div className="hidden md:flex items-center space-x-4">
               <Link
                 href="/sign-in"
@@ -226,24 +207,6 @@ const Homepage = () => {
           {mobileMenuOpen && (
             <div className="md:hidden absolute top-20 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-lg">
               <div className="px-4 py-6 space-y-4">
-                <button
-                  onClick={() => scrollToSection("features")}
-                  className="block text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
-                >
-                  Features
-                </button>
-                <button
-                  onClick={() => scrollToSection("pricing")}
-                  className="block text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
-                >
-                  Pricing
-                </button>
-                <button
-                  onClick={() => scrollToSection("about")}
-                  className="block text-slate-700 hover:text-slate-900 font-semibold transition-colors duration-300"
-                >
-                  About
-                </button>
                 <div className="pt-4 space-y-2">
                   <Link
                     href="/sign-in"
