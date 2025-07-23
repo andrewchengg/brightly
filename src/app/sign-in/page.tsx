@@ -151,7 +151,7 @@ function SignInContent() {
               <div className="flex-shrink-0">
                 <Link
                   href="/"
-                  className="text-2xl font-bold text-purple-800"
+                  className="font-bold text-4xl text-slate-900 tracking-tight hover:text-slate-700 transition-colors duration-300"
                 >
                   Brightly
                 </Link>
