@@ -1,6 +1,7 @@
 // src/app/sign-up/page.tsx
 "use client";
 import { useState } from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link"; // Keep Link for "Already have an account?"
@@ -60,6 +61,36 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showAccountNotFoundMessage, setShowAccountNotFoundMessage] = useState(false);
+
+  // Check for account_not_found error on component mount
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const errorParam = urlParams.get('error');
+    const emailParam = urlParams.get('email');
+    
+    if (errorParam === 'account_not_found') {
+      setShowAccountNotFoundMessage(true);
+      if (emailParam) {
+        setEmail(decodeURIComponent(emailParam));
+        setCurrentStep(3); // Skip to email step since we have it
+      }
+    } else if (errorParam === 'email_already_exists') {
+      setError(`An account with this email already exists. Please sign in instead or use a different email.`);
+      if (emailParam) {
+        setEmail(decodeURIComponent(emailParam));
+        setCurrentStep(3); // Skip to email step since we have it
+      }
+    }
+    
+    // Clean up URL for any error
+    if (errorParam) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      url.searchParams.delete('email');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
 
   const handleNext = () => {
     if (currentStep < steps.length && !isAnimating) {
@@ -167,28 +198,23 @@ export default function SignUpPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const origin = window.location.origin;
-      const redirectUrl = origin.includes("localhost")
-        ? origin.replace("https://", "http://")
-        : origin;
-
+      const siteUrl =
+        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${redirectUrl}/auth/callback?role=parent&next=/sign-up/parent-child-setup`,
+          redirectTo: `${siteUrl}/auth/callback?role=parent&next=/sign-up/parent-child-setup`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
           },
         },
       });
-
       if (error) {
         setError(error.message);
         setIsLoading(false);
         return;
       }
-
       if (data?.url) {
         window.location.href = data.url;
       } else {
@@ -513,6 +539,19 @@ export default function SignUpPage() {
           >
             {/* Step content */}
             <div className="text-center mb-8">
+              {showAccountNotFoundMessage && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-center justify-center mb-2">
+                    <svg className="w-5 h-5 text-amber-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-amber-800 font-medium">Account Not Found</span>
+                  </div>
+                  <p className="text-amber-700 text-sm">
+                    We couldn't find an account associated with your Google email. Please create an account below to get started.
+                  </p>
+                </div>
+              )}
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 {steps[currentStep - 1].title}
               </h1>
