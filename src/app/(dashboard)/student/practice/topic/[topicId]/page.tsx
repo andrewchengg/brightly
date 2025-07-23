@@ -460,8 +460,7 @@ export default function TopicalPracticePage() {
             question.submittedAnswer !== undefined
           ) {
             console.log(
-              `✅ DEBUG: Topic Question ${index + 1} (ID: ${
-                question.id
+              `✅ DEBUG: Topic Question ${index + 1} (ID: ${question.id
               }) ANSWERED:`,
               question.submittedAnswer
             );
@@ -475,8 +474,7 @@ export default function TopicalPracticePage() {
             });
           } else {
             console.log(
-              `❌ DEBUG: Topic Question ${index + 1} (ID: ${
-                question.id
+              `❌ DEBUG: Topic Question ${index + 1} (ID: ${question.id
               }) NOT ANSWERED`
             );
           }
@@ -559,8 +557,8 @@ export default function TopicalPracticePage() {
           }));
           throw new Error(
             errData.error?.message ||
-              errData.error ||
-              "Failed to create practice session"
+            errData.error ||
+            "Failed to create practice session"
           );
         }
         const sessionData = await response.json();
@@ -770,7 +768,7 @@ export default function TopicalPracticePage() {
     } catch (error: any) {
       setError(
         error.message ||
-          "Failed to load questions for this topic. Please try again."
+        "Failed to load questions for this topic. Please try again."
       );
       setQuestions([]);
     } finally {
@@ -1036,15 +1034,15 @@ export default function TopicalPracticePage() {
           const cAns = currentQuestion.correctAnswer;
           const cAnsArr = Array.isArray(cAns)
             ? cAns.map((cv) =>
-                String(cv ?? "")
-                  .trim()
-                  .toLowerCase()
-              )
+              String(cv ?? "")
+                .trim()
+                .toLowerCase()
+            )
             : [
-                String(cAns ?? "")
-                  .trim()
-                  .toLowerCase(),
-              ];
+              String(cAns ?? "")
+                .trim()
+                .toLowerCase(),
+            ];
           isCorrectForSaved = cAnsArr.includes(
             String(savedUserAnswerContent).trim().toLowerCase()
           );
@@ -1057,7 +1055,7 @@ export default function TopicalPracticePage() {
         ) {
           const userAnswers =
             typeof savedUserAnswerContent === "object" &&
-            savedUserAnswerContent !== null
+              savedUserAnswerContent !== null
               ? (savedUserAnswerContent as Record<string, string>)
               : {};
           setMultiPartAnswers(userAnswers);
@@ -1319,9 +1317,9 @@ export default function TopicalPracticePage() {
         optionId.toLowerCase() === correctAnswerId || // Direct ID match
         selectedOptionLetter === correctAnswerId || // Letter-based match (c for option C)
         String.fromCharCode(65 + selectedOptionIndex) ===
-          String(currentQuestion.correctAnswer) || // Uppercase letter match
+        String(currentQuestion.correctAnswer) || // Uppercase letter match
         (selectedOptionIndex + 1).toString() ===
-          String(currentQuestion.correctAnswer); // 1-based index match
+        String(currentQuestion.correctAnswer); // 1-based index match
 
       // Trigger confetti for correct answers
       if (isCorrect) {
@@ -1360,15 +1358,15 @@ export default function TopicalPracticePage() {
     const cAns = currentQuestion.correctAnswer;
     const cAnsArr = Array.isArray(cAns)
       ? cAns.map((cv) =>
-          String(cv ?? "")
-            .trim()
-            .toLowerCase()
-        )
+        String(cv ?? "")
+          .trim()
+          .toLowerCase()
+      )
       : [
-          String(cAns ?? "")
-            .trim()
-            .toLowerCase(),
-        ];
+        String(cAns ?? "")
+          .trim()
+          .toLowerCase(),
+      ];
     const isCorrect = cAnsArr.includes(userAnswer.toLowerCase());
 
     // Trigger confetti for correct answers
@@ -1495,8 +1493,8 @@ export default function TopicalPracticePage() {
   ]);
 
   const exitToTopicList = useCallback(() => {
-    setShowExitDialog(true);
-  }, []);
+    router.push("/student/practice");
+  }, [router]);
 
   const handleSendMessage = useCallback(async () => {
     if (!userMessage.trim() || !currentQuestion) return;
@@ -1665,8 +1663,8 @@ export default function TopicalPracticePage() {
         return (
           <div className="space-y-3">
             {currentQuestion.options &&
-            Array.isArray(currentQuestion.options) &&
-            currentQuestion.options.length > 0 ? (
+              Array.isArray(currentQuestion.options) &&
+              currentQuestion.options.length > 0 ? (
               currentQuestion.options.map((option, index: number) => {
                 const optionId = option.id;
                 const optionText = option.text;
@@ -1683,9 +1681,9 @@ export default function TopicalPracticePage() {
                   optionId.toLowerCase() === correctAnswerId || // Direct ID match
                   thisOptionLetter === correctAnswerId || // Letter-based match (c for option C)
                   String.fromCharCode(65 + index) ===
-                    String(currentQuestion.correctAnswer) || // Uppercase letter match
+                  String(currentQuestion.correctAnswer) || // Uppercase letter match
                   (index + 1).toString() ===
-                    String(currentQuestion.correctAnswer); // 1-based index match
+                  String(currentQuestion.correctAnswer); // 1-based index match
                 let buttonClass =
                   "bg-white hover:bg-gray-50 border border-gray-300";
                 if (selectedAnswer !== null) {
@@ -1746,22 +1744,20 @@ export default function TopicalPracticePage() {
                   }}
                   placeholder="Type your answer..."
                   disabled={selectedAnswer !== null}
-                  className={`w-full p-3 text-md rounded-l-md border ${
-                    selectedAnswer === null
+                  className={`w-full p-3 text-md rounded-l-md border ${selectedAnswer === null
                       ? "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
                       : isAnswerCorrect
-                      ? "border-green-500 bg-green-50 text-green-800"
-                      : "border-red-500 bg-red-50 text-red-800"
-                  }`}
+                        ? "border-green-500 bg-green-50 text-green-800"
+                        : "border-red-500 bg-red-50 text-red-800"
+                    }`}
                 />
                 <button
                   onClick={handleTextAnswerSubmit}
                   disabled={selectedAnswer !== null || !textAnswer.trim()}
-                  className={`px-5 rounded-r-md ${
-                    selectedAnswer === null && textAnswer.trim()
+                  className={`px-5 rounded-r-md ${selectedAnswer === null && textAnswer.trim()
                       ? "bg-indigo-600 hover:bg-indigo-700 text-white"
                       : "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  }`}
+                    }`}
                 >
                   Submit
                 </button>
@@ -1810,14 +1806,13 @@ export default function TopicalPracticePage() {
                     }
                     placeholder={`Answer for part ${part.toUpperCase()}`}
                     disabled={selectedAnswer !== null}
-                    className={`w-full p-3 text-md rounded-md border ${
-                      selectedAnswer !== null &&
-                      multiPartResults[part] !== undefined
+                    className={`w-full p-3 text-md rounded-md border ${selectedAnswer !== null &&
+                        multiPartResults[part] !== undefined
                         ? multiPartResults[part]
                           ? "border-green-500 bg-green-50"
                           : "border-red-500 bg-red-50"
                         : "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    }`}
+                      }`}
                   />
                 </div>
                 {selectedAnswer !== null &&
@@ -1841,21 +1836,19 @@ export default function TopicalPracticePage() {
             <Button
               onClick={handleMultiPartSubmit}
               disabled={selectedAnswer !== null || !isMultiPartComplete()}
-              className={`w-full py-3 ${
-                selectedAnswer === null && isMultiPartComplete()
+              className={`w-full py-3 ${selectedAnswer === null && isMultiPartComplete()
                   ? "bg-indigo-600 hover:bg-indigo-700 text-white"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"
-              }`}
+                }`}
             >
               Submit All Parts
             </Button>
             {selectedAnswer !== null && (
               <div
-                className={`mt-3 p-3 rounded-md text-sm ${
-                  isAnswerCorrect
+                className={`mt-3 p-3 rounded-md text-sm ${isAnswerCorrect
                     ? "bg-green-50 border-l-4 border-green-400 text-green-800"
                     : "bg-blue-50 border-l-4 border-blue-400"
-                }`}
+                  }`}
               >
                 <div>
                   <p className="font-semibold text-gray-700 mb-3">
@@ -1930,9 +1923,7 @@ export default function TopicalPracticePage() {
               variant="outline"
               className="border-gray-300 text-gray-700 hover:bg-gray-50 w-full"
               onClick={() =>
-                router.push(
-                  `/student/practice/subject/${currentTopic?.subjectId || ""}`
-                )
+                router.push(`/student/practice/subject/${currentTopic?.subjectId || 1}`)
               }
             >
               <FaArrowLeft className="mr-2" /> Back to Topics
@@ -2019,11 +2010,10 @@ export default function TopicalPracticePage() {
                 {questionResults.map((result, index) => (
                   <div
                     key={result.id}
-                    className={`p-4 rounded-lg border-l-4 ${
-                      result.correct
+                    className={`p-4 rounded-lg border-l-4 ${result.correct
                         ? "bg-green-50 border-green-400 text-green-800"
                         : "bg-red-50 border-red-400 text-red-800"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="font-semibold text-sm">
@@ -2056,14 +2046,13 @@ export default function TopicalPracticePage() {
                           Your Answer:
                         </span>
                         <span
-                          className={`${
-                            result.correct ? "text-green-700" : "text-red-700"
-                          } font-medium`}
+                          className={`${result.correct ? "text-green-700" : "text-red-700"
+                            } font-medium`}
                         >
                           {typeof result.userAnswer === "object"
                             ? Object.entries(result.userAnswer)
-                                .map(([key, value]) => `${key}: ${value}`)
-                                .join(", ")
+                              .map(([key, value]) => `${key}: ${value}`)
+                              .join(", ")
                             : result.userAnswer || "No answer"}
                         </span>
                       </div>
@@ -2075,12 +2064,12 @@ export default function TopicalPracticePage() {
                           </span>
                           <span className="text-green-700 font-medium">
                             {typeof result.correctAnswer === "object" &&
-                            result.correctAnswer !== null
+                              result.correctAnswer !== null
                               ? Array.isArray(result.correctAnswer)
                                 ? result.correctAnswer.join(", ")
                                 : Object.entries(result.correctAnswer)
-                                    .map(([key, value]) => `${key}: ${value}`)
-                                    .join(", ")
+                                  .map(([key, value]) => `${key}: ${value}`)
+                                  .join(", ")
                               : result.correctAnswer || "N/A"}
                           </span>
                         </div>
@@ -2222,9 +2211,8 @@ export default function TopicalPracticePage() {
         className={`flex flex-1 overflow-hidden ${isMobile ? "flex-col" : ""}`}
       >
         <div
-          className={`overflow-auto bg-white custom-scrollbar ${
-            isMobile ? "w-full" : ""
-          }`}
+          className={`overflow-auto bg-white custom-scrollbar ${isMobile ? "w-full" : ""
+            }`}
           style={isMobile ? {} : { width: `${splitPosition}%` }}
         >
           {/* Main Question Display Area - Identical to RandomPractice */}
@@ -2238,14 +2226,13 @@ export default function TopicalPracticePage() {
               </span>
               {/* Hide difficulty badge on mobile to reduce clutter */}
               <span
-                className={`hidden lg:inline-block text-xs font-medium px-2.5 py-1 rounded-full ${
-                  currentQuestion?.difficulty === "HARD" ||
-                  currentQuestion?.difficulty === "VERY_HARD"
+                className={`hidden lg:inline-block text-xs font-medium px-2.5 py-1 rounded-full ${currentQuestion?.difficulty === "HARD" ||
+                    currentQuestion?.difficulty === "VERY_HARD"
                     ? "bg-red-100 text-red-700"
                     : currentQuestion?.difficulty === "MEDIUM"
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-green-100 text-green-700"
-                }`}
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
               >
                 {currentQuestion?.difficulty || "MEDIUM"}
               </span>
@@ -2280,11 +2267,10 @@ export default function TopicalPracticePage() {
               currentQuestion.explanation &&
               currentQuestion.questionType !== "MULTI_PART" && (
                 <div
-                  className={`mt-4 p-4 lg:p-3 rounded-md text-base lg:text-sm ${
-                    isAnswerCorrect
+                  className={`mt-4 p-4 lg:p-3 rounded-md text-base lg:text-sm ${isAnswerCorrect
                       ? "bg-green-50 border-l-4 border-green-400"
                       : "bg-blue-50 border-l-4 border-blue-400"
-                  }`}
+                    }`}
                 >
                   <div>
                     <p className="font-semibold text-gray-700 mb-3 text-lg lg:text-base">
@@ -2316,11 +2302,10 @@ export default function TopicalPracticePage() {
                   selectedAnswer === null ||
                   (typeof loading === "string" && loading === "submitting")
                 }
-                className={`px-6 py-2.5 text-sm w-auto font-semibold rounded-lg shadow-sm hover:shadow-md transition-all ${
-                  selectedAnswer !== null
+                className={`px-6 py-2.5 text-sm w-auto font-semibold rounded-lg shadow-sm hover:shadow-md transition-all ${selectedAnswer !== null
                     ? "bg-indigo-600 hover:bg-indigo-700 text-white"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
+                  }`}
               >
                 {typeof loading === "string" && loading === "submitting" ? (
                   <FaSpinner className="animate-spin mr-2" />
@@ -2369,18 +2354,18 @@ export default function TopicalPracticePage() {
               questionContext={
                 currentQuestion
                   ? createQuestionContext(
-                      currentQuestion.id,
-                      currentQuestion.text,
-                      currentQuestion.questionType || "MULTIPLE_CHOICE",
-                      currentQuestion.options,
-                      currentQuestion.correctAnswer || undefined,
-                      currentQuestion.explanation || undefined,
-                      currentQuestion.hint,
-                      selectedAnswer || undefined,
-                      selectedAnswer !== null
-                        ? isAnswerCorrect || false
-                        : undefined
-                    )
+                    currentQuestion.id,
+                    currentQuestion.text,
+                    currentQuestion.questionType || "MULTIPLE_CHOICE",
+                    currentQuestion.options,
+                    currentQuestion.correctAnswer || undefined,
+                    currentQuestion.explanation || undefined,
+                    currentQuestion.hint,
+                    selectedAnswer || undefined,
+                    selectedAnswer !== null
+                      ? isAnswerCorrect || false
+                      : undefined
+                  )
                   : undefined
               }
               sessionContext={createSessionContext(
@@ -2420,11 +2405,10 @@ export default function TopicalPracticePage() {
               selectedAnswer === null ||
               (typeof loading === "string" && loading === "submitting")
             }
-            className={`px-6 py-3 text-base w-full font-semibold rounded-lg shadow-sm hover:shadow-md transition-all min-h-[48px] ${
-              selectedAnswer !== null
+            className={`px-6 py-3 text-base w-full font-semibold rounded-lg shadow-sm hover:shadow-md transition-all min-h-[48px] ${selectedAnswer !== null
                 ? "bg-indigo-600 hover:bg-indigo-700 text-white"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
+              }`}
           >
             {typeof loading === "string" && loading === "submitting" ? (
               <FaSpinner className="animate-spin mr-2" />
@@ -2441,16 +2425,16 @@ export default function TopicalPracticePage() {
         aiAssistantProps={{
           questionContext: currentQuestion
             ? createQuestionContext(
-                currentQuestion.id,
-                currentQuestion.text,
-                currentQuestion.questionType || "MULTIPLE_CHOICE",
-                currentQuestion.options,
-                currentQuestion.correctAnswer || undefined,
-                currentQuestion.explanation || undefined,
-                currentQuestion.hint,
-                selectedAnswer || undefined,
-                selectedAnswer !== null ? isAnswerCorrect || false : undefined
-              )
+              currentQuestion.id,
+              currentQuestion.text,
+              currentQuestion.questionType || "MULTIPLE_CHOICE",
+              currentQuestion.options,
+              currentQuestion.correctAnswer || undefined,
+              currentQuestion.explanation || undefined,
+              currentQuestion.hint,
+              selectedAnswer || undefined,
+              selectedAnswer !== null ? isAnswerCorrect || false : undefined
+            )
             : undefined,
           sessionContext: createSessionContext(
             "topic_practice",
