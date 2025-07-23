@@ -19,15 +19,23 @@ function SignInContent() {
   const { isTransitioning, startTransition } = useTransitionLoader();
   const searchParams = useSearchParams();
 
-  // Remove any sensitive data from URL if present
+  // Handle URL parameters and clean up sensitive data
   useEffect(() => {
     const identifier = searchParams.get("identifier");
     const password = searchParams.get("password");
-    if (identifier || password) {
-      // Remove sensitive parameters from URL
+    const errorParam = searchParams.get("error");
+    
+    // Handle error messages
+    if (errorParam === "account_not_found") {
+      setError("No account found. Please sign up first or check your credentials.");
+    }
+    
+    if (identifier || password || errorParam) {
+      // Remove sensitive/processed parameters from URL
       const url = new URL(window.location.href);
       url.searchParams.delete("identifier");
       url.searchParams.delete("password");
+      url.searchParams.delete("error");
       window.history.replaceState({}, "", url.toString());
     }
   }, [searchParams]);
@@ -111,7 +119,7 @@ function SignInContent() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${siteUrl}/auth/callback`,
+          redirectTo: `${siteUrl}/auth/callback?mode=signin`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
