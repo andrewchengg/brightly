@@ -167,28 +167,23 @@ export default function SignUpPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const origin = window.location.origin;
-      const redirectUrl = origin.includes("localhost")
-        ? origin.replace("https://", "http://")
-        : origin;
-
+      const siteUrl =
+        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${redirectUrl}/auth/callback?role=parent&next=/sign-up/parent-child-setup`,
+          redirectTo: `${siteUrl}/auth/callback?role=parent&next=/sign-up/parent-child-setup`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
           },
         },
       });
-
       if (error) {
         setError(error.message);
         setIsLoading(false);
         return;
       }
-
       if (data?.url) {
         window.location.href = data.url;
       } else {

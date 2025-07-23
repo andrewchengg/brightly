@@ -105,25 +105,24 @@ function SignInContent() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setError(null);
-
     try {
+      const siteUrl =
+        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${siteUrl}/auth/callback`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
           },
         },
       });
-
       if (error) {
         setError(error.message);
         setIsLoading(false);
         return;
       }
-
       if (data?.url) {
         startTransition();
         window.location.href = data.url;
@@ -149,10 +148,7 @@ function SignInContent() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16 items-center">
               <div className="flex-shrink-0">
-                <Link
-                  href="/"
-                  className="text-2xl font-bold text-purple-800"
-                >
+                <Link href="/" className="text-2xl font-bold text-purple-800">
                   Brightly
                 </Link>
               </div>
@@ -245,10 +241,7 @@ function SignInContent() {
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-800 hover:bg-purple-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-purple-400 disabled:cursor-not-allowed min-h-[40px]"
                 >
                   {isLoading ? (
-                    <CuteLoader
-                      text="Signing you in..."
-                      size="sm"
-                    />
+                    <CuteLoader text="Signing you in..." size="sm" />
                   ) : (
                     "Sign in"
                   )}
@@ -274,17 +267,10 @@ function SignInContent() {
                   className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px]"
                 >
                   {isLoading ? (
-                    <CuteLoader
-                      text="Connecting with Google..."
-                      size="sm"
-                    />
+                    <CuteLoader text="Connecting with Google..." size="sm" />
                   ) : (
                     <>
-                      <img
-                        src="/google.svg"
-                        alt="Google"
-                        className="w-5 h-5"
-                      />
+                      <img src="/google.svg" alt="Google" className="w-5 h-5" />
                       Sign in with Google
                     </>
                   )}
@@ -301,7 +287,10 @@ function SignInContent() {
               </Link>
             </p>
             <p className="mt-2 text-center text-xs text-gray-500">
-              <Link href="/forgot-password" className="text-purple-800 hover:text-purple-900">
+              <Link
+                href="/forgot-password"
+                className="text-purple-800 hover:text-purple-900"
+              >
                 Forgot password?
               </Link>
             </p>
