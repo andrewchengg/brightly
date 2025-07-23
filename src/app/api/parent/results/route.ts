@@ -38,7 +38,18 @@ export async function GET(request: NextRequest) {
     const completedSessions = await prisma.practiceSession.findMany({
       where: {
         studentId: { in: childrenIds },
-        status: "COMPLETED",
+        OR: [
+          { status: "COMPLETED" },
+          // Include abandoned sessions that have completion data (matching student API)
+          {
+            status: "ABANDONED",
+            AND: [
+              { endTime: { not: null } },
+              { totalMarksEarned: { not: null } },
+              { correctAnswers: { not: null } },
+            ],
+          },
+        ],
       },
       include: {
         student: {
@@ -70,7 +81,6 @@ export async function GET(request: NextRequest) {
             question: {
               select: {
                 marks: true,
-                pointsAwarded: true,
               },
             },
           },
@@ -82,43 +92,23 @@ export async function GET(request: NextRequest) {
       take: 100, // Limit to recent 100 sessions
     });
 
-    // Calculate session statistics
+    // Calculate session statistics - matching student API calculation exactly
     const sessionsWithStats = completedSessions.map((session) => {
-      const totalQuestions = session.studentAnswers.length;
-      const correctAnswers = session.studentAnswers.filter(
-        (answer) => answer.isCorrect
-      ).length;
-      const totalScore = session.studentAnswers.reduce(
-        (sum, answer) => sum + (answer.pointsEarned || 0),
-        0
-      );
+      // Always calculate from actual question marks to ensure accuracy (matching student API)
+      let totalMarksEarned = 0;
+      let totalPossibleMarks = 0;
 
-      // Use stored marks fields if available, fallback to calculation for older sessions
-      let totalPossibleMarks = session.totalPossibleMarks;
-      let totalMarksEarned = session.totalMarksEarned;
-
-      if (totalPossibleMarks === null || totalMarksEarned === null) {
-        // Fallback calculation for older sessions
-        totalMarksEarned = session.studentAnswers
-          .filter((answer) => answer.isCorrect)
-          .reduce((sum, answer) => sum + (answer.question?.marks || 0), 0);
-
-        totalPossibleMarks = session.studentAnswers.reduce((sum, answer) => {
+      if (session.studentAnswers && session.studentAnswers.length > 0) {
+        session.studentAnswers.forEach((answer) => {
           const questionMarks = answer.question?.marks || 0;
-          return sum + questionMarks;
-        }, 0);
+          totalPossibleMarks += questionMarks;
 
-        console.log(
-          `[Session ${session.id}] Calculated marks (fallback): ${totalMarksEarned}/${totalPossibleMarks}`
-        );
-      } else {
-        console.log(
-          `[Session ${session.id}] Using stored marks: ${totalMarksEarned}/${totalPossibleMarks}`
-        );
+          // Add marks only if the answer is correct (matching student API)
+          if (answer.isCorrect) {
+            totalMarksEarned += questionMarks;
+          }
+        });
       }
-
-      // Calculate XP earned (example formula, adjust as needed)
-      const xpEarned = Math.round(totalScore * 1.5); // 1.5x multiplier for XP
 
       // Calculate duration - use durationSeconds if available, otherwise calculate from timestamps
       let calculatedDuration = session.durationSeconds;
@@ -137,11 +127,11 @@ export async function GET(request: NextRequest) {
         startTime: session.startTime,
         endTime: session.endTime,
         durationSeconds: calculatedDuration || 0,
-        totalQuestions,
-        correctAnswers,
+        totalQuestions: session.totalQuestions,
+        correctAnswers: session.correctAnswers,
         totalMarksEarned,
         totalPossibleMarks,
-        xpEarned,
+        xpEarned: session.xpEarned, // Use stored xpEarned field (matching student API)
         subjectName: session.subject?.name || null,
         topicName: session.topic?.name || null,
         questionGroupName: session.basedOnQuestionGroup?.name || null,
