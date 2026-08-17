@@ -2,6 +2,16 @@
   "name": "brightly-dashboard",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "description": "Brightly — an open-source AI tutoring platform for PSLE preparation.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andrewchengg/edcel.git"
+  },
+  "homepage": "https://github.com/andrewchengg/edcel#readme",
+  "bugs": {
+    "url": "https://github.com/andrewchengg/edcel/issues"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && NEXT_PUBLIC_BUILD_MODE=production next build && node scripts/post-build-fix.js",
