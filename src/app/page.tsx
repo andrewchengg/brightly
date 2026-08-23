@@ -7,6 +7,8 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
+const GITHUB_URL = "https://github.com/andrewchengg/edcel";
+
 // Rotating Pain Points Component
 const RotatingPainPoints = () => {
   const painPoints = [
@@ -73,7 +75,7 @@ const AnimatedCounter = ({
           }, 16);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (ref.current) {
@@ -158,6 +160,24 @@ const Homepage = () => {
             </div>
 
             <div className="hidden md:flex items-center space-x-4">
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-gray-600 hover:text-purple-800 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                aria-label="Brightly on GitHub, open source"
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  width="20"
+                  height="20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                </svg>
+                <span className="hidden lg:inline">Star on GitHub</span>
+              </a>
               <Link
                 href="/sign-in"
                 className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
@@ -208,6 +228,23 @@ const Homepage = () => {
             <div className="md:hidden absolute top-20 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-lg">
               <div className="px-4 py-6 space-y-4">
                 <div className="pt-4 space-y-2">
+                  <a
+                    href={GITHUB_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full text-center text-gray-600 hover:text-purple-800 px-4 py-2 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      width="18"
+                      height="18"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                    </svg>
+                    Star on GitHub
+                  </a>
                   <Link
                     href="/sign-in"
                     className="block w-full text-center text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg font-medium transition-colors duration-200"
@@ -572,10 +609,108 @@ const Homepage = () => {
         </div>
       </section>
 
+      {/* Open Source Section */}
+      <section id="open-source" className="py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-700 via-purple-800 to-indigo-900 px-6 py-14 sm:px-12 sm:py-16 text-center shadow-2xl">
+            {/* Decorative glows */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-24 -right-20 h-72 w-72 rounded-full bg-fuchsia-400/20 blur-3xl"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-indigo-400/20 blur-3xl"
+            />
+
+            <div className="relative">
+              <span className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-white/15 text-white text-sm font-semibold backdrop-blur-sm ring-1 ring-white/20">
+                <svg
+                  viewBox="0 0 16 16"
+                  width="16"
+                  height="16"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                </svg>
+                100% Open Source
+              </span>
+
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-5 tracking-tight">
+                Brightly is open source
+              </h2>
+              <p className="text-lg text-purple-100 leading-relaxed mb-8 max-w-2xl mx-auto">
+                Brightly is on GitHub under the permissive MIT license, so
+                anyone can use, fork, self-host, or build on it, and
+                contributions are welcome.
+              </p>
+
+              {/* Feature chips */}
+              <div className="flex flex-wrap justify-center gap-3 mb-10">
+                {[
+                  "MIT licensed",
+                  "Free forever",
+                  "Self-hostable",
+                  "PRs welcome",
+                ].map((chip) => (
+                  <span
+                    key={chip}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 text-purple-50 text-sm font-medium ring-1 ring-white/15"
+                  >
+                    <svg
+                      className="w-4 h-4 text-green-300"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    {chip}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+                <a
+                  href={GITHUB_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 bg-white text-purple-800 px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:bg-purple-50 hover:scale-[1.02] transition-all duration-200"
+                >
+                  <svg
+                    viewBox="0 0 16 16"
+                    width="22"
+                    height="22"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                  </svg>
+                  View on GitHub
+                </a>
+                <a
+                  href={`${GITHUB_URL}/fork`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center border border-white/40 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-white/10 transition-colors duration-200"
+                >
+                  Fork the project
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-gray-200 py-4 mt-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center space-x-6 text-xs text-gray-500">
+          <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-xs text-gray-500">
             <Link
               href="/privacy-policy"
               className="hover:text-gray-700 transition-colors duration-200"
@@ -590,7 +725,16 @@ const Homepage = () => {
               Terms of Service
             </Link>
             <span>•</span>
-            <span>© 2024 Brightly</span>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-gray-700 transition-colors duration-200"
+            >
+              Open source on GitHub
+            </a>
+            <span>•</span>
+            <span>© 2024 Brightly · MIT License</span>
           </div>
         </div>
       </footer>
