@@ -1,49 +1,78 @@
-# Brightly
+<div align="center">
 
-**Brightly** is an open-source AI tutoring platform that helps students prepare for the PSLE — with practice questions, mock exams, an AI learning assistant ("Bright Ben"), progress tracking, and gamification.
+# ✨ Brightly
 
-> **100% open source.** Brightly is developed in the open under the permissive [MIT License](LICENSE). Anyone is free to use, copy, fork, self-host, modify, or build on top of it — no permission required. Contributions are welcome; see [Contributing](#contributing).
+### An open-source AI tutoring platform for PSLE preparation
 
-**Repository:** https://github.com/andrewchengg/edcel
+Practice questions, mock exams, progress tracking, and **Bright Ben** — a 24/7 AI learning assistant that guides students step-by-step instead of just handing over answers.
 
-## Tech stack
+[![License: MIT](https://img.shields.io/badge/License-MIT-a855f7.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Prisma](https://img.shields.io/badge/Prisma-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
 
-- **Framework:** Next.js 14 (App Router), TypeScript
-- **Styling:** Tailwind CSS
-- **Database / ORM:** Postgres via Prisma
-- **Auth & backend:** Supabase
+<br />
 
-## Getting started
+<img src="docs/homepage.png" alt="Brightly homepage" width="820" />
+
+</div>
+
+---
+
+## 📖 About
+
+**Brightly** helps students prepare for the PSLE with a personalized, AI-assisted learning experience. Instead of rote memorization, it focuses on building genuine understanding — every question comes with an AI tutor that breaks problems down step-by-step.
+
+It's **100% open source** under the [MIT License](LICENSE). Anyone can use it, fork it, self-host it, or build on top of it — no permission needed.
+
+## 🚀 Features
+
+- 🤖 **Bright Ben** — a 24/7 AI tutor that explains concepts and guides students to the answer
+- 📝 **Practice & mock exams** — realistic questions with instant feedback
+- 📊 **Progress tracking** — detailed analytics that show exactly where a student is improving
+- 🎯 **Topical practice** — target specific weak areas by subject and topic
+- 🏆 **Gamification** — XP, weekly challenges, and rewards to keep students motivated
+- 👨‍👩‍👧 **Parent & student roles** — separate dashboards for families
+
+## 🛠️ Tech Stack
+
+| Layer          | Technology                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| Framework      | [Next.js 14](https://nextjs.org/) (App Router), [TypeScript](https://www.typescriptlang.org/) |
+| Styling        | [Tailwind CSS](https://tailwindcss.com/)                                                      |
+| Database / ORM | [Postgres](https://www.postgresql.org/) via [Prisma](https://www.prisma.io/)                  |
+| Auth & backend | [Supabase](https://supabase.com/)                                                             |
+| AI             | OpenAI / OpenRouter                                                                           |
+
+## 🏁 Getting Started
 
 ### Prerequisites
 
-- Node.js v18 or higher
+- [Node.js](https://nodejs.org/) v18 or higher
 - npm
 - A [Supabase](https://supabase.com) project and a Postgres database
 
 ### Installation
 
 ```bash
-# Install dependencies
+# 1. Clone the repo
+git clone https://github.com/andrewchengg/edcel.git
+cd edcel
+
+# 2. Install dependencies
 npm install
+
+# 3. Set up environment variables
+cp .env.example .env.local   # then fill in your own values
 ```
 
-### Environment variables
+See [`.env.example`](.env.example) for the full list of variables and [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) for a step-by-step Supabase walkthrough.
 
-Brightly needs Supabase and database credentials to run. See
-[ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) for the full list, then create a
-local env file:
+> ⚠️ **Never commit real secrets.** `.env`, `.env.local`, and `*.pem` files are git-ignored — only `*.example` files with placeholders belong in version control.
 
-```bash
-cp .env.example .env.local
-# Edit .env.local with your own values.
-```
-
-`.env`, `.env.local`, and `*.pem` files are git-ignored and must **never** be
-committed — only `*.example` files with placeholder values belong in version
-control.
-
-### Development
+### Run it
 
 ```bash
 # Generate the Prisma client (first run / after schema changes)
@@ -53,33 +82,40 @@ npx prisma generate
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) 🎉
 
-### Building
+### Build for production
 
 ```bash
 npm run build
 npm run start
 ```
 
-## Features
+## 📜 Scripts
 
-- AI learning assistant ("Bright Ben") for on-demand help
-- Practice modules and mock exams
-- Progress tracking and analytics
-- Gamification (XP, weekly challenges)
-- Parent and student roles
+| Command         | Description                  |
+| --------------- | ---------------------------- |
+| `npm run dev`   | Start the development server |
+| `npm run build` | Build for production         |
+| `npm run start` | Run the production build     |
+| `npm run lint`  | Lint the codebase            |
+| `npm run seed`  | Seed the database            |
 
-## Contributing
+## 🤝 Contributing
 
-Contributions are welcome and encouraged — whether you're an educator, a parent, or a developer. You can:
+Contributions of all kinds are welcome — whether you're an educator, a parent, or a developer:
 
-- **Report a bug or request a feature** by [opening an issue](https://github.com/andrewchengg/edcel/issues).
-- **Contribute code** by forking the repo, creating a branch, and opening a pull request.
-- **Fork it and make it your own** — the MIT License lets you do anything you like with the code.
+- 🐛 **Found a bug or have an idea?** [Open an issue](https://github.com/andrewchengg/edcel/issues).
+- 🔧 **Want to contribute code?** Fork the repo, create a branch, and open a pull request.
+- 🍴 **Want to make it your own?** The MIT License lets you do anything you like with the code.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide, and [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
+Read the full [Contributing Guide](CONTRIBUTING.md) before you start, and see [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
 
-## License
+## 📄 License
 
-Brightly is licensed under the [MIT License](LICENSE) — you are free to use, modify, and distribute it for any purpose.
+Brightly is released under the [MIT License](LICENSE) — free to use, modify, and distribute for any purpose.
+
+<div align="center">
+<br />
+Made with 💜 to help every student learn brightly.
+</div>
