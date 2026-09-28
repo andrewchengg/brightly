@@ -37,4 +37,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/src/generated/prisma/query_engine-windows.dll.node
+/src/generated/
